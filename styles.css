@@ -1,0 +1,178 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Inter', sans-serif;
+}
+
+body {
+  height: 100vh;
+}
+
+/* Main layout */
+.container {
+  display: flex;
+  height: 100vh;
+}
+
+/* left side */
+.left {
+  flex: 1;
+  background: url("login_bg.jpg") center/cover no-repeat;
+  position: relative;
+}
+
+/* dark overlay */
+.overlay {
+  width: 100%;
+  height: 100%;
+
+  background: linear-gradient(
+    to right,
+    rgba(0,0,0,0.6),
+    rgba(0,0,0,0.2)
+  );
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  padding: 60px;
+}
+
+.content {
+  color: #fff;
+  max-width: 500px;
+
+  text-align: center;
+}
+
+.content h1 {
+  font-size: 52px;
+  font-weight: 600;
+  margin-bottom: 30px;
+}
+
+.content ul {
+  list-style: none;
+}
+
+.content li {
+  margin-bottom: 15px;
+  font-size: 16px;
+  opacity: 0.9;
+}
+
+/* right panel */
+.right {
+  flex: 1;
+  background: #0f172a;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px;
+}
+
+/* login card */
+.login-card {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 50px;
+  border-radius: 14px;
+
+  width: 480px;
+  max-width: 90%;
+
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.1);
+  box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+  text-align: center;
+}
+
+.login-card h2 {
+  color: #fff;
+  font-weight: 600;
+  margin-bottom: 8px;
+  font-size: 26px;
+}
+
+.login-card p {
+  color: #94a3b8;
+  margin-bottom: 30px;
+  font-size: 14px;
+}
+
+/* input group */
+.input-group {
+  margin-bottom: 18px;
+}
+
+.input-group input {
+  width: 100%;
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: transparent;
+  color: #fff;
+  outline: none;
+  font-size: 14px;
+}
+
+.input-group input::placeholder {
+  color: #94a3b8;
+}
+
+/* btns */
+button {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 10px;
+  background: #3b82f6;
+  color: #fff;
+  font-weight: 500;
+  cursor: pointer;
+  margin-top: 10px;
+  font-size: 15px;
+}
+
+button:hover {
+  background: #2563eb;
+}
+
+/* forgot password */
+.forgot {
+  display: block;
+  margin-top: 14px;
+  font-size: 13px;
+  color: #94a3b8;
+  text-decoration: none;
+  text-align: center;
+}
+
+/* responsiveness */
+@media (max-width: 768px) {
+  .container {
+    flex-direction: column;
+  }
+
+  .left {
+    height: 40vh;
+  }
+
+  .overlay {
+    padding: 20px;
+  }
+
+  .content h1 {
+    font-size: 32px;
+  }
+
+  .right {
+    height: 60vh;
+  }
+
+  .login-card {
+    width: 100%;
+    padding: 30px;
+  }
+}
