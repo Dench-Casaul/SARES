@@ -6,9 +6,7 @@
   padding: 0;
 }
 
-/* ─────────────────────────────────────────
-   ROOT
-───────────────────────────────────────── */
+/* Dashboard */
 .dashboard-container {
   display: flex;
   min-height: 100vh;
@@ -17,9 +15,7 @@
   color: #e2e8ff;
 }
 
-/* ─────────────────────────────────────────
-   MOBILE TOP BAR
-───────────────────────────────────────── */
+/* top bar */
 .mobile-menu-bar {
   display: none;
   align-items: center;
@@ -47,9 +43,7 @@
   .main-content    { padding-top: 60px; }
 }
 
-/* ─────────────────────────────────────────
-   SIDEBAR
-───────────────────────────────────────── */
+/* sidebar */
 .sidebar {
   width: 200px;
   min-width: 200px;
@@ -113,7 +107,7 @@
   text-transform: uppercase;
 }
 
-/* Navigation */
+/* Nav */
 .navigation {
   flex: 1;
   padding: 12px 10px;
@@ -194,9 +188,7 @@
   flex-shrink: 0;
 }
 
-/* ─────────────────────────────────────────
-   MAIN CONTENT
-───────────────────────────────────────── */
+/* main content */
 .main-content {
   flex: 1;
   min-width: 0;
@@ -211,9 +203,7 @@
   gap: 20px;
 }
 
-/* ─────────────────────────────────────────
-   WELCOME CARD
-───────────────────────────────────────── */
+/* Welcome card */
 .welcome-card {
   border-radius: 16px;
   overflow: hidden;
@@ -318,9 +308,7 @@
   background: linear-gradient(to right, #141927 0%, rgba(20, 25, 39, 0.3) 55%, transparent 100%);
 }
 
-/* ─────────────────────────────────────────
-   STATS CARDS
-───────────────────────────────────────── */
+/* stats cards */
 .stats-cards-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -394,9 +382,7 @@
 .card-subtitle.positive    { color: #5fe0b0; }
 .special-card-subtitle     { color: #ffa830 !important; }
 
-/* ─────────────────────────────────────────
-   CHARTS
-───────────────────────────────────────── */
+/* charts */
 .charts-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -479,9 +465,7 @@
   flex-shrink: 0;
 }
 
-/* ─────────────────────────────────────────
-   BOTTOM GRID
-───────────────────────────────────────── */
+/* bottom cards */
 .bottom-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

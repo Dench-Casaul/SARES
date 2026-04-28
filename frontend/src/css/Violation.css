@@ -1,0 +1,248 @@
+* {
+  box-sizing: border-box;
+}
+
+.lv-page {
+  min-height: 100vh;
+  display: flex;
+  background: #0f172a;
+  color: #e5e7eb;
+  font-family: Arial, sans-serif;
+}
+
+.lv-sidebar {
+  width: 220px;
+  min-height: 100vh;
+  background: #1e293b;
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #334155;
+}
+
+.lv-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 40px;
+}
+
+.lv-logo-icon {
+  width: 32px;
+  height: 32px;
+  background: #3b82f6;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lv-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lv-nav-item {
+  color: #cbd5e1;
+  text-decoration: none;
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lv-nav-item:hover {
+  background: #334155;
+}
+
+.lv-nav-item.active {
+  background: #3b82f6;
+  color: white;
+}
+
+.lv-logout {
+  margin-top: auto;
+  background: transparent;
+  border: none;
+  color: #ef4444;
+  text-align: left;
+  padding: 12px 14px;
+  cursor: pointer;
+}
+
+.lv-main {
+  flex: 1;
+  padding: 32px;
+}
+
+.lv-back {
+  color: #cbd5e1;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.lv-header {
+  margin-top: 24px;
+  margin-bottom: 24px;
+}
+
+.lv-header h1 {
+  font-size: 28px;
+  margin: 0;
+  color: white;
+}
+
+.lv-header p {
+  margin-top: 8px;
+  color: #94a3b8;
+}
+
+.lv-card {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 1100px;
+}
+
+.lv-card-header {
+  margin-bottom: 24px;
+}
+
+.lv-card-header h2 {
+  margin: 0;
+  font-size: 18px;
+  color: white;
+}
+
+.lv-card-header p {
+  margin-top: 6px;
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+.lv-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.lv-field {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 20px;
+}
+
+.lv-field label {
+  font-size: 13px;
+  color: #cbd5e1;
+  margin-bottom: 8px;
+}
+
+.lv-field input,
+.lv-field select,
+.lv-field textarea {
+  width: 100%;
+  background: #111827;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  color: #e5e7eb;
+  padding: 12px 14px;
+  outline: none;
+}
+
+.lv-field input:focus,
+.lv-field select:focus,
+.lv-field textarea:focus {
+  border-color: #3b82f6;
+}
+
+.lv-field textarea {
+  resize: vertical;
+}
+
+.lv-field small {
+  color: #94a3b8;
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.lv-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.lv-cancel {
+  text-decoration: none;
+  color: #cbd5e1;
+  border: 1px solid #334155;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.lv-submit {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.lv-submit:hover {
+  background: #2563eb;
+}
+
+@media (max-width: 768px) {
+  .lv-page {
+    flex-direction: column;
+  }
+
+  .lv-sidebar {
+    width: 100%;
+    min-height: auto;
+  }
+
+  .lv-row {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .lv-main {
+    padding: 20px;
+  }
+  
+  .lv-form-card {
+  flex: 0;
+  min-height: auto;
+  gap: 18px;
+}
+
+.lv-textarea {
+  min-height: 58px;
+  resize: vertical;
+}
+
+.lv-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.lv-link-btn {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+}
