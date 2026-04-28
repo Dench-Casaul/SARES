@@ -1,135 +1,11 @@
-import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import React, { useEffect, useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import '../css/Student.css';
 
-/* static data */
-const STUDENTS = [
-  {
-    id: '2024-00001',
-    name: 'Juan Dela Cruz',
-    initials: 'JDC',
-    color: '#7b9dff',
-    year: '3rd Year',
-    section: 'A',
-    email: 'juan.delacruz@school.edu',
-    phone: '+63 912 345 6789',
-    violations: 3,
-    repeatOffender: false,
-    history: [
-      {
-        id: 'v1',
-        category: 'Behavioral Misconduct',
-        variety: 'Disrespect to Faculty',
-        description: 'Used inappropriate language when speaking to a teacher during class discussion.',
-        date: '2026-04-03',
-        severity: 6,
-        sanction: 'Written apology and two days suspension',
-        provision: 'Article II, Section 3.4 – Student Conduct',
-        status: 'overridden',
-        overrideJustification: 'First-time offense with immediate remorse shown.',
-        finalSanction: 'Written apology and counseling session',
-      },
-    ],
-  },
-  {
-    id: '2024-00002',
-    name: 'Maria Santos',
-    initials: 'MS',
-    color: '#d96eff',
-    year: '2nd Year',
-    section: 'B',
-    email: 'maria.santos@school.edu',
-    phone: '+63 917 654 3210',
-    violations: 5,
-    repeatOffender: true,
-    history: [
-      {
-        id: 'v2',
-        category: 'Academic Dishonesty',
-        variety: 'Plagiarism',
-        description: 'Submitted a report copied from an online source without citation.',
-        date: '2026-03-15',
-        severity: 8,
-        sanction: 'Zero mark on assignment and written warning',
-        provision: 'Article III, Section 1.2 – Academic Integrity',
-        status: 'resolved',
-        overrideJustification: '',
-        finalSanction: 'Zero mark on assignment and written warning',
-      },
-    ],
-  },
-  {
-    id: '2024-00003',
-    name: 'Pedro Garcia',
-    initials: 'PG',
-    color: '#5fe0b0',
-    year: '4th Year',
-    section: 'A',
-    email: 'pedro.garcia@school.edu',
-    phone: '+63 920 111 2222',
-    violations: 1,
-    repeatOffender: false,
-    history: [
-      {
-        id: 'v3',
-        category: 'Dress Code Violation',
-        variety: 'Improper Uniform',
-        description: 'Wore non-regulation shoes during school hours.',
-        date: '2026-02-10',
-        severity: 3,
-        sanction: 'Verbal warning',
-        provision: 'Article I, Section 2.1 – Dress Code',
-        status: 'resolved',
-        overrideJustification: '',
-        finalSanction: 'Verbal warning',
-      },
-    ],
-  },
-  {
-    id: '2024-00004',
-    name: 'Ana Reyes',
-    initials: 'AR',
-    color: '#ffc85c',
-    year: '1st Year',
-    section: 'C',
-    email: 'ana.reyes@school.edu',
-    phone: '+63 908 333 4444',
-    violations: 0,
-    repeatOffender: false,
-    history: [],
-  },
-  {
-    id: '2024-00005',
-    name: 'Jose Ramos',
-    initials: 'JR',
-    color: '#ff7864',
-    year: '3rd Year',
-    section: 'B',
-    email: 'jose.ramos@school.edu',
-    phone: '+63 915 777 8888',
-    violations: 7,
-    repeatOffender: true,
-    history: [
-      {
-        id: 'v4',
-        category: 'Technology Misuse',
-        variety: 'Unauthorized Device Use',
-        description: 'Used mobile phone during examinations.',
-        date: '2026-04-01',
-        severity: 7,
-        sanction: 'Confiscation of device and parent conference',
-        provision: 'Article IV, Section 5.1 – Technology Policy',
-        status: 'pending',
-        overrideJustification: '',
-        finalSanction: '',
-      },
-    ],
-  },
-];
+const YEARS = ["All Year", "1st Year", "2nd Year", "3rd Year", "4th Year"]
+const YEAR_LEVELS = ["1st Year", "2nd Year", "3rd Year", "4th Year"]
+const API_URL = "http://127.0.0.1:5000/api"
 
-const YEARS = ['All Year', '1st Year', '2nd Year', '3rd Year', '4th Year'];
-
-const YEAR_LEVELS = ['1st Year', '2nd Year', '3rd Year', '4th Year'];
 
 /* sidebar */
 function Sidebar({ activePage }) {
@@ -217,10 +93,10 @@ function AddStudentModal({ onClose, onAdd, nextId }) {
 
   const handle = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
-  const submit = () => {
-    if (!form.name || !form.year || !form.section || !form.email) return;
-    onAdd(form);
-  };
+  const submit = async () => {
+  if (!form.name || !form.year || !form.section || !form.email) return;
+  await onAdd(form);
+};
 
   return (
     <div className="s-modal-backdrop" onClick={onClose}>
@@ -240,7 +116,7 @@ function AddStudentModal({ onClose, onAdd, nextId }) {
         <div className="s-modal-body">
           <div className="s-field">
             <label className="s-label">Student ID</label>
-            <input className="s-input" name="id" value={form.id} readOnly />
+            <input className="s-input" name="id" value={form.id} onChange={handle} />
           </div>
 
           <div className="s-field">
@@ -283,7 +159,7 @@ function AddStudentModal({ onClose, onAdd, nextId }) {
 }
 
 /* Student List View */
-function StudentList({ students, onSelect, onAddStudent }) {
+function StudentList({ students, onSelect, onAddStudent, location }) {
   const [search, setSearch] = useState('');
   const [yearFilter, setYearFilter] = useState('All Year');
   const [showModal, setShowModal] = useState(false);
@@ -299,16 +175,16 @@ function StudentList({ students, onSelect, onAddStudent }) {
 
   const nextId = `2024-${String(students.length + 1).padStart(5, '0')}`;
 
-  const handleAdd = (form) => {
-    onAddStudent(form);
-    setShowModal(false);
-    setToast(true);
-    setTimeout(() => setToast(false), 3000);
-  };
+  const handleAdd = async (form) => {
+  await onAddStudent(form);
+  setShowModal(false);
+  setToast(true);
+  setTimeout(() => setToast(false), 3000);
+};
 
   return (
     <div className="s-page">
-      <Sidebar activePage={location.pathname} />
+      <Sidebar activePage={location?.pathname || "/app/students"} />
 
       <div className="s-main">
         <div className="s-main-header">
@@ -336,6 +212,8 @@ function StudentList({ students, onSelect, onAddStudent }) {
                 <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
               </svg>
               <input
+                id="student-search"
+                name="student-search"
                 className="s-search"
                 placeholder="Search by name or student ID..."
                 value={search}
@@ -344,6 +222,8 @@ function StudentList({ students, onSelect, onAddStudent }) {
             </div>
             <div className="s-filter-wrap">
               <select
+                id="year-filter"
+                name="year-filter"
                 className="s-filter"
                 value={yearFilter}
                 onChange={e => setYearFilter(e.target.value)}
@@ -660,12 +540,55 @@ function ViolationDetails({ violation, student, onBack, location }) {
 }
 
 /* Students */
-export default function Students() {
+ export default function Students() {
   const location = useLocation();
-  const [view, setView] = useState('list'); // 'list' | 'profile' | 'violation'
-  const [students, setStudents] = useState(STUDENTS);
+
+  const [view, setView] = useState('list');
+  const [students, setStudents] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [selectedViolation, setSelectedViolation] = useState(null);
+
+  const formatStudent = (student) => {
+    const name = student.full_name || '';
+
+    const initials = name
+      .split(' ')
+      .map((word) => word[0])
+      .join('')
+      .slice(0, 3)
+      .toUpperCase();
+
+    const colors = ['#7b9dff', '#d96eff', '#5fe0b0', '#ffc85c', '#ff7864'];
+
+    return {
+      id: student.student_number,
+      name: student.full_name,
+      initials: initials || 'S',
+      color: colors[(student.student_id || 0) % colors.length],
+      year: student.year_level,
+      section: student.section,
+      email: student.email || '',
+      phone: student.phone_number || '',
+      violations: student.violations || 0,
+      repeatOffender: student.repeat_offender || false,
+      history: student.history || [],
+    };
+  };
+
+  const fetchStudents = async () => {
+    try {
+      const response = await fetch(`${API_URL}/students`);
+      const data = await response.json();
+
+      setStudents(data.map(formatStudent));
+    } catch (error) {
+      console.error('Failed to fetch students:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchStudents();
+  }, []);
 
   const handleSelectStudent = (student) => {
     setSelectedStudent(student);
@@ -677,28 +600,34 @@ export default function Students() {
     setView('violation');
   };
 
-  const handleAddStudent = (form) => {
-    const initials = form.name
-      .split(' ')
-      .map(w => w[0])
-      .join('')
-      .slice(0, 3)
-      .toUpperCase();
-    const colors = ['#7b9dff', '#d96eff', '#5fe0b0', '#ffc85c', '#ff7864'];
-    const newStudent = {
-      id: form.id,
-      name: form.name,
-      initials,
-      color: colors[students.length % colors.length],
-      year: form.year,
+  const handleAddStudent = async (form) => {
+    const studentData = {
+      student_number: form.id,
+      full_name: form.name,
+      year_level: form.year,
       section: form.section,
       email: form.email,
-      phone: form.phone,
-      violations: 0,
-      repeatOffender: false,
-      history: [],
+      phone_number: form.phone,
     };
-    setStudents([...students, newStudent]);
+
+    try {
+      const response = await fetch(`${API_URL}/students`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(studentData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to add student');
+      }
+
+      await fetchStudents();
+    } catch (error) {
+      console.error('Failed to add student:', error);
+      alert('Failed to add student. Check backend or database.');
+    }
   };
 
   if (view === 'violation' && selectedViolation && selectedStudent) {
@@ -728,6 +657,7 @@ export default function Students() {
       students={students}
       onSelect={handleSelectStudent}
       onAddStudent={handleAddStudent}
+      location={location}
     />
   );
 }
