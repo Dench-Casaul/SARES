@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState } from 'react'
 import { Link, useLocation, useNavigate} from 'react-router-dom'
-import '../css/Dashboard.css';
+import heroImg from "../assets/children.jpg"
+import '../css/Dashboard.css'
 
 const Dashboard = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -37,7 +38,7 @@ const Dashboard = () => {
         <div className="sidebar-header">
           <div className="logo-container">
             <div className="logo-icon-container">
-              <span className="logo-letter">A</span>
+              <span className="logo-letter">S</span>
             </div>
             <h1 className="admin-title">SARES</h1>
           </div>
@@ -110,7 +111,7 @@ const Dashboard = () => {
                 <div className="welcome-text-section">
                   <h1 className="welcome-title">Welcome Back, Admin!</h1>
                   <p className="welcome-subtitle">Here's what's happening with student violations today</p>
-
+{/*
                   <div className="stats-grid">
                     <div>
                       <p className="stat-label">Pending Actions</p>
@@ -121,19 +122,16 @@ const Dashboard = () => {
                       <p className="stat-value-month">5</p>
                     </div>
                   </div>
-
+*/}
                   <button className="cta-button">
                     <svg className="button-icon" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
                     </svg>
                     <span className="button-text">Log New Violation</span>
-                    <svg className="button-icon" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
                   </button>
                 </div>
 
-                <div className="image-container">
+                <div className="image-container" style={{backgroundImage: `url(${heroImg})`}}>
                   <div className="image-overlay" />
                 </div>
               </div>
@@ -145,31 +143,14 @@ const Dashboard = () => {
             <div className="stat-card">
               <div className="card-header">
                 <h3 className="card-title">Total Violations</h3>
-                <svg className="card-icon" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
-                </svg>
               </div>
               <p className="card-value">5</p>
               <p className="card-subtitle">All time recorded</p>
             </div>
 
-            <div className="stat-card">
-              <div className="card-header">
-                <h3 className="card-title">This Month</h3>
-                <svg className="card-icon" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <p className="card-value">5</p>
-              <p className="card-subtitle positive">-12% from last month</p>
-            </div>
-
             <div className="stat-card special-card">
               <div className="card-header">
                 <h3 className="card-title special-card-title">Repeat Offenders</h3>
-                <svg className="card-icon" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
               </div>
               <p className="card-value special-card-value">2</p>
               <p className="card-subtitle special-card-subtitle">Require attention</p>
@@ -178,16 +159,22 @@ const Dashboard = () => {
             <div className="stat-card">
               <div className="card-header">
                 <h3 className="card-title">Total Students</h3>
-                <svg className="card-icon" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
-                </svg>
               </div>
               <p className="card-value">5</p>
               <p className="card-subtitle">In the system</p>
             </div>
+        
+
+          <div className="stat-card pending-card">
+           <div className="card-header">
+            <h3 className="card-title">Pending Actions</h3>
+          </div>
+          <p className="card-value pending-value">1</p>
+          <p className="card-subtitle">For review</p>
+          </div>
           </div>
 
-          {/* Charts */}
+          {/* Charts */} 
           <div className="charts-grid">
             <div className="chart-card">
               <div className="chart-header">
@@ -195,50 +182,6 @@ const Dashboard = () => {
                 <p className="chart-subtitle">Monthly violation count over time</p>
               </div>
               <div className="chart-container">
-                <svg viewBox="0 0 520 220" className="chart-svg" aria-hidden="true">
-                  <defs>
-                    <linearGradient id="lineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%"   stopColor="#7b9dff" />
-                      <stop offset="100%" stopColor="#5fa8ff" />
-                    </linearGradient>
-                    <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%"   stopColor="#7b9dff" stopOpacity="0.15" />
-                      <stop offset="100%" stopColor="#7b9dff" stopOpacity="0" />
-                    </linearGradient>
-                  </defs>
-                  <g stroke="rgba(255,255,255,0.07)" strokeWidth="1">
-                    <line x1="30"  y1="170" x2="500" y2="170" />
-                    <line x1="30"  y1="128" x2="500" y2="128" />
-                    <line x1="30"  y1="85"  x2="500" y2="85"  />
-                    <line x1="30"  y1="42"  x2="500" y2="42"  />
-                    <line x1="30"  y1="10"  x2="30"  y2="185" />
-                    <line x1="148" y1="10"  x2="148" y2="185" />
-                    <line x1="266" y1="10"  x2="266" y2="185" />
-                    <line x1="384" y1="10"  x2="384" y2="185" />
-                    <line x1="500" y1="10"  x2="500" y2="185" />
-                  </g>
-                  <path d="M30 170 C90 120 148 80 230 100 C290 118 360 95 500 185 L500 185 L30 185 Z" fill="url(#areaGrad)" stroke="none" />
-                  <path d="M30 170 C90 120 148 80 230 100 C290 118 360 95 500 185" fill="none" stroke="url(#lineGrad)" strokeWidth="3" strokeLinecap="round" />
-                  <circle cx="30"  cy="170" r="5" fill="#7b9dff" stroke="#0f1422" strokeWidth="2" />
-                  <circle cx="118" cy="120" r="5" fill="#7b9dff" stroke="#0f1422" strokeWidth="2" />
-                  <circle cx="230" cy="80"  r="5" fill="#7b9dff" stroke="#0f1422" strokeWidth="2" />
-                  <circle cx="340" cy="100" r="5" fill="#7b9dff" stroke="#0f1422" strokeWidth="2" />
-                  <circle cx="420" cy="95"  r="5" fill="#7b9dff" stroke="#0f1422" strokeWidth="2" />
-                  <circle cx="500" cy="185" r="5" fill="#7b9dff" stroke="#0f1422" strokeWidth="2" />
-                  <g fill="rgba(180,190,240,0.4)" fontSize="11" fontFamily="sans-serif">
-                    <text x="22"  y="200">Jan</text>
-                    <text x="108" y="200">Feb</text>
-                    <text x="218" y="200">Mar</text>
-                    <text x="326" y="200">Apr</text>
-                    <text x="408" y="200">May</text>
-                  </g>
-                  <g fill="rgba(180,190,240,0.3)" fontSize="10" fontFamily="monospace">
-                    <text x="18" y="174" textAnchor="end">0</text>
-                    <text x="18" y="132" textAnchor="end">5</text>
-                    <text x="18" y="89"  textAnchor="end">10</text>
-                    <text x="18" y="46"  textAnchor="end">15</text>
-                  </g>
-                </svg>
               </div>
             </div>
 
@@ -248,14 +191,6 @@ const Dashboard = () => {
                 <p className="chart-subtitle">Distribution of offense types</p>
               </div>
               <div className="chart-container pie-container">
-                <svg viewBox="0 0 180 180" className="pie-svg" aria-hidden="true">
-                  <circle cx="90" cy="90" r="60" fill="transparent" stroke="#7b9dff" strokeWidth="36" strokeDasharray="60 317" strokeDashoffset="0"    transform="rotate(-90 90 90)" />
-                  <circle cx="90" cy="90" r="60" fill="transparent" stroke="#d96eff" strokeWidth="36" strokeDasharray="60 317" strokeDashoffset="-63"   transform="rotate(-90 90 90)" />
-                  <circle cx="90" cy="90" r="60" fill="transparent" stroke="#ffc85c" strokeWidth="36" strokeDasharray="60 317" strokeDashoffset="-126"  transform="rotate(-90 90 90)" />
-                  <circle cx="90" cy="90" r="60" fill="transparent" stroke="#5fe0b0" strokeWidth="36" strokeDasharray="60 317" strokeDashoffset="-189"  transform="rotate(-90 90 90)" />
-                  <circle cx="90" cy="90" r="60" fill="transparent" stroke="#ff7864" strokeWidth="36" strokeDasharray="60 317" strokeDashoffset="-252"  transform="rotate(-90 90 90)" />
-                  <circle cx="90" cy="90" r="40" fill="#141927" />
-                </svg>
                 <div className="pie-legend">
                   <div className="legend-item"><span className="legend-dot" style={{ background: '#7b9dff' }} />Academic Dishonesty: <strong>20%</strong></div>
                   <div className="legend-item"><span className="legend-dot" style={{ background: '#d96eff' }} />Behavioral Misconduct: <strong>20%</strong></div>

@@ -184,12 +184,10 @@ export default function Report() {
 
             <div className="report-hero-actions">
               <button onClick={handleExportPDF} className="report-secondary-btn">
-                <span>⇩</span>
                 Export PDF
               </button>
 
               <button onClick={handleExportExcel} className="report-secondary-btn">
-                <span>▧</span>
                 Export Excel
               </button>
             </div>
@@ -209,10 +207,17 @@ export default function Report() {
           <div className="report-filter-row">
             <select value={yearFilter} onChange={(e) => setYearFilter(e.target.value)}>
               <option>All Year Level</option>
-              <option>1st Year</option>
-              <option>2nd Year</option>
-              <option>3rd Year</option>
-              <option>4th Year</option>
+              <option>Kinder</option>
+              <option>Grade 1</option>
+              <option>Grade 2</option>
+              <option>Grade 3</option>
+              <option>Grade 4</option>
+              <option>Grade 5</option>
+              <option>Grade 6</option>
+              <option>Grade 7</option>
+              <option>Grade 8</option>
+              <option>Grade 9</option>
+              <option>Grade 10</option>
             </select>
 
             <select value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)}>
@@ -242,8 +247,7 @@ export default function Report() {
 
           <button
             className={activeTab === 'consistency' ? 'active' : ''}
-            onClick={() => setActiveTab('consistency')}
-          >
+            onClick={() => setActiveTab('consistency')}>
             Consistency
           </button>
 
