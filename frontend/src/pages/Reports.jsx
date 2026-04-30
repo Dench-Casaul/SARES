@@ -20,46 +20,31 @@ function Sidebar({ activePage, handleLogout }) {
       <nav className="report-nav">
         <ul className="report-nav-list">
           <li>
-            <Link to="/app" className={`report-nav-item${activePage === '/app' ? ' report-nav-item--active' : ''}`}>
-              <svg className="report-nav-icon" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M3 4a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm8 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V4zM3 12a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H4a1 1 0 01-1-1v-4zm8 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
-              </svg>
+            <Link to="/sares/dashboard" className={`report-nav-item${activePage === '/sares/dashboard' ? ' report-nav-item--active' : ''}`}>
               Dashboard
             </Link>
           </li>
 
           <li>
-            <Link to="/app/students" className={`report-nav-item${activePage === '/app/students' ? ' report-nav-item--active' : ''}`}>
-              <svg className="report-nav-icon" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
-              </svg>
+            <Link to="/sares/students" className={`report-nav-item${activePage === '/sares/students' ? ' report-nav-item--active' : ''}`}>
               Students
             </Link>
           </li>
 
           <li>
-            <Link to="/app/violations/new" className={`report-nav-item${activePage === '/app/violations/new' ? ' report-nav-item--active' : ''}`}>
-              <svg className="report-nav-icon" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
+            <Link to="/sares/violation" className={`report-nav-item${activePage === '/sares/violation' ? ' report-nav-item--active' : ''}`}>
               Log Violation
             </Link>
           </li>
 
           <li>
-            <Link to="/app/rules" className={`report-nav-item${activePage === '/app/rules' ? ' report-nav-item--active' : ''}`}>
-              <svg className="report-nav-icon" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 2a1 1 0 01.894.553l.894 1.789 1.975.287a1 1 0 01.554 1.706l-1.429 1.393.337 1.967a1 1 0 01-1.451 1.054L10 9.816l-1.774.933a1 1 0 01-1.451-1.054l.337-1.967-1.429-1.393a1 1 0 01.554-1.706l1.975-.287.894-1.789A1 1 0 0110 2z" clipRule="evenodd" />
-              </svg>
+            <Link to="/sares/rules" className={`report-nav-item${activePage === '/sares/rules' ? ' report-nav-item--active' : ''}`}>
               Rule Management
             </Link>
           </li>
 
           <li>
-            <Link to="/app/reports" className={`report-nav-item${activePage === '/app/reports' ? ' report-nav-item--active' : ''}`}>
-              <svg className="report-nav-icon" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v6H2v-6zM8 7a1 1 0 011-1h2a1 1 0 011 1v10H8V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v13h-4V4z" />
-              </svg>
+            <Link to="/sares/reports" className={`report-nav-item${activePage === '/sares/reports' ? ' report-nav-item--active' : ''}`}>
               Reports
             </Link>
           </li>
@@ -68,9 +53,6 @@ function Sidebar({ activePage, handleLogout }) {
 
       <div className="report-sidebar-footer">
         <button type="button" className="report-logout-btn" onClick={handleLogout}>
-          <svg className="report-nav-icon" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clipRule="evenodd" />
-          </svg>
           Logout
         </button>
       </div>

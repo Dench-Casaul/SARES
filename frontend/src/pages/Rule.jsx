@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import '../css/Rule.css';
+const API_URL = 'http://127.0.0.1:5000';
 
-function Sidebar({ activePage }) {
+function Sidebar({ activePage, handleLogout }) {
   return (
     <aside className="rule-sidebar">
       <div className="rule-sidebar-header">
@@ -19,46 +20,31 @@ function Sidebar({ activePage }) {
       <nav className="rule-nav">
         <ul className="rule-nav-list">
           <li>
-            <Link to="/app" className={`s-nav-item${activePage === '/app' ? ' s-nav-item--active' : ''}`}>
-              <svg className="s-nav-icon" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h4a1 1 0 001-1v-3h2v3a1 1 0 001 1h4a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
-              </svg>
+            <Link to="/sares/dashboard" className={`rule-nav-item${activePage === '/sares/dashboard' ? ' rule-nav-item--active' : ''}`}>
               Dashboard
             </Link>
           </li>
 
           <li>
-            <Link to="/app/students" className={`rule-nav-item${activePage === '/app/students' ? ' rule-nav-item--active' : ''}`}>
-              <svg className="rule-nav-icon" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
-              </svg>
+            <Link to="/sares/students" className={`rule-nav-item${activePage === '/sares/students' ? ' rule-nav-item--active' : ''}`}>
               Students
             </Link>
           </li>
 
           <li>
-            <Link to="/app/violations/new" className={`rule-nav-item${activePage === '/app/violations/new' ? ' rule-nav-item--active' : ''}`}>
-              <svg className="rule-nav-icon" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
+            <Link to="/sares/violation" className={`rule-nav-item${activePage === '/sares/violation' ? ' rule-nav-item--active' : ''}`}>
               Log Violation
             </Link>
           </li>
 
           <li>
-            <Link to="/app/rules" className={`rule-nav-item${activePage === '/app/rules' ? ' rule-nav-item--active' : ''}`}>
-              <svg className="rule-nav-icon" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 2a1 1 0 01.894.553l.894 1.789 1.975.287a1 1 0 01.554 1.706l-1.429 1.393.337 1.967a1 1 0 01-1.451 1.054L10 9.816l-1.774.933a1 1 0 01-1.451-1.054l.337-1.967-1.429-1.393a1 1 0 01.554-1.706l1.975-.287.894-1.789A1 1 0 0110 2z" clipRule="evenodd" />
-              </svg>
+            <Link to="/sares/rules" className={`rule-nav-item${activePage === '/sares/rules' ? ' rule-nav-item--active' : ''}`}>
               Rule Management
             </Link>
           </li>
 
           <li>
-            <Link to="/app/reports" className={`rule-nav-item${activePage === '/app/reports' ? ' rule-nav-item--active' : ''}`}>
-              <svg className="rule-nav-icon" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v6H2v-6zM8 7a1 1 0 011-1h2a1 1 0 011 1v10H8V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v13h-4V4z" />
-              </svg>
+            <Link to="/sares/reports" className={`rule-nav-item${activePage === '/sares/reports' ? ' rule-nav-item--active' : ''}`}>
               Reports
             </Link>
           </li>
@@ -66,10 +52,7 @@ function Sidebar({ activePage }) {
       </nav>
 
       <div className="rule-sidebar-footer">
-        <button className="rule-logout-btn">
-          <svg className="rule-nav-icon" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clipRule="evenodd" />
-          </svg>
+        <button className="rule-logout-btn" onClick={handleLogout}>
           Logout
         </button>
       </div>
@@ -117,7 +100,7 @@ const INITIAL_RULES = [
   },
 ];
 
-function AddRuleModal({ onClose, onAdd }) {
+function AddRuleModal({ onClose, onAdd, categories }) {
   const [form, setForm] = useState({
     category: '',
     variety: '',
@@ -176,8 +159,10 @@ function AddRuleModal({ onClose, onAdd }) {
               <label>Offense Category *</label>
               <select name="category" value={form.category} onChange={handleChange}>
                 <option value="">Select category</option>
-                {Object.keys(OFFENSES).map((category) => (
-                  <option key={category} value={category}>{category}</option>
+                {categories.map((category) => (
+                  <option key={category.category_id} value={category.category_name}>
+                    {category.category_name}
+                  </option>
                 ))}
               </select>
             </div>
@@ -194,7 +179,7 @@ function AddRuleModal({ onClose, onAdd }) {
                   {form.category ? 'Select variety' : 'Select category first'}
                 </option>
                 {form.category &&
-                  OFFENSES[form.category].map((variety) => (
+                  (OFFENSES[form.category] || []).map((variety) => (
                     <option key={variety} value={variety}>{variety}</option>
                   ))}
               </select>
@@ -263,7 +248,7 @@ function AddRuleModal({ onClose, onAdd }) {
   );
 }
 
-function EditRuleModal({ rule, onClose, onSave }) {
+function EditRuleModal({ rule, onClose, onSave, categories }) {
   const [form, setForm] = useState({
     category: rule.category,
     variety: rule.variety,
@@ -327,8 +312,10 @@ function EditRuleModal({ rule, onClose, onSave }) {
               <label>Offense Category *</label>
               <select name="category" value={form.category} onChange={handleChange}>
                 <option value="">Select category</option>
-                {Object.keys(OFFENSES).map((category) => (
-                  <option key={category} value={category}>{category}</option>
+                {categories.map((category) => (
+                  <option key={category.category_id} value={category.category_name}>
+                    {category.category_name}
+                  </option>
                 ))}
               </select>
             </div>
@@ -345,7 +332,7 @@ function EditRuleModal({ rule, onClose, onSave }) {
                   {form.category ? 'Select variety' : 'Select category first'}
                 </option>
                 {form.category &&
-                  OFFENSES[form.category].map((variety) => (
+                  (OFFENSES[form.category] || []).map((variety) => (
                     <option key={variety} value={variety}>{variety}</option>
                   ))}
               </select>
@@ -423,10 +410,53 @@ export default function Rule() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedRule, setSelectedRule] = useState(null);
   const [toast, setToast] = useState('');
+  const [showHistory, setShowHistory] = useState(false);
+  const [history, setHistory] = useState([]);
+  const [categories, setCategories] = useState([]);
 
   const showToast = (message) => {
     setToast(message);
     setTimeout(() => setToast(''), 3000);
+  };
+
+  useEffect(() => {
+    loadRules();
+    loadCategories();
+  }, []);
+
+  const loadRules = async () => {
+    const response = await fetch(`${API_URL}/api/rules`);
+    const data = await response.json();
+
+    setRules(data.map((rule) => ({
+      id: rule.rule_id,
+      category: rule.category_name,
+      variety: rule.offense_variety,
+      severity: rule.severity,
+      sanction: rule.recommended_sanction,
+      provision: rule.provision,
+      modified: rule.modified_date,
+      active: Boolean(rule.is_active),
+    })));
+  };
+
+  const loadCategories = async () => {
+    const response = await fetch(`${API_URL}/api/categories`);
+    const data = await response.json();
+    setCategories(data);
+  };
+
+  const openHistory = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/rules/history`);
+      const data = await response.json();
+
+      setHistory(data);
+      setShowHistory(true);
+    } catch (error) {
+      console.error('Error loading rule history:', error);
+      alert('Failed to load version history.');
+    }
   };
 
   const filteredRules = rules.filter((rule) => {
@@ -441,19 +471,26 @@ export default function Rule() {
     return matchSearch && matchCategory;
   });
 
-  const handleAddRule = (form) => {
-    const newRule = {
-      id: Date.now(),
-      category: form.category,
-      variety: form.variety,
-      severity: Number(form.severity),
-      sanction: form.sanction,
-      provision: form.provision,
-      modified: new Date().toISOString().slice(0, 10),
-      active: form.active,
-    };
+  const handleAddRule = async (form) => {
+    const user = JSON.parse(localStorage.getItem('user'));
 
-    setRules([newRule, ...rules]);
+    const response = await fetch(`${API_URL}/api/rules`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...form,
+        changed_by: user?.user_id || 1,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      alert(data.message || 'Failed to add rule.');
+      return;
+    }
+
+    await loadRules();
     setShowModal(false);
     showToast('Rule added successfully!');
   };
@@ -463,18 +500,35 @@ export default function Rule() {
     setShowEditModal(true);
   };
 
-  const handleSaveEdit = (updatedRule) => {
-    setRules((prev) =>
-      prev.map((rule) =>
-        rule.id === updatedRule.id ? updatedRule : rule
-      )
-    );
+  const handleSaveEdit = async (updatedRule) => {
+    const user = JSON.parse(localStorage.getItem('user'));
 
+    const response = await fetch(`${API_URL}/api/rules/${updatedRule.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        category: updatedRule.category,
+        variety: updatedRule.variety,
+        severity: updatedRule.severity,
+        sanction: updatedRule.sanction,
+        provision: updatedRule.provision,
+        active: updatedRule.active,
+        changed_by: user?.user_id || 1,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      alert(data.message || 'Failed to update rule.');
+      return;
+    }
+
+    await loadRules();
     setShowEditModal(false);
     setSelectedRule(null);
     showToast('Rule updated successfully!');
   };
-
   const toggleRule = (id) => {
     setRules((prev) =>
       prev.map((rule) =>
@@ -501,9 +555,8 @@ export default function Rule() {
                 Add New Rule
               </button>
 
-              <button className="rule-secondary-btn">
-                <span>↻</span>
-                Version History
+              <button className="rule-secondary-btn" onClick={openHistory}>
+                View Version History
               </button>
             </div>
           </div>
@@ -536,8 +589,8 @@ export default function Rule() {
               onChange={(e) => setCategoryFilter(e.target.value)}
             >
               <option>All Categories</option>
-              {Object.keys(OFFENSES).map((category) => (
-                <option key={category}>{category}</option>
+              {categories.map((category) => (
+                <option key={category.category_id}>{category.category_name}</option>
               ))}
             </select>
           </div>
@@ -600,6 +653,7 @@ export default function Rule() {
         <AddRuleModal
           onClose={() => setShowModal(false)}
           onAdd={handleAddRule}
+          categories={categories}
         />
       )}
 
@@ -611,7 +665,49 @@ export default function Rule() {
             setSelectedRule(null);
           }}
           onSave={handleSaveEdit}
+          categories={categories}
         />
+      )}
+
+      {showHistory && (
+        <div className="rule-modal-backdrop">
+          <div className="rule-modal">
+            <div className="rule-modal-header">
+              <div>
+                <h2>Version History</h2>
+                <p>Recent changes made to handbook rules</p>
+              </div>
+
+              <button
+                type="button"
+                className="rule-modal-close"
+                onClick={() => setShowHistory(false)}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="rule-modal-body">
+              {history.length === 0 ? (
+                <p>No version history yet.</p>
+              ) : (
+                history.map((item) => (
+                  <div className="rule-history-item" key={item.version_id}>
+                    <div className="rule-history-top">
+                      <strong>{item.rule_name}</strong>
+                      <span>{item.action_type}</span>
+                    </div>
+
+                    <p>{item.category_name}</p>
+                    <small>
+                      {item.description} • By {item.changed_by || 'Unknown'} • {item.changed_at}
+                    </small>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {toast && (

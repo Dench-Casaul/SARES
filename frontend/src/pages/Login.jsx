@@ -40,7 +40,7 @@ function Login() {
       // save logged-in user info
       localStorage.setItem("user", JSON.stringify(data.user));
 
-      navigate("/app");
+      navigate("/sares/dashboard");
     } catch (error) {
       console.error("Login error:", error);
       setError("Cannot connect to the server. Please check if Flask is running.");
@@ -82,29 +82,17 @@ function Login() {
 
           <form className="login-form" onSubmit={handleLogin}>
             <label className="form-field">
-              <span>Email Address</span>
+              <span>Email</span>
 
               <div className="input-group">
-                <span className="input-icon" aria-hidden="true">
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M4 6h16" />
-                    <path d="M4 6l8 7 8-7" />
-                    <path d="M4 18h16V8L12 15 4 8v10z" />
-                  </svg>
+                <span className="input-icon" aria-hidden="true" placeholder="email@domain.com"> 
                 </span>
 
                 <input
                   type="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
-                  placeholder="Email Address"
+                  placeholder="email@domain.com"
                   className="input-field"
                   required
                 />
@@ -115,18 +103,7 @@ function Login() {
               <span>Password</span>
 
               <div className="input-group">
-                <span className="input-icon" aria-hidden="true">
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <rect x="6" y="11" width="12" height="9" rx="2" />
-                    <path d="M8 11V8a4 4 0 0 1 8 0v3" />
-                  </svg>
+                <span className="input-icon" aria-hidden="true" placeholder="********">
                 </span>
 
                 <input

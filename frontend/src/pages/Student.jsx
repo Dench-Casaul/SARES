@@ -1,19 +1,25 @@
 import React, { useEffect, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate} from 'react-router-dom'
 import '../css/Student.css';
 
-const YEARS = ["All Year", "1st Year", "2nd Year", "3rd Year", "4th Year"]
-const YEAR_LEVELS = ["1st Year", "2nd Year", "3rd Year", "4th Year"]
+const YEARS = ["All Year", "Kindergarten", "1st Grade", "2nd Grade", "3rd Grade", "4th Grade", "5th Grade", "6th Grade", "7th Grade", "8th Grade", "9th Grade", "10th Grade"]
+const YEAR_LEVELS = [ "Kindergarten", "1st Grade", "2nd Grade", "3rd Grade", "4th Grade", "5th Grade", "6th Grade", "7th Grade", "8th Grade", "9th Grade", "10th Grade"]
 const API_URL = "http://127.0.0.1:5000/api"
 
 
 /* sidebar */
 function Sidebar({ activePage }) {
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    localStorage.removeItem("user");
+    navigate("/login");
+  };
   return (
     <div className="s-sidebar">
       <div className="s-sidebar-header">
         <div className="s-logo">
-          <div className="s-logo-icon"><span>S</span></div>
+          {/*<div className="s-logo-icon"><span>S</span></div>*/}
           <h1 className="s-logo-text">SARES</h1>
         </div>
       </div>
@@ -21,47 +27,31 @@ function Sidebar({ activePage }) {
       <nav className="s-nav">
         <ul className="s-nav-list">
          <li>
-  <Link to="/app" className={`s-nav-item${activePage === '/app' ? ' s-nav-item--active' : ''}`}>
-    <svg className="s-nav-icon" viewBox="0 0 20 20" fill="currentColor">
-      <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h4a1 1 0 001-1v-3h2v3a1 1 0 001 1h4a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
-    </svg>
+  <Link to="/sares/dashboard" className={`s-nav-item${activePage === '/sares/dashboard' ? ' s-nav-item--active' : ''}`}>
     Dashboard
   </Link>
 </li>
 
 <li>
-  <Link to="/app/students" className={`s-nav-item${activePage === '/app/students' ? ' s-nav-item--active' : ''}`}>
-    <svg className="s-nav-icon" viewBox="0 0 20 20" fill="currentColor">
-      <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
-    </svg>
+  <Link to="/sares/students" className={`s-nav-item${activePage === '/sares/students' ? ' s-nav-item--active' : ''}`}>
     Students
   </Link>
 </li>
 
 <li>
-  <Link to="/app/violations/new" className={`s-nav-item${activePage === '/app/violations/new' ? ' s-nav-item--active' : ''}`}>
-    <svg className="s-nav-icon" viewBox="0 0 20 20" fill="currentColor">
-      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-    </svg>
+  <Link to="/sares/violation" className={`s-nav-item${activePage === '/sares/violation' ? ' s-nav-item--active' : ''}`}>
     Log Violation
   </Link>
 </li>
 
 <li>
-  <Link to="/app/rules" className={`s-nav-item${activePage === '/app/rules' ? ' s-nav-item--active' : ''}`}>
-    <svg className="s-nav-icon" viewBox="0 0 20 20" fill="currentColor">
-      <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
-      <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
-    </svg>
+  <Link to="/sares/rules" className={`s-nav-item${activePage === '/sares/rules' ? ' s-nav-item--active' : ''}`}>
     Rule Management
   </Link>
 </li>
 
 <li>
-  <Link to="/app/reports" className={`s-nav-item${activePage === '/app/reports' ? ' s-nav-item--active' : ''}`}>
-    <svg className="s-nav-icon" viewBox="0 0 20 20" fill="currentColor">
-      <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
-    </svg>
+  <Link to="/sares/reports" className={`s-nav-item${activePage === '/sares/reports' ? ' s-nav-item--active' : ''}`}>
     Reports
   </Link>
 </li>
@@ -69,10 +59,7 @@ function Sidebar({ activePage }) {
       </nav>
 
       <div className="s-sidebar-footer">
-        <button className="s-logout-btn">
-          <svg className="s-nav-icon" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clipRule="evenodd" />
-          </svg>
+        <button className="s-logout-btn" onClick={handleLogout}>
           Logout
         </button>
       </div>
@@ -134,7 +121,7 @@ function AddStudentModal({ onClose, onAdd, nextId }) {
             </div>
             <div className="s-field">
               <label className="s-label">Section</label>
-              <input className="s-input" name="section" value={form.section} onChange={handle} placeholder="A" />
+              <input className="s-input" name="section" value={form.section} onChange={handle} placeholder="" />
             </div>
           </div>
 
@@ -184,7 +171,7 @@ function StudentList({ students, onSelect, onAddStudent, location }) {
 
   return (
     <div className="s-page">
-      <Sidebar activePage={location?.pathname || "/app/students"} />
+      <Sidebar activePage={location?.pathname || "/sares/students"} />
 
       <div className="s-main">
         <div className="s-main-header">
@@ -202,7 +189,7 @@ function StudentList({ students, onSelect, onAddStudent, location }) {
 
         <div className="s-directory-card">
           <div className="s-directory-header">
-            <h2 className="s-directory-title">Student Directory</h2>
+            <h2 className="s-directory-title">Student List</h2>
             <p className="s-directory-sub">Search and filter student records</p>
           </div>
 
@@ -236,38 +223,58 @@ function StudentList({ students, onSelect, onAddStudent, location }) {
             </div>
           </div>
 
-          <div className="s-list">
-            {filtered.map(student => (
-              <div key={student.id} className="s-row" onClick={() => onSelect(student)}>
-                <div className="s-avatar" style={{ background: student.color + '22', color: student.color }}>
-                  {student.initials}
-                </div>
-                <div className="s-row-info">
-                  <div className="s-row-name-wrap">
-                    <span className="s-row-name">{student.name}</span>
-                    {student.repeatOffender && (
-                      <span className="s-repeat-badge">
-                        <svg viewBox="0 0 20 20" fill="currentColor" width="10" height="10">
-                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                        </svg>
-                        Repeat Offender
-                      </span>
-                    )}
-                  </div>
-                  <div className="s-row-meta">{student.id} • {student.year} – {student.section}</div>
-                  <div className="s-row-email">{student.email}</div>
-                </div>
-                <div className="s-row-violations">
-                  <span className="s-violations-label">Violations</span>
-                  <span className={`s-violations-count${student.violations === 0 ? ' zero' : ''}`}>
-                    {student.violations}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+          <div className="s-table-wrap">
+  <table className="s-table">
+    <thead>
+      <tr>
+        <th>Student</th>
+        <th>Student ID</th>
+        <th>Year Level & Section</th>
+        <th>Total Violations</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      {filtered.map((student) => (
+        <tr key={student.id} onClick={() => onSelect(student)}>
+          <td className="s-student-name">{student.name}</td>
+          <td>{student.id}</td>
+          <td>{student.year} - {student.section}</td>
+          <td>{student.violations}</td>
+          <td>
+           
+          </td>
+          <td>
+            <button
+              type="button"
+              className="s-action-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect(student);
+              }}
+            >
+              ⋮
+            </button>
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+
+  <div className="s-table-footer">
+    <p>Showing 1 to {filtered.length} of {students.length} students</p>
+
+    <div className="s-pagination">
+      <button type="button">‹</button>
+      <button type="button" className="active">1</button>
+      <button type="button">›</button>
+    </div>
+  </div>
+</div>
+</div>
+</div>
 
       {showModal && (
         <AddStudentModal

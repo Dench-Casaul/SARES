@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import '../css/Student.css';
+import React, { useEffect, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import '../css/Violation.css';
+const API_URL = 'http://127.0.0.1:5000';
 
-function Sidebar({ activePage }) {
+function Sidebar({ activePage, handleLogout }) {
   return (
     <div className="s-sidebar">
       <div className="s-sidebar-header">
@@ -15,47 +16,31 @@ function Sidebar({ activePage }) {
       <nav className="s-nav">
         <ul className="s-nav-list">
           <li>
-            <Link to="/app" className={`s-nav-item${activePage === '/app' ? ' s-nav-item--active' : ''}`}>
-              <svg className="s-nav-icon" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h4a1 1 0 001-1v-3h2v3a1 1 0 001 1h4a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
-              </svg>
+            <Link to="/sares/dashboard" className={`s-nav-item${activePage === '/sares/dashboard' ? ' s-nav-item--active' : ''}`}>
               Dashboard
             </Link>
           </li>
 
           <li>
-            <Link to="/app/students" className={`s-nav-item${activePage === '/app/students' ? ' s-nav-item--active' : ''}`}>
-              <svg className="s-nav-icon" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
-              </svg>
+            <Link to="/sares/students" className={`s-nav-item${activePage === '/sares/students' ? ' s-nav-item--active' : ''}`}>
               Students
             </Link>
           </li>
 
           <li>
-            <Link to="/app/violations/new" className={`s-nav-item${activePage === '/app/violations/new' ? ' s-nav-item--active' : ''}`}>
-              <svg className="s-nav-icon" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
+            <Link to="/sares/violation" className={`s-nav-item${activePage === '/sares/violation' ? ' s-nav-item--active' : ''}`}>
               Log Violation
             </Link>
           </li>
 
           <li>
-            <Link to="/app/rules" className={`s-nav-item${activePage === '/app/rules' ? ' s-nav-item--active' : ''}`}>
-              <svg className="s-nav-icon" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
-                <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
-              </svg>
+            <Link to="/sares/rules" className={`s-nav-item${activePage === '/sares/rules' ? ' s-nav-item--active' : ''}`}>
               Rule Management
             </Link>
           </li>
 
           <li>
-            <Link to="/app/reports" className={`s-nav-item${activePage === '/app/reports' ? ' s-nav-item--active' : ''}`}>
-              <svg className="s-nav-icon" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
-              </svg>
+            <Link to="/sares/reports" className={`s-nav-item${activePage === '/sares/reports' ? ' s-nav-item--active' : ''}`}>
               Reports
             </Link>
           </li>
@@ -63,10 +48,7 @@ function Sidebar({ activePage }) {
       </nav>
 
       <div className="s-sidebar-footer">
-        <button className="s-logout-btn">
-          <svg className="s-nav-icon" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clipRule="evenodd" />
-          </svg>
+        <button className="s-logout-btn" onClick={handleLogout}>
           Logout
         </button>
       </div>
@@ -76,58 +58,82 @@ function Sidebar({ activePage }) {
 
 export default function Violation() {
   const location = useLocation();
-
+  const navigate = useNavigate();
   const [showToast, setShowToast] = useState(false);
+  const [students, setStudents] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [rules, setRules] = useState([]);
+  const today = new Date().toISOString().split('T')[0];
+
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    navigate('/login');
+  };
+
+
 
   const [form, setForm] = useState({
-    student: '',
-    date: '2026-04-26',
-    category: '',
-    variety: '',
-    description: '',
+    student_id: '',
+    incident_date: today,
+    category_id: '',
+    rule_id: '',
+    incident_description: '',
   });
 
-  const students = [
-    'Juan Dela Cruz',
-    'Maria Santos',
-    'Pedro Garcia',
-    'Ana Reyes',
-    'Jose Ramos',
-  ];
+  useEffect(() => {
+    fetchStudents();
+    fetchCategories();
+  }, []);
 
-  const offenseData = {
-    'Behavioral Misconduct': [
-      'Disrespect to Faculty',
-      'Bullying',
-      'Fighting',
-      'Disruptive Behavior',
-    ],
-    'Academic Dishonesty': [
-      'Cheating',
-      'Plagiarism',
-      'Copying Assignment',
-    ],
-    'Dress Code Violation': [
-      'Improper Uniform',
-      'No ID',
-      'Improper Shoes',
-    ],
-    'Technology Misuse': [
-      'Unauthorized Device Use',
-      'Phone Use During Class',
-      'Misuse of School Computer',
-    ],
+  const fetchStudents = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/students`);
+      const data = await response.json();
+      setStudents(data);
+    } catch (error) {
+      console.error('Error fetching students:', error);
+      alert('Failed to load students.');
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/categories`);
+      const data = await response.json();
+      setCategories(data);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      alert('Failed to load categories.');
+    }
+  };
+
+  const fetchRulesByCategory = async (categoryId) => {
+    try {
+      const response = await fetch(`${API_URL}/api/rules?category_id=${categoryId}`);
+      const data = await response.json();
+      setRules(data);
+    } catch (error) {
+      console.error('Error fetching rules:', error);
+      alert('Failed to load offense varieties.');
+    }
   };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    if (name === 'category') {
+    if (name === 'category_id') {
       setForm({
         ...form,
-        category: value,
-        variety: '',
+        category_id: value,
+        rule_id: '',
       });
+
+      if (value) {
+        fetchRulesByCategory(value);
+      } else {
+        setRules([]);
+      }
+
       return;
     }
 
@@ -137,41 +143,73 @@ export default function Violation() {
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!form.student || !form.category || !form.variety || !form.description) {
+    if (
+      !form.student_id ||
+      !form.rule_id ||
+      !form.incident_date ||
+      !form.incident_description
+    ) {
       alert('Please fill in all required fields.');
       return;
     }
 
-    console.log('Violation submitted:', form);
+    const user = JSON.parse(localStorage.getItem('user'));
 
-    setShowToast(true);
+    const violationData = {
+      student_id: form.student_id,
+      rule_id: form.rule_id,
+      incident_date: form.incident_date,
+      incident_description: form.incident_description,
+      created_by: user?.user_id || 1,
+    };
 
-    setForm({
-      student: '',
-      date: '2026-04-26',
-      category: '',
-      variety: '',
-      description: '',
-    });
+    try {
+      const response = await fetch('http://127.0.0.1:5000/api/violations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(violationData),
+      });
 
-    setTimeout(() => {
-      setShowToast(false);
-    }, 3000);
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.message || 'Failed to submit violation.');
+        return;
+      }
+
+      console.log('Saved violation:', data);
+
+      setShowToast(true);
+
+      setForm({
+        student_id: '',
+        incident_date: today,
+        category_id: '',
+        rule_id: '',
+        incident_description: '',
+      });
+
+      setRules([]);
+
+      setTimeout(() => {
+        setShowToast(false);
+      }, 3000);
+    } catch (error) {
+      console.error('Error saving violation:', error);
+      alert('Cannot connect to backend. Make sure Flask is running.');
+    }
   };
 
   return (
     <div className="s-page">
-      <Sidebar activePage={location.pathname} />
+      <Sidebar activePage={location.pathname} handleLogout={handleLogout} />
 
       <div className="s-main">
-        <div className="s-back-bar">
-          <Link to="/app" className="s-back-btn">
-            ← Back to Dashboard
-          </Link>
-        </div>
 
         <div className="s-main-header">
           <div>
@@ -191,14 +229,14 @@ export default function Violation() {
               <label className="s-label">Student *</label>
               <select
                 className="s-input s-select"
-                name="student"
-                value={form.student}
+                name="student_id"
+                value={form.student_id}
                 onChange={handleChange}
               >
                 <option value="">Select a student</option>
                 {students.map((student) => (
-                  <option key={student} value={student}>
-                    {student}
+                  <option key={student.student_id} value={student.student_id}>
+                    {student.full_name}
                   </option>
                 ))}
               </select>
@@ -209,8 +247,8 @@ export default function Violation() {
               <input
                 className="s-input"
                 type="date"
-                name="date"
-                value={form.date}
+                name="incident_date"
+                value={form.incident_date}
                 onChange={handleChange}
               />
             </div>
@@ -221,14 +259,14 @@ export default function Violation() {
               <label className="s-label">Offense Category *</label>
               <select
                 className="s-input s-select"
-                name="category"
-                value={form.category}
+                name="category_id"
+                value={form.category_id}
                 onChange={handleChange}
               >
                 <option value="">Select category</option>
-                {Object.keys(offenseData).map((category) => (
-                  <option key={category} value={category}>
-                    {category}
+                {categories.map((category) => (
+                  <option key={category.category_id} value={category.category_id}>
+                    {category.category_name}
                   </option>
                 ))}
               </select>
@@ -238,21 +276,20 @@ export default function Violation() {
               <label className="s-label">Offense Variety *</label>
               <select
                 className="s-input s-select"
-                name="variety"
-                value={form.variety}
+                name="rule_id"
+                value={form.rule_id}
                 onChange={handleChange}
-                disabled={!form.category}
+                disabled={!form.category_id}
               >
                 <option value="">
-                  {form.category ? 'Select variety' : 'Select category first'}
+                  {form.category_id ? 'Select variety' : 'Select category first'}
                 </option>
 
-                {form.category &&
-                  offenseData[form.category].map((variety) => (
-                    <option key={variety} value={variety}>
-                      {variety}
-                    </option>
-                  ))}
+                {rules.map((rule) => (
+                  <option key={rule.rule_id} value={rule.rule_id}>
+                    {rule.offense_variety}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -261,8 +298,8 @@ export default function Violation() {
             <label className="s-label">Incident Description *</label>
             <textarea
               className="s-input lv-textarea"
-              name="description"
-              value={form.description}
+              name="incident_description"
+              value={form.incident_description}
               onChange={handleChange}
               placeholder="Provide detailed description of the incident..."
               rows="3"
@@ -273,7 +310,7 @@ export default function Violation() {
           </div>
 
           <div className="lv-actions">
-            <Link to="/app" className="s-btn-cancel lv-link-btn">
+            <Link to="/sares/dashboard" className="s-btn-cancel lv-link-btn">
               Cancel
             </Link>
 

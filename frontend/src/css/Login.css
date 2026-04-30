@@ -93,8 +93,7 @@ body {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #5fa8ff;
-  box-shadow: 0 0 0 6px rgba(95, 168, 255, 0.12);
+  background: #ffffff;
 }
 
 .login-panel {
@@ -119,6 +118,7 @@ body {
 .login-header h2 {
   margin: 0;
   font-size: 2rem;
+  text-align: center;
   font-weight: 700;
   color: #ffffff;
 }
@@ -126,6 +126,7 @@ body {
 .login-header p {
   margin: 10px 0 0;
   color: rgba(255, 255, 255, 0.72);
+  text-align: center;
 }
 
 .login-form {
@@ -156,14 +157,9 @@ body {
   color: rgba(255, 255, 255, 0.72);
 }
 
-.input-icon svg {
-  width: 100%;
-  height: 100%;
-}
-
 .input-field {
   width: 100%;
-  padding: 16px 16px 16px 48px;
+  padding: 16px 16px 16px 16px;
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.05);
@@ -197,12 +193,6 @@ body {
   font-size: 1rem;
   font-weight: 700;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  box-shadow: 0 14px 30px rgba(79, 143, 255, 0.28);
-}
-
-.login-button:hover {
-  transform: translateY(-1px);
 }
 
 .forgot-password {
