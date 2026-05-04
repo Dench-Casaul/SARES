@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import '../css/Dashboard.css'
 import heroImg from '../assets/hero.png'
+import wesleyLogo from '../assets/wesley-logo.png'
+import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut } from 'lucide-react'
 const API_URL = 'http://127.0.0.1:5000';
 
 const Dashboard = () => {
@@ -101,7 +103,7 @@ const Dashboard = () => {
       <div className="mobile-menu-bar">
         <div className="logo-container">
           <div className="logo-icon-container">
-            <span className="logo-letter">A</span>
+            <span className="logo-letter">S</span>
           </div>
           <h1 className="admin-title">SARES</h1>
         </div>
@@ -117,7 +119,7 @@ const Dashboard = () => {
         <div className="sidebar-header">
           <div className="logo-container">
             <div className="logo-icon-container">
-              <span className="logo-letter">S</span>
+              <img src={wesleyLogo} alt="Wesley Logo" className="school-logo" />
             </div>
             <h1 className="admin-title">SARES</h1>
           </div>
@@ -127,26 +129,31 @@ const Dashboard = () => {
           <ul className="nav-list">
             <li>
               <Link to="/sares/dashboard" className={`nav-item${location.pathname === '/sares/dashboard' ? '-active' : ''}`}>
+                <LayoutDashboard className="nav-icon" />
                 <span className="nav-text">Dashboard</span>
               </Link>
             </li>
             <li>
               <Link to="/sares/students" className={`nav-item${location.pathname === '/sares/students' ? '-active' : ''}`}>
+                <Users className="nav-icon" />
                 <span className="nav-text">Students</span>
               </Link>
             </li>
             <li>
               <Link to="/sares/violation" className={`nav-item${location.pathname === '/sares/violation' ? '-active' : ''}`}>
+                <ClipboardList className="nav-icon" />
                 <span className="nav-text">Log Violation</span>
               </Link>
             </li>
             <li>
               <Link to="/sares/rules" className={`nav-item${location.pathname === '/sares/rules' ? '-active' : ''}`}>
+                <ShieldCheck className="nav-icon" />
                 <span className="nav-text">Rule Management</span>
               </Link>
             </li>
             <li>
               <Link to="/sares/reports" className={`nav-item${location.pathname === '/sares/reports' ? '-active' : ''}`}>
+                <BarChart3 className="nav-icon" />
                 <span className="nav-text">Reports</span>
               </Link>
             </li>
@@ -155,6 +162,7 @@ const Dashboard = () => {
 
         <div className="logout-section">
           <button type="button" className="logout-button" onClick={handleLogout}>
+            <LogOut className="nav-icon" />
             <span className="nav-text">Logout</span>
           </button>
         </div>

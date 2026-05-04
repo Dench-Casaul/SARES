@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import '../css/Reports.css';
+import React, { useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import '../css/Reports.css'
+import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut } from 'lucide-react'
+import wesleyLogo from '../assets/wesley-logo.png'
 
 
 function Sidebar({ activePage, handleLogout }) {
@@ -9,7 +11,11 @@ function Sidebar({ activePage, handleLogout }) {
       <div className="report-sidebar-header">
         <div className="report-logo">
           <div className="report-logo-icon">
-            <span>S</span>
+            <img
+              src={wesleyLogo}
+              alt="Olongapo Wesley School Logo"
+              className="school-logo"
+            />
           </div>
           <div>
             <h1 className="report-logo-text">SARES</h1>
@@ -20,32 +26,52 @@ function Sidebar({ activePage, handleLogout }) {
       <nav className="report-nav">
         <ul className="report-nav-list">
           <li>
-            <Link to="/sares/dashboard" className={`report-nav-item${activePage === '/sares/dashboard' ? ' report-nav-item--active' : ''}`}>
-              Dashboard
+            <Link
+              to="/sares/dashboard"
+              className={`report-nav-item${activePage === "/sares/dashboard" ? " report-nav-item--active" : ""}`}
+            >
+              <LayoutDashboard className="report-nav-icon" />
+              <span>Dashboard</span>
             </Link>
           </li>
 
           <li>
-            <Link to="/sares/students" className={`report-nav-item${activePage === '/sares/students' ? ' report-nav-item--active' : ''}`}>
-              Students
+            <Link
+              to="/sares/students"
+              className={`report-nav-item${activePage === "/sares/students" ? " report-nav-item--active" : ""}`}
+            >
+              <Users className="report-nav-icon" />
+              <span>Students</span>
             </Link>
           </li>
 
           <li>
-            <Link to="/sares/violation" className={`report-nav-item${activePage === '/sares/violation' ? ' report-nav-item--active' : ''}`}>
-              Log Violation
+            <Link
+              to="/sares/violation"
+              className={`report-nav-item${activePage === "/sares/violation" ? " report-nav-item--active" : ""}`}
+            >
+              <ClipboardList className="report-nav-icon" />
+              <span>Log Violation</span>
             </Link>
           </li>
 
           <li>
-            <Link to="/sares/rules" className={`report-nav-item${activePage === '/sares/rules' ? ' report-nav-item--active' : ''}`}>
-              Rule Management
+            <Link
+              to="/sares/rules"
+              className={`report-nav-item${activePage === "/sares/rules" ? " report-nav-item--active" : ""}`}
+            >
+              <ShieldCheck className="report-nav-icon" />
+              <span>Rule Management</span>
             </Link>
           </li>
 
           <li>
-            <Link to="/sares/reports" className={`report-nav-item${activePage === '/sares/reports' ? ' report-nav-item--active' : ''}`}>
-              Reports
+            <Link
+              to="/sares/reports"
+              className={`report-nav-item${activePage === "/sares/reports" ? " report-nav-item--active" : ""}`}
+            >
+              <BarChart3 className="report-nav-icon" />
+              <span>Reports</span>
             </Link>
           </li>
         </ul>
@@ -53,7 +79,8 @@ function Sidebar({ activePage, handleLogout }) {
 
       <div className="report-sidebar-footer">
         <button type="button" className="report-logout-btn" onClick={handleLogout}>
-          Logout
+          <LogOut className="report-nav-icon" />
+          <span>Logout</span>
         </button>
       </div>
     </aside>
@@ -262,13 +289,13 @@ export default function Report() {
                   {categoryData.map((item) => (
                     <div className="report-bar-item" key={item.label}>
                       <div className="report-bar-wrap">
-                        <div 
-                        className="report-bar"
-                         style={{ height: `${item.count * 100}%` }}/>
-                         </div>
-                      <p className = "report-bar-label">{item.label}</p>
+                        <div
+                          className="report-bar"
+                          style={{ height: `${item.count * 100}%` }} />
+                      </div>
+                      <p className="report-bar-label">{item.label}</p>
                     </div>
-                    ))}
+                  ))}
                 </div>
               </div>
             </section>

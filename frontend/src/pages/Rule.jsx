@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import '../css/Rule.css';
-const API_URL = 'http://127.0.0.1:5000';
+import React, { useState, useEffect } from 'react'
+import { Link, useLocation } from 'react-router-dom'
+import '../css/Rule.css'
+import wesleyLogo from '../assets/wesley-logo.png'
+import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut } from 'lucide-react'
+const API_URL = 'http://127.0.0.1:5000'
 
 function Sidebar({ activePage, handleLogout }) {
   return (
@@ -9,7 +11,7 @@ function Sidebar({ activePage, handleLogout }) {
       <div className="rule-sidebar-header">
         <div className="rule-logo">
           <div className="rule-logo-icon">
-            <span>S</span>
+            <img src={wesleyLogo} alt="Olongapo Wesley School Logo" className="school-logo" />
           </div>
           <div>
             <h1 className="rule-logo-text">SARES</h1>
@@ -21,30 +23,38 @@ function Sidebar({ activePage, handleLogout }) {
         <ul className="rule-nav-list">
           <li>
             <Link to="/sares/dashboard" className={`rule-nav-item${activePage === '/sares/dashboard' ? ' rule-nav-item--active' : ''}`}>
+              <LayoutDashboard className="rule-nav-icon" />
               Dashboard
             </Link>
           </li>
 
           <li>
+
             <Link to="/sares/students" className={`rule-nav-item${activePage === '/sares/students' ? ' rule-nav-item--active' : ''}`}>
+              <Users className="rule-nav-icon" />
               Students
             </Link>
           </li>
 
           <li>
             <Link to="/sares/violation" className={`rule-nav-item${activePage === '/sares/violation' ? ' rule-nav-item--active' : ''}`}>
+              <ClipboardList className="rule-nav-icon" />
               Log Violation
             </Link>
           </li>
 
           <li>
+
             <Link to="/sares/rules" className={`rule-nav-item${activePage === '/sares/rules' ? ' rule-nav-item--active' : ''}`}>
+              <ShieldCheck className="rule-nav-icon" />
               Rule Management
             </Link>
           </li>
 
           <li>
+
             <Link to="/sares/reports" className={`rule-nav-item${activePage === '/sares/reports' ? ' rule-nav-item--active' : ''}`}>
+              <BarChart3 className="rule-nav-icon" />
               Reports
             </Link>
           </li>
@@ -53,6 +63,7 @@ function Sidebar({ activePage, handleLogout }) {
 
       <div className="rule-sidebar-footer">
         <button className="rule-logout-btn" onClick={handleLogout}>
+          <LogOut className="rule-logout-icon" />
           Logout
         </button>
       </div>

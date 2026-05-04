@@ -1,55 +1,70 @@
-import React, { useEffect, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import '../css/Violation.css';
-const API_URL = 'http://127.0.0.1:5000';
+import React, { useEffect, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import '../css/Violation.css'
+import wesleyLogo from '../assets/wesley-logo.png'
+import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut } from 'lucide-react'
+const API_URL = 'http://127.0.0.1:5000'
 
 function Sidebar({ activePage, handleLogout }) {
   return (
-    <div className="s-sidebar">
-      <div className="s-sidebar-header">
-        <div className="s-logo">
-          <div className="s-logo-icon"><span>S</span></div>
-          <h1 className="s-logo-text">SARES</h1>
+    <div className="v-sidebar">
+      <div className="v-logo">
+        <div className="v-logo-icon">
+          <img
+            src={wesleyLogo}
+            alt="Olongapo Wesley School Logo"
+            className="school-logo"
+          />
         </div>
+        <h1>SARES</h1>
       </div>
 
-      <nav className="s-nav">
-        <ul className="s-nav-list">
-          <li>
-            <Link to="/sares/dashboard" className={`s-nav-item${activePage === '/sares/dashboard' ? ' s-nav-item--active' : ''}`}>
-              Dashboard
-            </Link>
-          </li>
+      <nav className="v-nav">
+        <Link
+          to="/sares/dashboard"
+          className={`v-nav-item${activePage === "/sares/dashboard" ? " active" : ""}`}
+        >
+          <LayoutDashboard className="v-nav-icon" />
+          <span>Dashboard</span>
+        </Link>
 
-          <li>
-            <Link to="/sares/students" className={`s-nav-item${activePage === '/sares/students' ? ' s-nav-item--active' : ''}`}>
-              Students
-            </Link>
-          </li>
+        <Link
+          to="/sares/students"
+          className={`v-nav-item${activePage === "/sares/students" ? " active" : ""}`}
+        >
+          <Users className="v-nav-icon" />
+          <span>Students</span>
+        </Link>
 
-          <li>
-            <Link to="/sares/violation" className={`s-nav-item${activePage === '/sares/violation' ? ' s-nav-item--active' : ''}`}>
-              Log Violation
-            </Link>
-          </li>
+        <Link
+          to="/sares/violation"
+          className={`v-nav-item${activePage === "/sares/violation" ? " active" : ""}`}
+        >
+          <ClipboardList className="v-nav-icon" />
+          <span>Log Violation</span>
+        </Link>
 
-          <li>
-            <Link to="/sares/rules" className={`s-nav-item${activePage === '/sares/rules' ? ' s-nav-item--active' : ''}`}>
-              Rule Management
-            </Link>
-          </li>
+        <Link
+          to="/sares/rules"
+          className={`v-nav-item${activePage === "/sares/rules" ? " active" : ""}`}
+        >
+          <ShieldCheck className="v-nav-icon" />
+          <span>Rule Management</span>
+        </Link>
 
-          <li>
-            <Link to="/sares/reports" className={`s-nav-item${activePage === '/sares/reports' ? ' s-nav-item--active' : ''}`}>
-              Reports
-            </Link>
-          </li>
-        </ul>
+        <Link
+          to="/sares/reports"
+          className={`v-nav-item${activePage === "/sares/reports" ? " active" : ""}`}
+        >
+          <BarChart3 className="v-nav-icon" />
+          <span>Reports</span>
+        </Link>
       </nav>
 
-      <div className="s-sidebar-footer">
-        <button className="s-logout-btn" onClick={handleLogout}>
-          Logout
+      <div className="v-logout-section">
+        <button className="v-logout" onClick={handleLogout}>
+          <LogOut className="v-nav-icon" />
+          <span>Logout</span>
         </button>
       </div>
     </div>
@@ -206,29 +221,29 @@ export default function Violation() {
   };
 
   return (
-    <div className="s-page">
+    <div className="v-page">
       <Sidebar activePage={location.pathname} handleLogout={handleLogout} />
 
-      <div className="s-main">
+      <div className="v-main">
 
-        <div className="s-main-header">
+        <div className="v-main-header">
           <div>
-            <h1 className="s-page-title">Log New Violation</h1>
-            <p className="s-page-sub">Record a student disciplinary incident</p>
+            <h1 className="v-page-title">Log New Violation</h1>
+            <p className="v-page-sub">Record a student disciplinary incident</p>
           </div>
         </div>
 
-        <form className="s-directory-card lv-form-card" onSubmit={handleSubmit}>
-          <div className="s-directory-header">
-            <h2 className="s-directory-title">Violation Details</h2>
-            <p className="s-directory-sub">Fill in all required information</p>
+        <form className="v-directory-card v-form-card" onSubmit={handleSubmit}>
+          <div className="v-directory-header">
+            <h2 className="v-directory-title">Violation Details</h2>
+            <p className="v-directory-sub">Fill in all required information</p>
           </div>
 
-          <div className="s-field-row">
-            <div className="s-field">
-              <label className="s-label">Student *</label>
+          <div className="v-field-row">
+            <div className="v-field">
+              <label className="v-label">Student *</label>
               <select
-                className="s-input s-select"
+                className="v-input v-select"
                 name="student_id"
                 value={form.student_id}
                 onChange={handleChange}
@@ -242,10 +257,10 @@ export default function Violation() {
               </select>
             </div>
 
-            <div className="s-field">
-              <label className="s-label">Date of Incident *</label>
+            <div className="v-field">
+              <label className="v-label">Date of Incident *</label>
               <input
-                className="s-input"
+                className="v-input"
                 type="date"
                 name="incident_date"
                 value={form.incident_date}
@@ -254,11 +269,11 @@ export default function Violation() {
             </div>
           </div>
 
-          <div className="s-field-row">
-            <div className="s-field">
-              <label className="s-label">Offense Category *</label>
+          <div className="v-field-row">
+            <div className="v-field">
+              <label className="v-label">Offense Category *</label>
               <select
-                className="s-input s-select"
+                className="v-input v-select"
                 name="category_id"
                 value={form.category_id}
                 onChange={handleChange}
@@ -272,10 +287,10 @@ export default function Violation() {
               </select>
             </div>
 
-            <div className="s-field">
-              <label className="s-label">Offense Variety *</label>
+            <div className="v-field">
+              <label className="v-label">Offense Variety *</label>
               <select
-                className="s-input s-select"
+                className="v-input v-select"
                 name="rule_id"
                 value={form.rule_id}
                 onChange={handleChange}
@@ -294,27 +309,27 @@ export default function Violation() {
             </div>
           </div>
 
-          <div className="s-field">
-            <label className="s-label">Incident Description *</label>
+          <div className="v-field">
+            <label className="v-label">Incident Description *</label>
             <textarea
-              className="s-input lv-textarea"
+              className="v-input v-textarea"
               name="incident_description"
               value={form.incident_description}
               onChange={handleChange}
               placeholder="Provide detailed description of the incident..."
               rows="3"
             />
-            <p className="s-page-sub">
+            <p className="v-page-sub">
               Include relevant details such as witnesses, location, and circumstances
             </p>
           </div>
 
-          <div className="lv-actions">
-            <Link to="/sares/dashboard" className="s-btn-cancel lv-link-btn">
+          <div className="v-actions">
+            <Link to="/sares/dashboard" className="v-btn-cancel v-link-btn">
               Cancel
             </Link>
 
-            <button type="submit" className="s-btn-submit">
+            <button type="submit" className="v-btn-submit">
               Submit Violation
             </button>
           </div>
@@ -322,7 +337,7 @@ export default function Violation() {
       </div>
 
       {showToast && (
-        <div className="s-toast">
+        <div className="v-toast">
           <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
           </svg>

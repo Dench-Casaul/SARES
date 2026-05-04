@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react'
-import { Link, useLocation, useNavigate} from 'react-router-dom'
-import '../css/Student.css';
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import '../css/Student.css'
+import wesleyLogo from '../assets/wesley-logo.png'
+import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut } from 'lucide-react'
 
 const YEARS = ["All Year", "Kindergarten", "1st Grade", "2nd Grade", "3rd Grade", "4th Grade", "5th Grade", "6th Grade", "7th Grade", "8th Grade", "9th Grade", "10th Grade"]
-const YEAR_LEVELS = [ "Kindergarten", "1st Grade", "2nd Grade", "3rd Grade", "4th Grade", "5th Grade", "6th Grade", "7th Grade", "8th Grade", "9th Grade", "10th Grade"]
+const YEAR_LEVELS = ["Kindergarten", "1st Grade", "2nd Grade", "3rd Grade", "4th Grade", "5th Grade", "6th Grade", "7th Grade", "8th Grade", "9th Grade", "10th Grade"]
 const API_URL = "http://127.0.0.1:5000/api"
 
 
@@ -15,52 +17,80 @@ function Sidebar({ activePage }) {
     localStorage.removeItem("user");
     navigate("/login");
   };
+
   return (
     <div className="s-sidebar">
       <div className="s-sidebar-header">
         <div className="s-logo">
-          {/*<div className="s-logo-icon"><span>S</span></div>*/}
+          <div className="s-logo-icon">
+            <img
+              src={wesleyLogo}
+              alt="Olongapo Wesley School Logo"
+              className="school-logo"
+            />
+          </div>
           <h1 className="s-logo-text">SARES</h1>
         </div>
       </div>
 
       <nav className="s-nav">
         <ul className="s-nav-list">
-         <li>
-  <Link to="/sares/dashboard" className={`s-nav-item${activePage === '/sares/dashboard' ? ' s-nav-item--active' : ''}`}>
-    Dashboard
-  </Link>
-</li>
+          <li>
+            <Link
+              to="/sares/dashboard"
+              className={`s-nav-item${activePage === "/sares/dashboard" ? " s-nav-item--active" : ""}`}
+            >
+              <LayoutDashboard className="s-nav-icon" />
+              <span>Dashboard</span>
+            </Link>
+          </li>
 
-<li>
-  <Link to="/sares/students" className={`s-nav-item${activePage === '/sares/students' ? ' s-nav-item--active' : ''}`}>
-    Students
-  </Link>
-</li>
+          <li>
+            <Link
+              to="/sares/students"
+              className={`s-nav-item${activePage === "/sares/students" ? " s-nav-item--active" : ""}`}
+            >
+              <Users className="s-nav-icon" />
+              <span>Students</span>
+            </Link>
+          </li>
 
-<li>
-  <Link to="/sares/violation" className={`s-nav-item${activePage === '/sares/violation' ? ' s-nav-item--active' : ''}`}>
-    Log Violation
-  </Link>
-</li>
+          <li>
+            <Link
+              to="/sares/violation"
+              className={`s-nav-item${activePage === "/sares/violation" ? " s-nav-item--active" : ""}`}
+            >
+              <ClipboardList className="s-nav-icon" />
+              <span>Log Violation</span>
+            </Link>
+          </li>
 
-<li>
-  <Link to="/sares/rules" className={`s-nav-item${activePage === '/sares/rules' ? ' s-nav-item--active' : ''}`}>
-    Rule Management
-  </Link>
-</li>
+          <li>
+            <Link
+              to="/sares/rules"
+              className={`s-nav-item${activePage === "/sares/rules" ? " s-nav-item--active" : ""}`}
+            >
+              <ShieldCheck className="s-nav-icon" />
+              <span>Rule Management</span>
+            </Link>
+          </li>
 
-<li>
-  <Link to="/sares/reports" className={`s-nav-item${activePage === '/sares/reports' ? ' s-nav-item--active' : ''}`}>
-    Reports
-  </Link>
-</li>
+          <li>
+            <Link
+              to="/sares/reports"
+              className={`s-nav-item${activePage === "/sares/reports" ? " s-nav-item--active" : ""}`}
+            >
+              <BarChart3 className="s-nav-icon" />
+              <span>Reports</span>
+            </Link>
+          </li>
         </ul>
       </nav>
 
       <div className="s-sidebar-footer">
         <button className="s-logout-btn" onClick={handleLogout}>
-          Logout
+          <LogOut className="s-nav-icon" />
+          <span>Logout</span>
         </button>
       </div>
     </div>
@@ -81,9 +111,9 @@ function AddStudentModal({ onClose, onAdd, nextId }) {
   const handle = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   const submit = async () => {
-  if (!form.name || !form.year || !form.section || !form.email) return;
-  await onAdd(form);
-};
+    if (!form.name || !form.year || !form.section || !form.email) return;
+    await onAdd(form);
+  };
 
   return (
     <div className="s-modal-backdrop" onClick={onClose}>
@@ -163,11 +193,11 @@ function StudentList({ students, onSelect, onAddStudent, location }) {
   const nextId = `2024-${String(students.length + 1).padStart(5, '0')}`;
 
   const handleAdd = async (form) => {
-  await onAddStudent(form);
-  setShowModal(false);
-  setToast(true);
-  setTimeout(() => setToast(false), 3000);
-};
+    await onAddStudent(form);
+    setShowModal(false);
+    setToast(true);
+    setTimeout(() => setToast(false), 3000);
+  };
 
   return (
     <div className="s-page">
@@ -224,57 +254,57 @@ function StudentList({ students, onSelect, onAddStudent, location }) {
           </div>
 
           <div className="s-table-wrap">
-  <table className="s-table">
-    <thead>
-      <tr>
-        <th>Student</th>
-        <th>Student ID</th>
-        <th>Year Level & Section</th>
-        <th>Total Violations</th>
-        <th>Status</th>
-        <th>Actions</th>
-      </tr>
-    </thead>
+            <table className="s-table">
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>Student ID</th>
+                  <th>Year Level & Section</th>
+                  <th>Total Violations</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
 
-    <tbody>
-      {filtered.map((student) => (
-        <tr key={student.id} onClick={() => onSelect(student)}>
-          <td className="s-student-name">{student.name}</td>
-          <td>{student.id}</td>
-          <td>{student.year} - {student.section}</td>
-          <td>{student.violations}</td>
-          <td>
-           
-          </td>
-          <td>
-            <button
-              type="button"
-              className="s-action-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                onSelect(student);
-              }}
-            >
-              ⋮
-            </button>
-          </td>
-        </tr>
-      ))}
-    </tbody>
-  </table>
+              <tbody>
+                {filtered.map((student) => (
+                  <tr key={student.id} onClick={() => onSelect(student)}>
+                    <td className="s-student-name">{student.name}</td>
+                    <td>{student.id}</td>
+                    <td>{student.year} - {student.section}</td>
+                    <td>{student.violations}</td>
+                    <td>
 
-  <div className="s-table-footer">
-    <p>Showing 1 to {filtered.length} of {students.length} students</p>
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className="s-action-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelect(student);
+                        }}
+                      >
+                        ⋮
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
 
-    <div className="s-pagination">
-      <button type="button">‹</button>
-      <button type="button" className="active">1</button>
-      <button type="button">›</button>
-    </div>
-  </div>
-</div>
-</div>
-</div>
+            <div className="s-table-footer">
+              <p>Showing 1 to {filtered.length} of {students.length} students</p>
+
+              <div className="s-pagination">
+                <button type="button">‹</button>
+                <button type="button" className="active">1</button>
+                <button type="button">›</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {showModal && (
         <AddStudentModal
@@ -547,7 +577,7 @@ function ViolationDetails({ violation, student, onBack, location }) {
 }
 
 /* Students */
- export default function Students() {
+export default function Students() {
   const location = useLocation();
 
   const [view, setView] = useState('list');
