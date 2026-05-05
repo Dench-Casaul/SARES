@@ -42,12 +42,10 @@ body {
 .hero-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    180deg,
-    rgba(2, 8, 24, 0.82) 0%,
-    rgba(2, 8, 24, 0.68) 60%,
-    rgba(2, 8, 24, 0.96) 100%
-  );
+  background: linear-gradient(180deg,
+      rgba(2, 8, 24, 0.82) 0%,
+      rgba(2, 8, 24, 0.68) 60%,
+      rgba(2, 8, 24, 0.96) 100%);
 }
 
 .hero-copy {

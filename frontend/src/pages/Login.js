@@ -1,7 +1,7 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import heroImg from "../assets/hero.png";
-import "../css/Login.css";
+import { useState } from "react"
+import { useNavigate } from "react-router-dom"
+import heroImg from "../assets/hero.png"
+import "../css/Login.css"
 
 function Login() {
   const [email, setEmail] = useState("");
@@ -85,7 +85,7 @@ function Login() {
               <span>Email</span>
 
               <div className="input-group">
-                <span className="input-icon" aria-hidden="true" placeholder="email@domain.com"> 
+                <span className="input-icon" aria-hidden="true" placeholder="email@domain.com">
                 </span>
 
                 <input

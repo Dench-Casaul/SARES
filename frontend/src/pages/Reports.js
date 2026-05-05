@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import '../css/Reports.css'
 import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut } from 'lucide-react'
@@ -87,77 +87,6 @@ function Sidebar({ activePage, handleLogout }) {
   );
 }
 
-const categoryData = [
-  { label: 'Academic Dishonesty', count: 1 },
-  { label: 'Behavioral Misconduct', count: 1 },
-  { label: 'Dress Code Violation', count: 1 },
-  { label: 'Attendance Violation', count: 1 },
-  { label: 'Technology Misuse', count: 1 },
-];
-
-const yearLevelData = [
-  { label: '1st Year', count: 1 },
-  { label: '2nd Year', count: 2 },
-  { label: '3rd Year', count: 1 },
-  { label: '4th Year', count: 1 },
-];
-
-const repeatOffenders = [
-  {
-    name: 'Jose Ramos',
-    id: '2024-00005',
-    year: '3rd Year',
-    section: 'B',
-    violations: 7,
-    records: [
-      {
-        category: 'Dress Code Violation',
-        detail: '2026-04-01 • Warning and parent notification',
-      },
-    ],
-  },
-  {
-    name: 'Maria Santos',
-    id: '2024-00002',
-    year: '2nd Year',
-    section: 'B',
-    violations: 5,
-    records: [
-      {
-        category: 'Academic Dishonesty',
-        detail: '2026-04-05 • Zero grade on assignment and one-week suspension',
-      },
-      {
-        category: 'Attendance Violation',
-        detail: '2026-03-28 • Parent conference and written warning',
-      },
-    ],
-  },
-];
-
-const sanctionLogs = [
-  {
-    student: 'Maria Santos',
-    offense: 'Academic Dishonesty - Plagiarism',
-    recommended: 'Zero grade on assignment and written warning',
-    final: 'Zero grade on assignment and one-week suspension',
-    status: 'Accepted',
-  },
-  {
-    student: 'Juan Dela Cruz',
-    offense: 'Behavioral Misconduct - Disrespect to Faculty',
-    recommended: 'Two-day suspension and parent conference',
-    final: 'Written apology and counseling session',
-    status: 'Overridden',
-  },
-];
-
-const trendData = [
-  { month: 'January', value: 8 },
-  { month: 'February', value: 12 },
-  { month: 'March', value: 10 },
-  { month: 'April', value: 5 },
-];
 
 export default function Report() {
   const location = useLocation();
@@ -168,9 +97,45 @@ export default function Report() {
   const [monthFilter, setMonthFilter] = useState('All Months');
   const [toast, setToast] = useState('');
 
+  const [categoryData, setCategoryData] = useState([]);
+  const [yearLevelData, setYearLevelData] = useState([]);
+  const [repeatOffenders, setRepeatOffenders] = useState([]);
+  const [sanctionLogs, setSanctionLogs] = useState([]);
+  const [trendData, setTrendData] = useState([]);
+  const [loading, setLoading] = useState(true);
+
   const showToast = (message) => {
     setToast(message);
     setTimeout(() => setToast(''), 3000);
+  };
+
+  useEffect(() => {
+    fetchReportsData();
+  }, []);
+
+  const fetchReportsData = async () => {
+    try {
+      setLoading(true);
+
+      const response = await fetch('http://127.0.0.1:5000/api/reports/summary');
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch reports data');
+      }
+
+      const data = await response.json();
+
+      setCategoryData(data.categoryData || []);
+      setYearLevelData(data.yearLevelData || []);
+      setRepeatOffenders(data.repeatOffenders || []);
+      setSanctionLogs(data.sanctionLogs || []);
+      setTrendData(data.trendData || []);
+    } catch (error) {
+      console.error('Reports fetch error:', error);
+      showToast('Failed to load reports data.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleExportPDF = () => {
@@ -188,8 +153,10 @@ export default function Report() {
       <main className="report-main">
         <section className="report-hero">
           <div className="report-hero-content">
-            <h1>Reports & Analytics</h1>
-            <p>Comprehensive violation statistics and trend analysis</p>
+            <div>
+              <h1>Reports & Analytics</h1>
+              <p>Comprehensive violation statistics and trend analysis</p>
+            </div>
 
             <div className="report-hero-actions">
               <button onClick={handleExportPDF} className="report-secondary-btn">
@@ -200,13 +167,6 @@ export default function Report() {
                 Export Excel
               </button>
             </div>
-          </div>
-
-          <div className="report-hero-icon">
-            <svg viewBox="0 0 24 24" fill="none">
-              <rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" strokeWidth="1.8" />
-              <path d="M8 3v4M16 3v4M4 9h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-            </svg>
           </div>
         </section>
 
@@ -268,6 +228,12 @@ export default function Report() {
           </button>
         </div>
 
+        {loading && (
+          <p style={{ color: '#64748b', fontSize: '14px' }}>
+            Loading reports data...
+          </p>
+        )}
+
         {activeTab === 'frequency' && (
           <div className="report-tab-content">
             <section className="report-card">
@@ -286,16 +252,22 @@ export default function Report() {
                 </div>
 
                 <div className="report-bars-area">
-                  {categoryData.map((item) => (
-                    <div className="report-bar-item" key={item.label}>
-                      <div className="report-bar-wrap">
-                        <div
-                          className="report-bar"
-                          style={{ height: `${item.count * 100}%` }} />
+                  {
+                    categoryData.map((item) => (
+                      <div className="report-bar-item" key={item.label}>
+                        <div className="report-bar-wrap">
+                          <div
+                            className="report-bar"
+                            style={{
+                              height: `${Math.max(
+                                (item.count / Math.max(...categoryData.map((c) => c.count), 1)) * 100,
+                                5
+                              )}%`,
+                            }} />
+                        </div>
+                        <p className="report-bar-label">{item.label}</p>
                       </div>
-                      <p className="report-bar-label">{item.label}</p>
-                    </div>
-                  ))}
+                    ))}
                 </div>
               </div>
             </section>
@@ -422,36 +394,26 @@ export default function Report() {
                 <p>Violation count over the past months</p>
               </div>
 
-              <div className="report-line-chart">
-                <svg viewBox="0 0 700 260" preserveAspectRatio="none">
-                  <line x1="40" y1="20" x2="40" y2="220" />
-                  <line x1="40" y1="220" x2="670" y2="220" />
+              <div className="report-small-bars">
+                {trendData.length === 0 ? (
+                  <p style={{ color: '#64748b', fontSize: '14px' }}>
+                    No monthly trend data yet.
+                  </p>
+                ) : (
+                  trendData.map((item) => {
+                    const maxTrend = Math.max(...trendData.map((t) => t.value), 1);
 
-                  <line x1="40" y1="20" x2="670" y2="20" className="grid" />
-                  <line x1="40" y1="70" x2="670" y2="70" className="grid" />
-                  <line x1="40" y1="120" x2="670" y2="120" className="grid" />
-                  <line x1="40" y1="170" x2="670" y2="170" className="grid" />
-
-                  <polyline
-                    points="40,86 250,20 460,53 670,136"
-                    fill="none"
-                    stroke="#6d6bff"
-                    strokeWidth="3"
-                  />
-
-                  <circle cx="40" cy="86" r="4" />
-                  <circle cx="250" cy="20" r="4" />
-                  <circle cx="460" cy="53" r="4" />
-                  <circle cx="670" cy="136" r="4" />
-                </svg>
-
-                <div className="report-line-labels">
-                  {trendData.map((item) => (
-                    <span key={item.month}>{item.month}</span>
-                  ))}
-                </div>
-
-                <p className="report-line-legend">• Violations</p>
+                    return (
+                      <div className="report-small-bar-row" key={item.month}>
+                        <span>{item.month}</span>
+                        <div>
+                          <strong style={{ width: `${(item.value / maxTrend) * 100}%` }}></strong>
+                        </div>
+                        <p>{item.value}</p>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </section>
 

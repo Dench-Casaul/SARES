@@ -533,6 +533,133 @@ def dashboard_summary():
         "repeat_offenders": repeat_offenders
     })
 
+# reports summary - retrieve report analytics data
+
+
+@app.route("/api/reports/summary", methods=["GET"])
+def reports_summary():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    # violations by category
+    cursor.execute(
+        """
+        SELECT 
+            c.category_name AS label,
+            COUNT(v.violation_id) AS count
+        FROM offense_categories c
+        LEFT JOIN rules r ON c.category_id = r.category_id
+        LEFT JOIN violations v ON r.rule_id = v.rule_id
+        GROUP BY c.category_id, c.category_name
+        ORDER BY c.category_name ASC
+        """
+    )
+    category_data = cursor.fetchall()
+
+    # violations by year level
+    cursor.execute(
+        """
+        SELECT 
+            s.year_level AS label,
+            COUNT(v.violation_id) AS count
+        FROM students s
+        LEFT JOIN violations v ON s.student_id = v.student_id
+        GROUP BY s.year_level
+        ORDER BY s.year_level ASC
+        """
+    )
+    year_level_data = cursor.fetchall()
+
+    # repeat offenders
+    cursor.execute(
+        """
+        SELECT 
+            s.full_name AS name,
+            s.student_number AS id,
+            s.year_level AS year,
+            s.section AS section,
+            COUNT(v.violation_id) AS violations
+        FROM students s
+        JOIN violations v ON s.student_id = v.student_id
+        GROUP BY s.student_id, s.full_name, s.student_number, s.year_level, s.section
+        HAVING COUNT(v.violation_id) >= 2
+        ORDER BY violations DESC
+        """
+    )
+    repeat_offenders = cursor.fetchall()
+
+    # add violation records per repeat offender
+    for offender in repeat_offenders:
+        cursor.execute(
+            """
+            SELECT
+                c.category_name AS category,
+                CONCAT(
+                    DATE_FORMAT(v.incident_date, '%Y-%m-%d'),
+                    ' • ',
+                    COALESCE(v.final_sanction, v.recommended_sanction)
+                ) AS detail
+            FROM violations v
+            JOIN rules r ON v.rule_id = r.rule_id
+            JOIN offense_categories c ON r.category_id = c.category_id
+            JOIN students s ON v.student_id = s.student_id
+            WHERE s.student_number = %s
+            ORDER BY v.incident_date DESC
+            LIMIT 3
+            """,
+            (offender["id"],)
+        )
+
+        offender["records"] = cursor.fetchall()
+
+    # sanction decision logs
+    cursor.execute(
+        """
+        SELECT 
+            s.full_name AS student,
+            CONCAT(c.category_name, ' - ', r.offense_variety) AS offense,
+            v.recommended_sanction AS recommended,
+            COALESCE(v.final_sanction, v.recommended_sanction) AS final,
+            CASE 
+                WHEN v.final_sanction IS NOT NULL
+                     AND v.final_sanction != v.recommended_sanction
+                THEN 'Overridden'
+                ELSE 'Accepted'
+            END AS status
+        FROM violations v
+        JOIN students s ON v.student_id = s.student_id
+        JOIN rules r ON v.rule_id = r.rule_id
+        JOIN offense_categories c ON r.category_id = c.category_id
+        ORDER BY v.incident_date DESC
+        LIMIT 10
+        """
+    )
+    sanction_logs = cursor.fetchall()
+
+    # monthly violation trends
+    cursor.execute(
+        """
+        SELECT 
+            DATE_FORMAT(incident_date, '%M') AS month,
+            COUNT(violation_id) AS value
+        FROM violations
+        GROUP BY MONTH(incident_date), DATE_FORMAT(incident_date, '%M')
+        ORDER BY MONTH(incident_date)
+        """
+    )
+    trend_data = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    return jsonify({
+        "categoryData": category_data,
+        "yearLevelData": year_level_data,
+        "repeatOffenders": repeat_offenders,
+        "sanctionLogs": sanction_logs,
+        "trendData": trend_data
+    })
+
 
 if __name__ == "__main__":
     app.run(debug=True)

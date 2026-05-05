@@ -561,14 +561,8 @@ export default function Rule() {
             <p>Configure handbook rules and sanction mappings with version tracking</p>
 
             <div className="rule-hero-actions">
-              <button className="rule-primary-btn" onClick={() => setShowModal(true)}>
-                <span>+</span>
-                Add New Rule
-              </button>
-
-              <button className="rule-secondary-btn" onClick={openHistory}>
-                View Version History
-              </button>
+              <button className="rule-primary-btn" onClick={() => setShowModal(true)}>+ Add New Rule</button>
+              <button className="rule-secondary-btn" onClick={openHistory}>View Version History</button>
             </div>
           </div>
 

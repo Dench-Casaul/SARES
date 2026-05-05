@@ -173,18 +173,17 @@
 /* hero */
 
 .rule-hero {
-  min-height: 280px;
-  background: #ffffff;
-  border: 1px solid #d8e6f7;
-  border-radius: 16px;
-  overflow: hidden;
-  display: grid;
-  grid-template-columns: 1fr 360px;
-  box-shadow: 0 8px 22px rgba(17, 44, 80, 0.055);
+  min-height: auto;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  overflow: visible;
+  display: block;
+  box-shadow: none;
 }
 
 .rule-hero-content {
-  padding: 34px 38px;
+  padding: 0;
 }
 
 .rule-hero-content h1 {
@@ -205,6 +204,7 @@
 .rule-hero-actions {
   display: flex;
   gap: 12px;
+  margin-top: 18px;
 }
 
 .rule-primary-btn,
