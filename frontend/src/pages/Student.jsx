@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import '../css/Student.css'
 import wesleyLogo from '../assets/wesley-logo.png'
-import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut } from 'lucide-react'
+import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X } from 'lucide-react'
 
 const YEARS = ["All Year", "Kindergarten", "1st Grade", "2nd Grade", "3rd Grade", "4th Grade", "5th Grade", "6th Grade", "7th Grade", "8th Grade", "9th Grade", "10th Grade"]
 const YEAR_LEVELS = ["Kindergarten", "1st Grade", "2nd Grade", "3rd Grade", "4th Grade", "5th Grade", "6th Grade", "7th Grade", "8th Grade", "9th Grade", "10th Grade"]
@@ -10,7 +10,7 @@ const API_URL = "http://127.0.0.1:5000/api"
 
 
 /* sidebar */
-function Sidebar({ activePage }) {
+function Sidebar({ activePage, isOpen, toggleSidebar }) {
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -19,7 +19,7 @@ function Sidebar({ activePage }) {
   };
 
   return (
-    <div className="s-sidebar">
+    <div className={`s-sidebar${isOpen ? ' s-sidebar--open' : ''}`}>
       <div className="s-sidebar-header">
         <div className="s-logo">
           <div className="s-logo-icon">
@@ -38,6 +38,7 @@ function Sidebar({ activePage }) {
           <li>
             <Link
               to="/sares/dashboard"
+              onClick={toggleSidebar}
               className={`s-nav-item${activePage === "/sares/dashboard" ? " s-nav-item--active" : ""}`}
             >
               <LayoutDashboard className="s-nav-icon" />
@@ -48,6 +49,7 @@ function Sidebar({ activePage }) {
           <li>
             <Link
               to="/sares/students"
+              onClick={toggleSidebar}
               className={`s-nav-item${activePage === "/sares/students" ? " s-nav-item--active" : ""}`}
             >
               <Users className="s-nav-icon" />
@@ -58,6 +60,7 @@ function Sidebar({ activePage }) {
           <li>
             <Link
               to="/sares/violation"
+              onClick={toggleSidebar}
               className={`s-nav-item${activePage === "/sares/violation" ? " s-nav-item--active" : ""}`}
             >
               <ClipboardList className="s-nav-icon" />
@@ -68,6 +71,7 @@ function Sidebar({ activePage }) {
           <li>
             <Link
               to="/sares/rules"
+              onClick={toggleSidebar}
               className={`s-nav-item${activePage === "/sares/rules" ? " s-nav-item--active" : ""}`}
             >
               <ShieldCheck className="s-nav-icon" />
@@ -78,6 +82,7 @@ function Sidebar({ activePage }) {
           <li>
             <Link
               to="/sares/reports"
+              onClick={toggleSidebar}
               className={`s-nav-item${activePage === "/sares/reports" ? " s-nav-item--active" : ""}`}
             >
               <BarChart3 className="s-nav-icon" />
@@ -176,7 +181,7 @@ function AddStudentModal({ onClose, onAdd, nextId }) {
 }
 
 /* Student List View */
-function StudentList({ students, onSelect, onAddStudent, location }) {
+function StudentList({ students, onSelect, onAddStudent, location, sidebarOpen, setSidebarOpen }) {
   const [search, setSearch] = useState('');
   const [yearFilter, setYearFilter] = useState('All Year');
   const [showModal, setShowModal] = useState(false);
@@ -201,7 +206,18 @@ function StudentList({ students, onSelect, onAddStudent, location }) {
 
   return (
     <div className="s-page">
-      <Sidebar activePage={location?.pathname || "/sares/students"} />
+      <div className="s-mobile-menu-bar">
+        <div className="s-logo">
+          <div className="s-logo-icon">
+            <img src={wesleyLogo} alt="Logo" className="school-logo" />
+          </div>
+          <h1 className="s-logo-text">SARES</h1>
+        </div>
+        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="s-mobile-menu-btn">
+          {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
+      </div>
+      <Sidebar activePage={location?.pathname || "/sares/students"} isOpen={sidebarOpen} toggleSidebar={() => setSidebarOpen(false)} />
 
       <div className="s-main">
         <div className="s-main-header">
@@ -327,10 +343,21 @@ function StudentList({ students, onSelect, onAddStudent, location }) {
 }
 
 /* Student Profile */
-function StudentProfile({ student, onBack, onSelectViolation, location }) {
+function StudentProfile({ student, onBack, onSelectViolation, location, sidebarOpen, setSidebarOpen }) {
   return (
     <div className="s-page">
-      <Sidebar activePage={location.pathname} />
+      <div className="s-mobile-menu-bar">
+        <div className="s-logo">
+          <div className="s-logo-icon">
+            <img src={wesleyLogo} alt="Logo" className="school-logo" />
+          </div>
+          <h1 className="s-logo-text">SARES</h1>
+        </div>
+        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="s-mobile-menu-btn">
+          {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
+      </div>
+      <Sidebar activePage={location.pathname} isOpen={sidebarOpen} toggleSidebar={() => setSidebarOpen(false)} />
 
       <div className="s-main">
         <div className="s-back-bar">
@@ -456,10 +483,21 @@ function StudentProfile({ student, onBack, onSelectViolation, location }) {
 }
 
 /* Violation Details*/
-function ViolationDetails({ violation, student, onBack, location }) {
+function ViolationDetails({ violation, student, onBack, location, sidebarOpen, setSidebarOpen }) {
   return (
     <div className="s-page">
-      <Sidebar activePage={location.pathname} />
+      <div className="s-mobile-menu-bar">
+        <div className="s-logo">
+          <div className="s-logo-icon">
+            <img src={wesleyLogo} alt="Logo" className="school-logo" />
+          </div>
+          <h1 className="s-logo-text">SARES</h1>
+        </div>
+        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="s-mobile-menu-btn">
+          {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
+      </div>
+      <Sidebar activePage={location.pathname} isOpen={sidebarOpen} toggleSidebar={() => setSidebarOpen(false)} />
 
       <div className="s-main s-main--scrollable">
         <div className="s-back-bar">
@@ -579,6 +617,7 @@ function ViolationDetails({ violation, student, onBack, location }) {
 /* Students */
 export default function Students() {
   const location = useLocation();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [view, setView] = useState('list');
   const [students, setStudents] = useState([]);
@@ -674,6 +713,8 @@ export default function Students() {
         student={selectedStudent}
         onBack={() => setView('profile')}
         location={location}
+        sidebarOpen={sidebarOpen}
+        setSidebarOpen={setSidebarOpen}
       />
     );
   }
@@ -685,6 +726,8 @@ export default function Students() {
         onBack={() => setView('list')}
         onSelectViolation={handleSelectViolation}
         location={location}
+        sidebarOpen={sidebarOpen}
+        setSidebarOpen={setSidebarOpen}
       />
     );
   }
@@ -695,6 +738,8 @@ export default function Students() {
       onSelect={handleSelectStudent}
       onAddStudent={handleAddStudent}
       location={location}
+      sidebarOpen={sidebarOpen}
+      setSidebarOpen={setSidebarOpen}
     />
   );
 }

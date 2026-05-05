@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import '../css/Dashboard.css'
 import heroImg from '../assets/hero.png'
 import wesleyLogo from '../assets/wesley-logo.png'
-import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut } from 'lucide-react'
+import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X } from 'lucide-react'
 const API_URL = 'http://127.0.0.1:5000';
 
 const Dashboard = () => {
@@ -33,7 +33,8 @@ const Dashboard = () => {
       ]);
 
       const summaryData = await summaryRes.json();
-      const violationsData = await violationsRes.json();
+      const violationsDataRaw = await violationsRes.json();
+      const violationsData = Array.isArray(violationsDataRaw) ? violationsDataRaw : [];
 
       setSummary(summaryData);
       setRecentViolations(violationsData.slice(0, 5));
@@ -92,6 +93,18 @@ const Dashboard = () => {
     }));
   };
 
+  const getInitials = (name) => {
+    if (!name || typeof name !== 'string') return 'ST';
+    return name
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((n) => n[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase() || 'ST';
+  };
+
 
 
 
@@ -108,9 +121,7 @@ const Dashboard = () => {
           <h1 className="admin-title">SARES</h1>
         </div>
         <button onClick={() => setSidebarOpen(!sidebarOpen)} className="mobile-menu-btn">
-          <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
+          {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
       </div>
 
@@ -128,31 +139,31 @@ const Dashboard = () => {
         <nav className="navigation">
           <ul className="nav-list">
             <li>
-              <Link to="/sares/dashboard" className={`nav-item${location.pathname === '/sares/dashboard' ? '-active' : ''}`}>
+              <Link to="/sares/dashboard" onClick={() => setSidebarOpen(false)} className={`nav-item${location.pathname === '/sares/dashboard' ? '-active' : ''}`}>
                 <LayoutDashboard className="nav-icon" />
                 <span className="nav-text">Dashboard</span>
               </Link>
             </li>
             <li>
-              <Link to="/sares/students" className={`nav-item${location.pathname === '/sares/students' ? '-active' : ''}`}>
+              <Link to="/sares/students" onClick={() => setSidebarOpen(false)} className={`nav-item${location.pathname === '/sares/students' ? '-active' : ''}`}>
                 <Users className="nav-icon" />
                 <span className="nav-text">Students</span>
               </Link>
             </li>
             <li>
-              <Link to="/sares/violation" className={`nav-item${location.pathname === '/sares/violation' ? '-active' : ''}`}>
+              <Link to="/sares/violation" onClick={() => setSidebarOpen(false)} className={`nav-item${location.pathname === '/sares/violation' ? '-active' : ''}`}>
                 <ClipboardList className="nav-icon" />
                 <span className="nav-text">Log Violation</span>
               </Link>
             </li>
             <li>
-              <Link to="/sares/rules" className={`nav-item${location.pathname === '/sares/rules' ? '-active' : ''}`}>
+              <Link to="/sares/rules" onClick={() => setSidebarOpen(false)} className={`nav-item${location.pathname === '/sares/rules' ? '-active' : ''}`}>
                 <ShieldCheck className="nav-icon" />
                 <span className="nav-text">Rule Management</span>
               </Link>
             </li>
             <li>
-              <Link to="/sares/reports" className={`nav-item${location.pathname === '/sares/reports' ? '-active' : ''}`}>
+              <Link to="/sares/reports" onClick={() => setSidebarOpen(false)} className={`nav-item${location.pathname === '/sares/reports' ? '-active' : ''}`}>
                 <BarChart3 className="nav-icon" />
                 <span className="nav-text">Reports</span>
               </Link>
@@ -277,7 +288,7 @@ const Dashboard = () => {
                 {recentViolations.map((v) => (
                   <div className="violation-row" key={v.violation_id}>
                     <div className="avatar" style={{ background: '#7b9dff22', color: '#7b9dff' }}>
-                      {v.student_name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'ST'}
+                      {getInitials(v.student_name)}
                     </div>
 
                     <div className="violation-info">
@@ -304,7 +315,7 @@ const Dashboard = () => {
                   repeatOffenders.map((student) => (
                     <div className="offender-card offender-card--amber" key={student.student_id}>
                       <div className="avatar avatar--lg" style={{ background: '#d96eff22', color: '#d96eff' }}>
-                        {student.student_name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'ST'}
+                        {getInitials(student.student_name)}
                       </div>
 
                       <div className="offender-info">

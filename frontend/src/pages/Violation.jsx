@@ -2,12 +2,12 @@ import React, { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import '../css/Violation.css'
 import wesleyLogo from '../assets/wesley-logo.png'
-import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut } from 'lucide-react'
+import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X } from 'lucide-react'
 const API_URL = 'http://127.0.0.1:5000'
 
-function Sidebar({ activePage, handleLogout }) {
+function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar }) {
   return (
-    <div className="v-sidebar">
+    <div className={`v-sidebar${isOpen ? ' v-sidebar--open' : ''}`}>
       <div className="v-logo">
         <div className="v-logo-icon">
           <img
@@ -22,6 +22,7 @@ function Sidebar({ activePage, handleLogout }) {
       <nav className="v-nav">
         <Link
           to="/sares/dashboard"
+          onClick={toggleSidebar}
           className={`v-nav-item${activePage === "/sares/dashboard" ? " active" : ""}`}
         >
           <LayoutDashboard className="v-nav-icon" />
@@ -30,6 +31,7 @@ function Sidebar({ activePage, handleLogout }) {
 
         <Link
           to="/sares/students"
+          onClick={toggleSidebar}
           className={`v-nav-item${activePage === "/sares/students" ? " active" : ""}`}
         >
           <Users className="v-nav-icon" />
@@ -38,6 +40,7 @@ function Sidebar({ activePage, handleLogout }) {
 
         <Link
           to="/sares/violation"
+          onClick={toggleSidebar}
           className={`v-nav-item${activePage === "/sares/violation" ? " active" : ""}`}
         >
           <ClipboardList className="v-nav-icon" />
@@ -46,6 +49,7 @@ function Sidebar({ activePage, handleLogout }) {
 
         <Link
           to="/sares/rules"
+          onClick={toggleSidebar}
           className={`v-nav-item${activePage === "/sares/rules" ? " active" : ""}`}
         >
           <ShieldCheck className="v-nav-icon" />
@@ -54,6 +58,7 @@ function Sidebar({ activePage, handleLogout }) {
 
         <Link
           to="/sares/reports"
+          onClick={toggleSidebar}
           className={`v-nav-item${activePage === "/sares/reports" ? " active" : ""}`}
         >
           <BarChart3 className="v-nav-icon" />
@@ -74,6 +79,7 @@ function Sidebar({ activePage, handleLogout }) {
 export default function Violation() {
   const location = useLocation();
   const navigate = useNavigate();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [students, setStudents] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -222,7 +228,24 @@ export default function Violation() {
 
   return (
     <div className="v-page">
-      <Sidebar activePage={location.pathname} handleLogout={handleLogout} />
+      <div className="v-mobile-menu-bar">
+        <div className="v-logo">
+          <div className="v-logo-icon">
+            <img src={wesleyLogo} alt="Logo" className="school-logo" />
+          </div>
+          <h1>SARES</h1>
+        </div>
+        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="v-mobile-menu-btn">
+          {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
+      </div>
+
+      <Sidebar 
+        activePage={location.pathname} 
+        handleLogout={handleLogout} 
+        isOpen={sidebarOpen} 
+        toggleSidebar={() => setSidebarOpen(false)} 
+      />
 
       <div className="v-main">
 

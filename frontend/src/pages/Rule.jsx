@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import '../css/Rule.css'
 import wesleyLogo from '../assets/wesley-logo.png'
-import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut } from 'lucide-react'
+import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X } from 'lucide-react'
 const API_URL = 'http://127.0.0.1:5000'
 
-function Sidebar({ activePage, handleLogout }) {
+function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar }) {
   return (
-    <aside className="rule-sidebar">
+    <aside className={`rule-sidebar${isOpen ? ' rule-sidebar--open' : ''}`}>
       <div className="rule-sidebar-header">
         <div className="rule-logo">
           <div className="rule-logo-icon">
@@ -22,7 +22,7 @@ function Sidebar({ activePage, handleLogout }) {
       <nav className="rule-nav">
         <ul className="rule-nav-list">
           <li>
-            <Link to="/sares/dashboard" className={`rule-nav-item${activePage === '/sares/dashboard' ? ' rule-nav-item--active' : ''}`}>
+            <Link to="/sares/dashboard" onClick={toggleSidebar} className={`rule-nav-item${activePage === '/sares/dashboard' ? ' rule-nav-item--active' : ''}`}>
               <LayoutDashboard className="rule-nav-icon" />
               Dashboard
             </Link>
@@ -30,14 +30,14 @@ function Sidebar({ activePage, handleLogout }) {
 
           <li>
 
-            <Link to="/sares/students" className={`rule-nav-item${activePage === '/sares/students' ? ' rule-nav-item--active' : ''}`}>
+            <Link to="/sares/students" onClick={toggleSidebar} className={`rule-nav-item${activePage === '/sares/students' ? ' rule-nav-item--active' : ''}`}>
               <Users className="rule-nav-icon" />
               Students
             </Link>
           </li>
 
           <li>
-            <Link to="/sares/violation" className={`rule-nav-item${activePage === '/sares/violation' ? ' rule-nav-item--active' : ''}`}>
+            <Link to="/sares/violation" onClick={toggleSidebar} className={`rule-nav-item${activePage === '/sares/violation' ? ' rule-nav-item--active' : ''}`}>
               <ClipboardList className="rule-nav-icon" />
               Log Violation
             </Link>
@@ -45,7 +45,7 @@ function Sidebar({ activePage, handleLogout }) {
 
           <li>
 
-            <Link to="/sares/rules" className={`rule-nav-item${activePage === '/sares/rules' ? ' rule-nav-item--active' : ''}`}>
+            <Link to="/sares/rules" onClick={toggleSidebar} className={`rule-nav-item${activePage === '/sares/rules' ? ' rule-nav-item--active' : ''}`}>
               <ShieldCheck className="rule-nav-icon" />
               Rule Management
             </Link>
@@ -53,7 +53,7 @@ function Sidebar({ activePage, handleLogout }) {
 
           <li>
 
-            <Link to="/sares/reports" className={`rule-nav-item${activePage === '/sares/reports' ? ' rule-nav-item--active' : ''}`}>
+            <Link to="/sares/reports" onClick={toggleSidebar} className={`rule-nav-item${activePage === '/sares/reports' ? ' rule-nav-item--active' : ''}`}>
               <BarChart3 className="rule-nav-icon" />
               Reports
             </Link>
@@ -414,6 +414,8 @@ function EditRuleModal({ rule, onClose, onSave, categories }) {
 
 export default function Rule() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [rules, setRules] = useState(INITIAL_RULES);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All Categories');
@@ -424,6 +426,11 @@ export default function Rule() {
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState([]);
   const [categories, setCategories] = useState([]);
+
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    navigate('/login');
+  };
 
   const showToast = (message) => {
     setToast(message);
@@ -552,7 +559,24 @@ export default function Rule() {
 
   return (
     <div className="rule-page">
-      <Sidebar activePage={location.pathname} />
+      <div className="mobile-menu-bar">
+        <div className="rule-logo">
+          <div className="rule-logo-icon">
+            <img src={wesleyLogo} alt="Olongapo Wesley School Logo" className="school-logo" />
+          </div>
+          <h1 className="rule-logo-text">SARES</h1>
+        </div>
+        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="mobile-menu-btn">
+          {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
+      </div>
+
+      <Sidebar
+        activePage={location.pathname}
+        handleLogout={handleLogout}
+        isOpen={sidebarOpen}
+        toggleSidebar={() => setSidebarOpen(false)}
+      />
 
       <main className="rule-main">
         <section className="rule-hero">

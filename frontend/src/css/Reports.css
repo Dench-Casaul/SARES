@@ -790,20 +790,77 @@
 
 /* responsive */
 
-@media (max-width: 900px) {
-  .report-page {
-    flex-direction: column;
+/* mobile menu bar */
+.report-mobile-menu-bar {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #1198e8;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+}
+
+.report-mobile-menu-bar .report-logo {
+  gap: 10px;
+}
+
+.report-mobile-menu-bar .report-logo-text {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.report-mobile-menu-bar .report-logo-icon {
+  width: 40px;
+  height: 40px;
+}
+
+.report-mobile-menu-bar .school-logo {
+  width: 34px;
+  height: 34px;
+}
+
+.report-mobile-menu-btn {
+  background: none;
+  border: none;
+  color: #ffffff;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 768px) {
+  .report-mobile-menu-bar {
+    display: flex;
   }
 
   .report-sidebar {
-    width: 100%;
-    min-width: 100%;
-    height: auto;
+    display: none;
+    position: fixed;
+    top: 60px;
+    left: 0;
+    bottom: 0;
+    z-index: 40;
+    width: 265px;
+    min-width: 265px;
+    height: calc(100vh - 60px);
+  }
+
+  .report-sidebar--open {
+    display: flex !important;
+    animation: report-slideIn 0.3s ease-out;
   }
 
   .report-main {
-    height: auto;
-    padding: 20px;
+    padding-top: 88px !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
   }
 
   .report-hero {
@@ -814,24 +871,25 @@
     display: none;
   }
 
-  .report-filter-row,
-  .report-decision-grid,
-  .report-bottom-grid,
+  .report-tabs {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 4px;
+  }
+
   .report-stat-grid {
     grid-template-columns: 1fr;
-    display: grid;
   }
 
-  .report-filter-row select,
-  .report-controls select {
-    width: 100%;
+  .report-bottom-grid {
+    grid-template-columns: 1fr;
   }
+}
 
-  .report-tabs {
-    grid-template-columns: 1fr 1fr;
+@keyframes report-slideIn {
+  from {
+    transform: translateX(-100%);
   }
-
-  .report-bars-area {
-    gap: 12px;
+  to {
+    transform: translateX(0);
   }
 }

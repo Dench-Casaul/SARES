@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Mail, Lock } from "lucide-react";
 import heroImg from "../assets/hero.png";
+import wesleyLogo from "../assets/wesley-logo.png";
+import saresLogo from "../assets/sares-logo.png";
 import "../css/Login.css";
 
 function Login() {
@@ -57,19 +60,23 @@ function Login() {
       >
         <div className="hero-overlay" />
 
-        <div className="hero-copy">
-          <h1 className="hero-title">SARES</h1>
-          <p className="hero-description">
-            Rule-based sanction recommendations, real-time analytics, and
-            comprehensive student profile management for modern campus
-            operations.
-          </p>
-
-          <ul className="feature-list">
-            <li>Rule-based sanction recommendations</li>
-            <li>Real-time analytics and reporting</li>
-            <li>Comprehensive student profile management</li>
-          </ul>
+        <div className="hero-branding">
+          <div className="hero-logos">
+            <img
+              src={wesleyLogo}
+              alt="Olongapo Wesley School seal"
+              className="hero-logo hero-logo--wesley"
+            />
+            <img
+              src={saresLogo}
+              alt="SARES logo"
+              className="hero-logo hero-logo--sares"
+            />
+          </div>
+          <h1 className="hero-system-title">
+            <span>Sanction Recommendation</span>
+            <span>System</span>
+          </h1>
         </div>
       </section>
 
@@ -82,10 +89,11 @@ function Login() {
 
           <form className="login-form" onSubmit={handleLogin}>
             <label className="form-field">
-              <span>Email</span>
+              <span>Email Address</span>
 
               <div className="input-group">
-                <span className="input-icon" aria-hidden="true" placeholder="email@domain.com"> 
+                <span className="input-icon" aria-hidden="true">
+                  <Mail className="input-icon-svg" strokeWidth={2} />
                 </span>
 
                 <input
@@ -103,7 +111,8 @@ function Login() {
               <span>Password</span>
 
               <div className="input-group">
-                <span className="input-icon" aria-hidden="true" placeholder="********">
+                <span className="input-icon" aria-hidden="true">
+                  <Lock className="input-icon-svg" strokeWidth={2} />
                 </span>
 
                 <input

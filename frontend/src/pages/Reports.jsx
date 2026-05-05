@@ -1,13 +1,13 @@
 import React, { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import '../css/Reports.css'
-import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut } from 'lucide-react'
+import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X } from 'lucide-react'
 import wesleyLogo from '../assets/wesley-logo.png'
 
 
-function Sidebar({ activePage, handleLogout }) {
+function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar }) {
   return (
-    <aside className="report-sidebar">
+    <aside className={`report-sidebar${isOpen ? ' report-sidebar--open' : ''}`}>
       <div className="report-sidebar-header">
         <div className="report-logo">
           <div className="report-logo-icon">
@@ -28,6 +28,7 @@ function Sidebar({ activePage, handleLogout }) {
           <li>
             <Link
               to="/sares/dashboard"
+              onClick={toggleSidebar}
               className={`report-nav-item${activePage === "/sares/dashboard" ? " report-nav-item--active" : ""}`}
             >
               <LayoutDashboard className="report-nav-icon" />
@@ -38,6 +39,7 @@ function Sidebar({ activePage, handleLogout }) {
           <li>
             <Link
               to="/sares/students"
+              onClick={toggleSidebar}
               className={`report-nav-item${activePage === "/sares/students" ? " report-nav-item--active" : ""}`}
             >
               <Users className="report-nav-icon" />
@@ -48,6 +50,7 @@ function Sidebar({ activePage, handleLogout }) {
           <li>
             <Link
               to="/sares/violation"
+              onClick={toggleSidebar}
               className={`report-nav-item${activePage === "/sares/violation" ? " report-nav-item--active" : ""}`}
             >
               <ClipboardList className="report-nav-icon" />
@@ -58,6 +61,7 @@ function Sidebar({ activePage, handleLogout }) {
           <li>
             <Link
               to="/sares/rules"
+              onClick={toggleSidebar}
               className={`report-nav-item${activePage === "/sares/rules" ? " report-nav-item--active" : ""}`}
             >
               <ShieldCheck className="report-nav-icon" />
@@ -68,6 +72,7 @@ function Sidebar({ activePage, handleLogout }) {
           <li>
             <Link
               to="/sares/reports"
+              onClick={toggleSidebar}
               className={`report-nav-item${activePage === "/sares/reports" ? " report-nav-item--active" : ""}`}
             >
               <BarChart3 className="report-nav-icon" />
@@ -162,6 +167,7 @@ const trendData = [
 export default function Report() {
   const location = useLocation();
   const navigate = useNavigate();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [activeTab, setActiveTab] = useState('frequency');
   const [yearFilter, setYearFilter] = useState('All Year Level');
@@ -183,7 +189,19 @@ export default function Report() {
 
   return (
     <div className="report-page">
-      <Sidebar activePage={location.pathname} />
+      <div className="report-mobile-menu-bar">
+        <div className="report-logo">
+          <div className="report-logo-icon">
+            <img src={wesleyLogo} alt="Logo" className="school-logo" />
+          </div>
+          <h1 className="report-logo-text">SARES</h1>
+        </div>
+        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="report-mobile-menu-btn">
+          {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
+      </div>
+
+      <Sidebar activePage={location.pathname} isOpen={sidebarOpen} toggleSidebar={() => setSidebarOpen(false)} />
 
       <main className="report-main">
         <section className="report-hero">
