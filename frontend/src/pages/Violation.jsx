@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import '../css/Violation.css'
 import wesleyLogo from '../assets/wesley-logo.png'
-import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X } from 'lucide-react'
+import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X, ChevronDown } from 'lucide-react'
 const API_URL = 'http://127.0.0.1:5000'
 
 function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar }) {
@@ -84,7 +84,37 @@ export default function Violation() {
   const [students, setStudents] = useState([]);
   const [categories, setCategories] = useState([]);
   const [rules, setRules] = useState([]);
+  const [studentQuery, setStudentQuery] = useState('');
+  const [studentMenuOpen, setStudentMenuOpen] = useState(false);
+  const studentBlurTimer = useRef(null);
+
+  const [categoryQuery, setCategoryQuery] = useState('');
+  const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
+  const categoryBlurTimer = useRef(null);
+
+  const [ruleQuery, setRuleQuery] = useState('');
+  const [ruleMenuOpen, setRuleMenuOpen] = useState(false);
+  const ruleBlurTimer = useRef(null);
+
   const today = new Date().toISOString().split('T')[0];
+
+  const filteredStudents = useMemo(() => {
+    const q = studentQuery.trim().toLowerCase();
+    if (!q) return students;
+    return students.filter(
+      (s) =>
+        (s.full_name && s.full_name.toLowerCase().includes(q)) ||
+        String(s.student_number ?? '').toLowerCase().includes(q)
+    );
+  }, [students, studentQuery]);
+
+  const filteredCategories = useMemo(() => {
+    const q = categoryQuery.trim().toLowerCase();
+    if (!q) return categories;
+    return categories.filter(
+      (c) => c.category_name && c.category_name.toLowerCase().includes(q)
+    );
+  }, [categories, categoryQuery]);
 
   const handleLogout = () => {
     localStorage.removeItem('user');
@@ -100,6 +130,17 @@ export default function Violation() {
     rule_id: '',
     incident_description: '',
   });
+
+  const filteredRules = useMemo(() => {
+    if (!form.category_id) return [];
+    const q = ruleQuery.trim().toLowerCase();
+    if (!q) return rules;
+    return rules.filter(
+      (r) =>
+        (r.offense_variety && r.offense_variety.toLowerCase().includes(q)) ||
+        (r.severity && String(r.severity).toLowerCase().includes(q))
+    );
+  }, [rules, ruleQuery, form.category_id]);
 
   useEffect(() => {
     fetchStudents();
@@ -139,25 +180,161 @@ export default function Violation() {
     }
   };
 
+  const clearStudentBlurTimer = () => {
+    if (studentBlurTimer.current) {
+      clearTimeout(studentBlurTimer.current);
+      studentBlurTimer.current = null;
+    }
+  };
+
+  const openStudentMenu = () => {
+    clearStudentBlurTimer();
+    setStudentMenuOpen(true);
+  };
+
+  const scheduleCloseStudentMenu = () => {
+    clearStudentBlurTimer();
+    studentBlurTimer.current = setTimeout(() => setStudentMenuOpen(false), 175);
+  };
+
+  const pickStudent = (student) => {
+    setForm((f) => ({
+      ...f,
+      student_id: String(student.student_id),
+    }));
+    setStudentQuery(student.full_name);
+    setStudentMenuOpen(false);
+  };
+
+  const onStudentInputChange = (e) => {
+    const value = e.target.value;
+    setStudentQuery(value);
+    openStudentMenu();
+    setForm((f) => {
+      if (!value.trim()) return { ...f, student_id: '' };
+      if (!f.student_id) return f;
+      const current = students.find((s) => String(s.student_id) === String(f.student_id));
+      if (current && value === current.full_name) return f;
+      return { ...f, student_id: '' };
+    });
+  };
+
+  const toggleStudentMenu = () => {
+    clearStudentBlurTimer();
+    setStudentMenuOpen((open) => !open);
+  };
+
+  const clearCategoryBlurTimer = () => {
+    if (categoryBlurTimer.current) {
+      clearTimeout(categoryBlurTimer.current);
+      categoryBlurTimer.current = null;
+    }
+  };
+
+  const openCategoryMenu = () => {
+    clearCategoryBlurTimer();
+    setCategoryMenuOpen(true);
+  };
+
+  const scheduleCloseCategoryMenu = () => {
+    clearCategoryBlurTimer();
+    categoryBlurTimer.current = setTimeout(() => setCategoryMenuOpen(false), 175);
+  };
+
+  const pickCategory = (category) => {
+    const id = String(category.category_id);
+    setRules([]);
+    setForm((f) => ({
+      ...f,
+      category_id: id,
+      rule_id: '',
+    }));
+    setCategoryQuery(category.category_name);
+    setCategoryMenuOpen(false);
+    setRuleQuery('');
+    fetchRulesByCategory(id);
+  };
+
+  const onCategoryInputChange = (e) => {
+    const value = e.target.value;
+    setCategoryQuery(value);
+    openCategoryMenu();
+    setForm((f) => {
+      if (!value.trim()) return { ...f, category_id: '', rule_id: '' };
+      if (!f.category_id) return f;
+      const current = categories.find((c) => String(c.category_id) === String(f.category_id));
+      if (current && value === current.category_name) return f;
+      return { ...f, category_id: '', rule_id: '' };
+    });
+  };
+
+  const toggleCategoryMenu = () => {
+    clearCategoryBlurTimer();
+    setCategoryMenuOpen((open) => !open);
+  };
+
+  const clearRuleBlurTimer = () => {
+    if (ruleBlurTimer.current) {
+      clearTimeout(ruleBlurTimer.current);
+      ruleBlurTimer.current = null;
+    }
+  };
+
+  const openRuleMenu = () => {
+    if (!form.category_id) return;
+    clearRuleBlurTimer();
+    setRuleMenuOpen(true);
+  };
+
+  const scheduleCloseRuleMenu = () => {
+    clearRuleBlurTimer();
+    ruleBlurTimer.current = setTimeout(() => setRuleMenuOpen(false), 175);
+  };
+
+  const pickRule = (rule) => {
+    setForm((f) => ({ ...f, rule_id: String(rule.rule_id) }));
+    setRuleQuery(rule.offense_variety);
+    setRuleMenuOpen(false);
+  };
+
+  const onRuleInputChange = (e) => {
+    if (!form.category_id) return;
+    const value = e.target.value;
+    setRuleQuery(value);
+    openRuleMenu();
+    setForm((f) => {
+      if (!value.trim()) return { ...f, rule_id: '' };
+      if (!f.rule_id) return f;
+      const current = rules.find((r) => String(r.rule_id) === String(f.rule_id));
+      if (current && value === current.offense_variety) return f;
+      return { ...f, rule_id: '' };
+    });
+  };
+
+  const toggleRuleMenu = () => {
+    if (!form.category_id) return;
+    clearRuleBlurTimer();
+    setRuleMenuOpen((open) => !open);
+  };
+
+  useEffect(() => {
+    if (!form.category_id) {
+      setRules([]);
+      setRuleQuery('');
+    }
+  }, [form.category_id]);
+
+  useEffect(
+    () => () => {
+      clearStudentBlurTimer();
+      clearCategoryBlurTimer();
+      clearRuleBlurTimer();
+    },
+    []
+  );
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-
-    if (name === 'category_id') {
-      setForm({
-        ...form,
-        category_id: value,
-        rule_id: '',
-      });
-
-      if (value) {
-        fetchRulesByCategory(value);
-      } else {
-        setRules([]);
-      }
-
-      return;
-    }
-
     setForm({
       ...form,
       [name]: value,
@@ -169,6 +346,7 @@ export default function Violation() {
 
     if (
       !form.student_id ||
+      !form.category_id ||
       !form.rule_id ||
       !form.incident_date ||
       !form.incident_description
@@ -214,6 +392,14 @@ export default function Violation() {
         rule_id: '',
         incident_description: '',
       });
+
+      setStudentQuery('');
+      setStudentMenuOpen(false);
+
+      setCategoryQuery('');
+      setCategoryMenuOpen(false);
+      setRuleQuery('');
+      setRuleMenuOpen(false);
 
       setRules([]);
 
@@ -264,20 +450,69 @@ export default function Violation() {
 
           <div className="v-field-row">
             <div className="v-field">
-              <label className="v-label">Student *</label>
-              <select
-                className="v-input v-select"
-                name="student_id"
-                value={form.student_id}
-                onChange={handleChange}
+              <label className="v-label" id="v-student-label">
+                Student *
+              </label>
+              <div
+                className="v-student-combobox"
+                role="combobox"
+                aria-expanded={studentMenuOpen}
+                aria-haspopup="listbox"
+                aria-labelledby="v-student-label"
               >
-                <option value="">Select a student</option>
-                {students.map((student) => (
-                  <option key={student.student_id} value={student.student_id}>
-                    {student.full_name}
-                  </option>
-                ))}
-              </select>
+                <div className="v-student-combobox-inner">
+                  <input
+                    type="text"
+                    className="v-input v-student-input"
+                    autoComplete="off"
+                    placeholder="Search or select a student"
+                    value={studentQuery}
+                    onChange={onStudentInputChange}
+                    onFocus={openStudentMenu}
+                    onBlur={scheduleCloseStudentMenu}
+                    aria-controls="v-student-listbox"
+                    aria-autocomplete="list"
+                  />
+                  <button
+                    type="button"
+                    className={`v-student-chevron-btn${studentMenuOpen ? ' v-student-chevron-btn--open' : ''}`}
+                    aria-label={studentMenuOpen ? 'Close student list' : 'Open student list'}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={toggleStudentMenu}
+                  >
+                    <ChevronDown size={20} strokeWidth={2.25} aria-hidden />
+                  </button>
+                </div>
+                {studentMenuOpen && (
+                  <ul
+                    className="v-student-dropdown"
+                    id="v-student-listbox"
+                    role="listbox"
+                  >
+                    {filteredStudents.length === 0 ? (
+                      <li className="v-student-option v-student-option--empty">
+                        {students.length === 0 ? 'No students loaded.' : 'No matching students.'}
+                      </li>
+                    ) : (
+                      filteredStudents.map((student) => (
+                        <li
+                          key={student.student_id}
+                          role="option"
+                          aria-selected={String(student.student_id) === String(form.student_id)}
+                          className="v-student-option"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => pickStudent(student)}
+                        >
+                          <span className="v-student-option-name">{student.full_name}</span>
+                          {student.student_number ? (
+                            <span className="v-student-option-meta">{student.student_number}</span>
+                          ) : null}
+                        </li>
+                      ))
+                    )}
+                  </ul>
+                )}
+              </div>
             </div>
 
             <div className="v-field">
@@ -294,41 +529,134 @@ export default function Violation() {
 
           <div className="v-field-row">
             <div className="v-field">
-              <label className="v-label">Offense Category *</label>
-              <select
-                className="v-input v-select"
-                name="category_id"
-                value={form.category_id}
-                onChange={handleChange}
+              <label className="v-label" id="v-category-label">
+                Offense Category *
+              </label>
+              <div
+                className="v-student-combobox"
+                role="combobox"
+                aria-expanded={categoryMenuOpen}
+                aria-haspopup="listbox"
+                aria-labelledby="v-category-label"
               >
-                <option value="">Select category</option>
-                {categories.map((category) => (
-                  <option key={category.category_id} value={category.category_id}>
-                    {category.category_name}
-                  </option>
-                ))}
-              </select>
+                <div className="v-student-combobox-inner">
+                  <input
+                    type="text"
+                    className="v-input v-student-input"
+                    autoComplete="off"
+                    placeholder="Search or select a category"
+                    value={categoryQuery}
+                    onChange={onCategoryInputChange}
+                    onFocus={openCategoryMenu}
+                    onBlur={scheduleCloseCategoryMenu}
+                    aria-controls="v-category-listbox"
+                    aria-autocomplete="list"
+                  />
+                  <button
+                    type="button"
+                    className={`v-student-chevron-btn${categoryMenuOpen ? ' v-student-chevron-btn--open' : ''}`}
+                    aria-label={categoryMenuOpen ? 'Close category list' : 'Open category list'}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={toggleCategoryMenu}
+                  >
+                    <ChevronDown size={20} strokeWidth={2.25} aria-hidden />
+                  </button>
+                </div>
+                {categoryMenuOpen && (
+                  <ul
+                    className="v-student-dropdown"
+                    id="v-category-listbox"
+                    role="listbox"
+                  >
+                    {filteredCategories.length === 0 ? (
+                      <li className="v-student-option v-student-option--empty">
+                        {categories.length === 0 ? 'No categories loaded.' : 'No matching categories.'}
+                      </li>
+                    ) : (
+                      filteredCategories.map((category) => (
+                        <li
+                          key={category.category_id}
+                          role="option"
+                          aria-selected={String(category.category_id) === String(form.category_id)}
+                          className="v-student-option"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => pickCategory(category)}
+                        >
+                          <span className="v-student-option-name">{category.category_name}</span>
+                        </li>
+                      ))
+                    )}
+                  </ul>
+                )}
+              </div>
             </div>
 
             <div className="v-field">
-              <label className="v-label">Offense Variety *</label>
-              <select
-                className="v-input v-select"
-                name="rule_id"
-                value={form.rule_id}
-                onChange={handleChange}
-                disabled={!form.category_id}
+              <label className="v-label" id="v-rule-label">
+                Offense Variety *
+              </label>
+              <div
+                className={`v-student-combobox${!form.category_id ? ' v-student-combobox--disabled' : ''}`}
+                role="combobox"
+                aria-expanded={ruleMenuOpen}
+                aria-haspopup="listbox"
+                aria-labelledby="v-rule-label"
               >
-                <option value="">
-                  {form.category_id ? 'Select variety' : 'Select category first'}
-                </option>
-
-                {rules.map((rule) => (
-                  <option key={rule.rule_id} value={rule.rule_id}>
-                    {rule.offense_variety}
-                  </option>
-                ))}
-              </select>
+                <div className="v-student-combobox-inner">
+                  <input
+                    type="text"
+                    className="v-input v-student-input"
+                    autoComplete="off"
+                    placeholder={form.category_id ? 'Search or select a variety' : 'Select category first'}
+                    value={ruleQuery}
+                    onChange={onRuleInputChange}
+                    onFocus={openRuleMenu}
+                    onBlur={scheduleCloseRuleMenu}
+                    aria-controls="v-rule-listbox"
+                    aria-autocomplete="list"
+                    disabled={!form.category_id}
+                  />
+                  <button
+                    type="button"
+                    className={`v-student-chevron-btn${ruleMenuOpen ? ' v-student-chevron-btn--open' : ''}`}
+                    aria-label={ruleMenuOpen ? 'Close variety list' : 'Open variety list'}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={toggleRuleMenu}
+                    disabled={!form.category_id}
+                  >
+                    <ChevronDown size={20} strokeWidth={2.25} aria-hidden />
+                  </button>
+                </div>
+                {ruleMenuOpen && form.category_id && (
+                  <ul
+                    className="v-student-dropdown"
+                    id="v-rule-listbox"
+                    role="listbox"
+                  >
+                    {filteredRules.length === 0 ? (
+                      <li className="v-student-option v-student-option--empty">
+                        {rules.length === 0 ? 'Loading varieties…' : 'No matching varieties.'}
+                      </li>
+                    ) : (
+                      filteredRules.map((rule) => (
+                        <li
+                          key={rule.rule_id}
+                          role="option"
+                          aria-selected={String(rule.rule_id) === String(form.rule_id)}
+                          className="v-student-option"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => pickRule(rule)}
+                        >
+                          <span className="v-student-option-name">{rule.offense_variety}</span>
+                          {rule.severity ? (
+                            <span className="v-student-option-meta">{rule.severity}</span>
+                          ) : null}
+                        </li>
+                      ))
+                    )}
+                  </ul>
+                )}
+              </div>
             </div>
           </div>
 

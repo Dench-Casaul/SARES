@@ -159,18 +159,22 @@
 /* hero */
 
 .report-hero {
-  min-height: 150px;
   background: #ffffff;
   border: 1px solid #d8e6f7;
   border-radius: 16px;
-  overflow: hidden;
   display: grid;
-  grid-template-columns: 1fr 250px;
+  grid-template-columns: 1fr minmax(160px, 220px);
+  align-items: stretch;
+  gap: 0 8px;
   box-shadow: 0 8px 22px rgba(17, 44, 80, 0.055);
 }
 
 .report-hero-content {
-  padding: 30px 34px;
+  padding: 28px 32px 32px 34px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .report-hero-content h1 {
@@ -214,16 +218,20 @@
 }
 
 .report-hero-icon {
+  margin: 22px 26px 22px 0;
+  border-radius: 14px;
   background: linear-gradient(135deg, #eaf4ff 0%, #dff0ff 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   color: rgba(17, 152, 232, 0.42);
+  min-height: 0;
 }
 
 .report-hero-icon svg {
-  width: 104px;
-  height: 104px;
+  width: min(104px, 22vw);
+  height: min(104px, 22vw);
+  flex-shrink: 0;
 }
 
 /* filter */
