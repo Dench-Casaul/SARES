@@ -1,9 +1,19 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import {
+  addDoc,
+  arrayUnion,
+  collection,
+  doc,
+  getDocs,
+  increment,
+  serverTimestamp,
+  updateDoc,
+} from 'firebase/firestore'
+import { db } from '../firebase'
 import '../css/Violation.css'
 import wesleyLogo from '../assets/wesley-logo.png'
 import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X, ChevronDown } from 'lucide-react'
-const API_URL = 'http://127.0.0.1:5000'
 
 function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar }) {
   return (
@@ -149,8 +159,12 @@ export default function Violation() {
 
   const fetchStudents = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/students`);
-      const data = await response.json();
+      const snapshot = await getDocs(collection(db, 'students'));
+      const data = snapshot.docs.map((studentDoc) => ({
+        ...studentDoc.data(),
+        __docId: studentDoc.id,
+        student_id: studentDoc.data().student_id || studentDoc.id,
+      }));
       setStudents(data);
     } catch (error) {
       console.error('Error fetching students:', error);
@@ -160,8 +174,11 @@ export default function Violation() {
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/categories`);
-      const data = await response.json();
+      const snapshot = await getDocs(collection(db, 'offense_categories'));
+      const data = snapshot.docs.map((categoryDoc) => ({
+        ...categoryDoc.data(),
+        category_id: categoryDoc.data().category_id || categoryDoc.id,
+      }));
       setCategories(data);
     } catch (error) {
       console.error('Error fetching categories:', error);
@@ -171,8 +188,13 @@ export default function Violation() {
 
   const fetchRulesByCategory = async (categoryId) => {
     try {
-      const response = await fetch(`${API_URL}/api/rules?category_id=${categoryId}`);
-      const data = await response.json();
+      const snapshot = await getDocs(collection(db, 'rules'));
+      const data = snapshot.docs
+        .map((ruleDoc) => ({
+          ...ruleDoc.data(),
+          rule_id: ruleDoc.data().rule_id || ruleDoc.id,
+        }))
+        .filter((rule) => String(rule.category_id) === String(categoryId) && Boolean(rule.is_active));
       setRules(data);
     } catch (error) {
       console.error('Error fetching rules:', error);
@@ -357,31 +379,61 @@ export default function Violation() {
 
     const user = JSON.parse(localStorage.getItem('user'));
 
-    const violationData = {
-      student_id: form.student_id,
-      rule_id: form.rule_id,
-      incident_date: form.incident_date,
-      incident_description: form.incident_description,
-      created_by: user?.user_id || 1,
-    };
-
     try {
-      const response = await fetch('http://127.0.0.1:5000/api/violations', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(violationData),
-      });
+      const selectedStudent = students.find((student) => String(student.student_id) === String(form.student_id));
+      const selectedRule = rules.find((rule) => String(rule.rule_id) === String(form.rule_id));
+      const selectedCategory = categories.find((category) => String(category.category_id) === String(form.category_id));
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        alert(data.message || 'Failed to submit violation.');
+      if (!selectedStudent || !selectedRule || !selectedCategory) {
+        alert('Selected student, category, or rule was not found.');
         return;
       }
 
-      console.log('Saved violation:', data);
+      const violationsSnapshot = await getDocs(collection(db, 'violations'));
+      const offenseCount =
+        violationsSnapshot.docs.filter((violationDoc) => {
+          const violation = violationDoc.data();
+          return (
+            String(violation.student_id) === String(form.student_id) &&
+            String(violation.rule_id) === String(form.rule_id)
+          );
+        }).length + 1;
+
+      await addDoc(collection(db, 'violations'), {
+        student_id: form.student_id,
+        rule_id: form.rule_id,
+        incident_date: form.incident_date,
+        incident_description: form.incident_description,
+        offense_count: offenseCount,
+        severity: selectedRule.severity,
+        recommended_sanction: selectedRule.recommended_sanction,
+        provision: selectedRule.provision,
+        status: 'pending',
+        created_by: user?.user_id || 'system',
+        student_name: selectedStudent.full_name,
+        student_number: selectedStudent.student_number,
+        year_level: selectedStudent.year_level,
+        category_name: selectedCategory.category_name,
+        offense_variety: selectedRule.offense_variety,
+        created_at: serverTimestamp(),
+      });
+
+      if (selectedStudent.__docId) {
+        await updateDoc(doc(db, 'students', selectedStudent.__docId), {
+          violation_count: increment(1),
+          violations: arrayUnion({
+            id: `${Date.now()}`,
+            category: selectedCategory.category_name,
+            variety: selectedRule.offense_variety,
+            description: form.incident_description,
+            date: form.incident_date,
+            severity: selectedRule.severity,
+            sanction: selectedRule.recommended_sanction,
+            provision: selectedRule.provision,
+            status: 'pending',
+          }),
+        });
+      }
 
       setShowToast(true);
 
@@ -408,7 +460,7 @@ export default function Violation() {
       }, 3000);
     } catch (error) {
       console.error('Error saving violation:', error);
-      alert('Cannot connect to backend. Make sure Flask is running.');
+      alert('Failed to submit violation. Check Firebase rules and data.');
     }
   };
 

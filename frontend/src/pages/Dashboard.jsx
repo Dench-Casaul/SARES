@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { collection, getDocs } from 'firebase/firestore'
+import { db } from '../firebase'
 import '../css/Dashboard.css'
 import heroImg from '../assets/hero.png'
 import wesleyLogo from '../assets/wesley-logo.png'
 import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X } from 'lucide-react'
-const API_URL = 'http://127.0.0.1:5000';
 
 const Dashboard = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -27,16 +28,30 @@ const Dashboard = () => {
 
   const loadDashboard = async () => {
     try {
-      const [summaryRes, violationsRes] = await Promise.all([
-        fetch(`${API_URL}/api/dashboard/summary`),
-        fetch(`${API_URL}/api/violations`),
+      const [studentsSnapshot, violationsSnapshot] = await Promise.all([
+        getDocs(collection(db, 'students')),
+        getDocs(collection(db, 'violations')),
       ]);
+      const studentsData = studentsSnapshot.docs.map((studentDoc) => studentDoc.data());
+      const violationsData = violationsSnapshot.docs.map((violationDoc) => ({
+        violation_id: violationDoc.id,
+        ...violationDoc.data(),
+      }));
 
-      const summaryData = await summaryRes.json();
-      const violationsDataRaw = await violationsRes.json();
-      const violationsData = Array.isArray(violationsDataRaw) ? violationsDataRaw : [];
+      const pendingActions = violationsData.filter((violation) => violation.status === 'pending').length;
+      const repeatOffendersCount = new Set(
+        violationsData
+          .map((violation) => String(violation.student_id || ''))
+          .filter(Boolean)
+          .filter((studentId, _, all) => all.filter((id) => id === studentId).length >= 2)
+      ).size;
 
-      setSummary(summaryData);
+      setSummary({
+        total_students: studentsData.length,
+        total_violations: violationsData.length,
+        pending_actions: pendingActions,
+        repeat_offenders: repeatOffendersCount,
+      });
       setRecentViolations(violationsData.slice(0, 5));
       setRepeatOffenders(getRepeatOffenders(violationsData));
       setCategoryStats(getCategoryStats(violationsData));
