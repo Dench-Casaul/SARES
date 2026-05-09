@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import '../css/Reports.css'
-import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut } from 'lucide-react'
+import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, TrendingUp, TriangleAlert, CheckCircle2 } from 'lucide-react'
 import wesleyLogo from '../assets/wesley-logo.png'
 
 
@@ -102,7 +102,20 @@ export default function Report() {
   const [repeatOffenders, setRepeatOffenders] = useState([]);
   const [sanctionLogs, setSanctionLogs] = useState([]);
   const [trendData, setTrendData] = useState([]);
+  const [summaryStats, setSummaryStats] = useState({
+    totalViolations: 0,
+    studentsWithViolations: 0,
+    accepted: 0,
+    overrideRate: 0,
+  });
   const [loading, setLoading] = useState(true);
+
+
+
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    navigate('/login');
+  };
 
   const showToast = (message) => {
     setToast(message);
@@ -130,6 +143,12 @@ export default function Report() {
       setRepeatOffenders(data.repeatOffenders || []);
       setSanctionLogs(data.sanctionLogs || []);
       setTrendData(data.trendData || []);
+      setSummaryStats(data.summaryStats || {
+        totalViolations: 0,
+        studentsWithViolations: 0,
+        accepted: 0,
+        overrideRate: 0,
+      });
     } catch (error) {
       console.error('Reports fetch error:', error);
       showToast('Failed to load reports data.');
@@ -146,9 +165,24 @@ export default function Report() {
     showToast('Report exported to Excel successfully!');
   };
 
+  const mostCommonViolation =
+    categoryData.length > 0
+      ? categoryData.reduce((max, item) => item.count > max.count ? item : max, categoryData[0]).label
+      : 'No data yet';
+
+  const recommendationAcceptance =
+    summaryStats.totalViolations > 0
+      ? ((summaryStats.accepted / summaryStats.totalViolations) * 100).toFixed(1)
+      : '0.0';
+
+  const averageViolationsPerStudent =
+    summaryStats.studentsWithViolations > 0
+      ? (summaryStats.totalViolations / summaryStats.studentsWithViolations).toFixed(1)
+      : '0.0';
+
   return (
     <div className="report-page">
-      <Sidebar activePage={location.pathname} />
+      <Sidebar activePage={location.pathname} handleLogout={handleLogout} />
 
       <main className="report-main">
         <section className="report-hero">
@@ -334,17 +368,17 @@ export default function Report() {
             <div className="report-stat-grid">
               <div className="report-stat-card">
                 <p>Total Sanctions</p>
-                <h3>5</h3>
+                <h3>{summaryStats.totalViolations}</h3>
               </div>
 
               <div className="report-stat-card">
                 <p>Accepted</p>
-                <h3 className="green">4</h3>
+                <h3 className="green">{summaryStats.accepted}</h3>
               </div>
 
               <div className="report-stat-card">
                 <p>Override Rate</p>
-                <h3 className="orange">20.0%</h3>
+                <h3 className="orange">{summaryStats.overrideRate}%</h3>
               </div>
             </div>
 
@@ -425,26 +459,26 @@ export default function Report() {
 
                 <div className="report-insight-list">
                   <div className="report-insight blue">
-                    <span>↗</span>
+                    <TrendingUp size={18} />
                     <div>
                       <h3>Most Common Violation</h3>
-                      <p>Academic Dishonesty</p>
+                      <p>{mostCommonViolation}</p>
                     </div>
                   </div>
 
                   <div className="report-insight orange">
-                    <span>⚠</span>
+                    <TriangleAlert size={18} />
                     <div>
                       <h3>Repeat Offenders</h3>
-                      <p>2 students require intervention</p>
+                      <p>{repeatOffenders.length} students require intervention</p>
                     </div>
                   </div>
 
                   <div className="report-insight green">
-                    <span>▧</span>
+                    <CheckCircle2 size={18} />
                     <div>
                       <h3>Recommendation Acceptance</h3>
-                      <p>80.0% of recommendations accepted</p>
+                      <p>{recommendationAcceptance}% of recommendations accepted</p>
                     </div>
                   </div>
                 </div>
@@ -458,17 +492,17 @@ export default function Report() {
                 <div className="report-summary-list">
                   <div>
                     <p>Total Violations This Year</p>
-                    <h3>5</h3>
+                    <h3>{summaryStats.totalViolations}</h3>
                   </div>
 
                   <div>
                     <p>Students with Violations</p>
-                    <h3>4</h3>
+                    <h3>{summaryStats.studentsWithViolations}</h3>
                   </div>
 
                   <div>
                     <p>Average Violations per Student</p>
-                    <h3>1.3</h3>
+                    <h3>{averageViolationsPerStudent}</h3>
                   </div>
                 </div>
               </section>

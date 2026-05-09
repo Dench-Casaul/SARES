@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import '../css/Student.css'
 import wesleyLogo from '../assets/wesley-logo.png'
-import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut } from 'lucide-react'
+import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, FileText } from 'lucide-react'
 
 const YEARS = ["All Year", "Kindergarten", "1st Grade", "2nd Grade", "3rd Grade", "4th Grade", "5th Grade", "6th Grade", "7th Grade", "8th Grade", "9th Grade", "10th Grade"]
 const YEAR_LEVELS = ["Kindergarten", "1st Grade", "2nd Grade", "3rd Grade", "4th Grade", "5th Grade", "6th Grade", "7th Grade", "8th Grade", "9th Grade", "10th Grade"]
@@ -352,12 +352,10 @@ function StudentProfile({ student, onBack, onSelectViolation, location }) {
               <p className="s-profile-id">{student.id}</p>
             </div>
           </div>
-          <button className="s-log-btn">
-            <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
-              <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
-            </svg>
+          <Link to="/sares/violation" className="s-log-btn">
+            <FileText size={14} />
             Log Violation
-          </button>
+          </Link>
         </div>
 
         <div className="s-profile-grid">
@@ -427,7 +425,7 @@ function StudentProfile({ student, onBack, onSelectViolation, location }) {
                         <svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12" style={{ marginRight: 4, verticalAlign: 'middle' }}>
                           <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
                         </svg>
-                        {v.date}
+                        {v.date} {v.time && `• ${v.time}`}
                       </span>
                       <span>
                         <svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12" style={{ marginRight: 4, verticalAlign: 'middle' }}>
@@ -496,7 +494,9 @@ function ViolationDetails({ violation, student, onBack, location }) {
                 <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" /></svg>
                 Date of Incident
               </div>
-              <div className="s-vd-field-value">{violation.date}</div>
+              <div className="s-vd-field-value">
+                {violation.date} {violation.time && `• ${violation.time}`}
+              </div>
             </div>
           </div>
           <div className="s-divider" />
@@ -598,6 +598,7 @@ export default function Students() {
     const colors = ['#7b9dff', '#d96eff', '#5fe0b0', '#ffc85c', '#ff7864'];
 
     return {
+      student_id: student.student_id,
       id: student.student_number,
       name: student.full_name,
       initials: initials || 'S',
@@ -614,10 +615,41 @@ export default function Students() {
 
   const fetchStudents = async () => {
     try {
-      const response = await fetch(`${API_URL}/students`);
-      const data = await response.json();
+      const [studentsRes, violationsRes] = await Promise.all([
+        fetch(`${API_URL}/students`),
+        fetch(`${API_URL}/violations`),
+      ]);
 
-      setStudents(data.map(formatStudent));
+      const studentsData = await studentsRes.json();
+      const violationsData = await violationsRes.json();
+
+      const formattedStudents = studentsData.map((student) => {
+        const studentViolations = violationsData
+          .filter((v) => v.student_id === student.student_id)
+          .map((v) => ({
+            id: v.violation_id,
+            category: v.category_name,
+            variety: v.offense_variety,
+            description: v.incident_description,
+            date: v.incident_date_display || v.incident_date,
+            time: v.created_time || '',
+            severity: v.severity,
+            sanction: v.recommended_sanction,
+            finalSanction: v.final_sanction,
+            provision: v.provision,
+            status: v.status,
+            overrideJustification: v.override_justification,
+          }));
+
+        return formatStudent({
+          ...student,
+          violations: studentViolations.length,
+          repeat_offender: studentViolations.length >= 2,
+          history: studentViolations,
+        });
+      });
+
+      setStudents(formattedStudents);
     } catch (error) {
       console.error('Failed to fetch students:', error);
     }

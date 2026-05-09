@@ -315,6 +315,43 @@
   z-index: 200;
 }
 
+/* rewsults */
+.lv-result-card {
+  margin-top: 18px;
+  background: #ffffff;
+  border: 1px solid #d8e6f7;
+  border-radius: 14px;
+  padding: 18px;
+  color: #071f5f;
+  box-shadow: 0 8px 22px rgba(17, 44, 80, 0.055);
+}
+
+.lv-result-card h3 {
+  margin-bottom: 12px;
+  font-size: 18px;
+  font-weight: 800;
+  color: #071f5f;
+}
+
+.lv-result-card p {
+  font-size: 14px;
+  margin-bottom: 8px;
+  color: #365577;
+  line-height: 1.5;
+}
+
+.lv-result-card strong {
+  color: #071f5f;
+}
+
+.lv-explanation {
+  margin-top: 12px;
+  background: #f4f8fd;
+  border: 1px solid #d8e6f7;
+  border-radius: 10px;
+  padding: 12px;
+}
+
 /* responsive */
 @media (max-width: 768px) {
   .v-page {

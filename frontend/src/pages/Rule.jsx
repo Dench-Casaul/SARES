@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import '../css/Rule.css'
 import wesleyLogo from '../assets/wesley-logo.png'
 import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut } from 'lucide-react'
@@ -414,6 +414,7 @@ function EditRuleModal({ rule, onClose, onSave, categories }) {
 
 export default function Rule() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [rules, setRules] = useState(INITIAL_RULES);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All Categories');
@@ -424,6 +425,11 @@ export default function Rule() {
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState([]);
   const [categories, setCategories] = useState([]);
+
+    const handleLogout = () => {
+    localStorage.removeItem('user');
+    navigate('/login');
+  };
 
   const showToast = (message) => {
     setToast(message);
@@ -552,7 +558,7 @@ export default function Rule() {
 
   return (
     <div className="rule-page">
-      <Sidebar activePage={location.pathname} />
+      <Sidebar activePage={location.pathname} handleLogout={handleLogout}/>
 
       <main className="rule-main">
         <section className="rule-hero">

@@ -5,13 +5,9 @@ import './index.css'
 import App from './App'
 
 createRoot(document.getElementById('root')).render(
-  React.createElement(
-    StrictMode,
-    null,
-    React.createElement(
-      BrowserRouter,
-      null,
-      React.createElement(App)
-    )
+  <StrictMode>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  </StrictMode>
   )
-)

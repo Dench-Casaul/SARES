@@ -1,9 +1,111 @@
+from datetime import datetime, date
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from db import get_db_connection
+from datetime import date
 
 app = Flask(__name__)
 CORS(app)
+
+
+def calculate_student_insights(cursor, student_id):
+    cursor.execute(
+        """
+        SELECT
+            v.violation_id,
+            v.incident_date,
+            v.severity,
+            c.category_name,
+            r.offense_variety
+        FROM violations v
+        JOIN rules r ON v.rule_id = r.rule_id
+        JOIN offense_categories c ON r.category_id = c.category_id
+        WHERE v.student_id = %s
+        ORDER BY v.incident_date ASC
+        """,
+        (student_id,)
+    )
+
+    records = cursor.fetchall()
+
+    if not records:
+        return {
+            "risk_score": 0,
+            "risk_level": "Low",
+            "patterns": ["No pattern detected"]
+        }
+
+    total_violations = len(records)
+    severities = [int(r["severity"])
+                  for r in records if r["severity"] is not None]
+    average_severity = sum(severities) / len(severities) if severities else 0
+
+    last_date = records[-1]["incident_date"]
+
+    if isinstance(last_date, str):
+        last_date = datetime.strptime(last_date, "%Y-%m-%d").date()
+
+    days_since_last = (date.today() - last_date).days
+
+    if days_since_last <= 30:
+        recency_score = 3
+    elif days_since_last <= 90:
+        recency_score = 2
+    else:
+        recency_score = 1
+
+    risk_score = round(
+        min(10, (total_violations * 1.5) +
+            (average_severity * 0.5) + recency_score),
+        1
+    )
+
+    if risk_score >= 7:
+        risk_level = "High"
+    elif risk_score >= 4:
+        risk_level = "Medium"
+    else:
+        risk_level = "Low"
+
+    patterns = []
+
+    category_counts = {}
+    for record in records:
+        category = record["category_name"]
+        category_counts[category] = category_counts.get(category, 0) + 1
+
+    for category, count in category_counts.items():
+        if count >= 2:
+            patterns.append(f"Repeated {category} violations")
+
+    minor_count = sum(1 for severity in severities if severity <= 3)
+    if minor_count >= 3:
+        patterns.append("Habitual minor violations")
+
+    if len(severities) >= 2 and severities[-1] > severities[-2]:
+        patterns.append("Escalation behavior detected")
+
+    if not patterns:
+        patterns.append("No pattern detected")
+
+    return {
+        "risk_score": risk_score,
+        "risk_level": risk_level,
+        "patterns": patterns
+    }
+
+
+def generate_explanation(rule, insights):
+    patterns_text = ", ".join(insights["patterns"])
+
+    return (
+        f"The recommended sanction was generated because the selected offense has a "
+        f"severity score of {rule['severity']}/10. The system used the handbook provision "
+        f"{rule['provision']} and recommended: {rule['recommended_sanction']}. "
+        f"The student's current risk level is {insights['risk_level']} "
+        f"with a risk score of {insights['risk_score']}/10. "
+        f"Detected pattern: {patterns_text}."
+    )
 
 
 # login
@@ -375,8 +477,11 @@ def get_violations():
             v.rule_id,
             c.category_name,
             r.offense_variety,
-            v.incident_date,
-            v.incident_description,
+v.incident_date,
+DATE_FORMAT(v.incident_date, '%d %b %Y') AS incident_date_display,
+DATE_FORMAT(v.created_at, '%h:%i %p') AS created_time,
+v.created_at,
+v.incident_description,
             v.offense_count,
             v.severity,
             v.recommended_sanction,
@@ -402,7 +507,119 @@ def get_violations():
     return jsonify(violations)
 
 
-# violations post - add new violation and calculate offense count and recommended sanction
+def calculate_student_risk(cursor, student_id):
+    cursor.execute(
+        """
+        SELECT
+            v.violation_id,
+            v.incident_date,
+            v.severity,
+            c.category_name
+        FROM violations v
+        JOIN rules r ON v.rule_id = r.rule_id
+        JOIN offense_categories c ON r.category_id = c.category_id
+        WHERE v.student_id = %s
+        ORDER BY v.incident_date ASC
+        """,
+        (student_id,)
+    )
+
+    records = cursor.fetchall()
+
+    if not records:
+        return {
+            "risk_score": 0,
+            "risk_level": "Low",
+            "behavior_pattern": "No Pattern Detected"
+        }
+
+    total_violations = len(records)
+    average_severity = sum(float(r["severity"])
+                           for r in records) / total_violations
+
+    latest_date = records[-1]["incident_date"]
+
+    if hasattr(latest_date, "date"):
+        latest_date = latest_date.date()
+
+    days_since_last = (date.today() - latest_date).days
+
+    frequency_score = min(total_violations, 4)
+
+    if average_severity >= 8:
+        severity_score = 3
+    elif average_severity >= 5:
+        severity_score = 2
+    else:
+        severity_score = 1
+
+    if days_since_last <= 30:
+        recency_score = 3
+    elif days_since_last <= 90:
+        recency_score = 2
+    else:
+        recency_score = 1
+
+    risk_score = frequency_score + severity_score + recency_score
+
+    if risk_score >= 7:
+        risk_level = "High"
+    elif risk_score >= 4:
+        risk_level = "Medium"
+    else:
+        risk_level = "Low"
+
+    behavior_pattern = detect_behavior_pattern(records)
+
+    return {
+        "risk_score": risk_score,
+        "risk_level": risk_level,
+        "behavior_pattern": behavior_pattern
+    }
+
+
+def detect_behavior_pattern(records):
+    if len(records) < 2:
+        return "No Pattern Detected"
+
+    category_counts = {}
+
+    for record in records:
+        category = record["category_name"]
+        category_counts[category] = category_counts.get(category, 0) + 1
+
+    for category, count in category_counts.items():
+        if count >= 2:
+            return f"Repeated {category} Breach"
+
+    minor_count = sum(1 for record in records if float(
+        record["severity"]) <= 4)
+
+    if minor_count >= 3:
+        return "Habitual Minor Violations"
+
+    first_severity = float(records[0]["severity"])
+    latest_severity = float(records[-1]["severity"])
+
+    if latest_severity > first_severity:
+        return "Escalation Behavior"
+
+    return "No Pattern Detected"
+
+
+def generate_explanation(rule, offense_count, risk_data):
+    return (
+        f"The system recommended this sanction because the selected offense is "
+        f"{rule['offense_variety']} under {rule['category_name']}. "
+        f"This rule has a severity score of {rule['severity']}/10 and is supported by "
+        f"{rule['provision']}. This is offense number {offense_count} for this student "
+        f"under the same rule. The student is currently classified as "
+        f"{risk_data['risk_level']} Risk with the pattern: {risk_data['behavior_pattern']}."
+    )
+
+# violations post - add new violation and calculate offense count, risk, and explanation
+
+
 @app.route("/api/violations", methods=["POST"])
 def add_violation():
     data = request.json
@@ -421,9 +638,15 @@ def add_violation():
 
     cursor.execute(
         """
-        SELECT severity, recommended_sanction, provision
-        FROM rules
-        WHERE rule_id = %s
+        SELECT
+            r.severity,
+            r.recommended_sanction,
+            r.provision,
+            r.offense_variety,
+            c.category_name
+        FROM rules r
+        JOIN offense_categories c ON r.category_id = c.category_id
+        WHERE r.rule_id = %s
         """,
         (rule_id,)
     )
@@ -479,17 +702,27 @@ def add_violation():
 
     conn.commit()
 
+    risk_data = calculate_student_risk(cursor, student_id)
+    explanation = generate_explanation(rule, offense_count, risk_data)
+
     cursor.close()
     conn.close()
 
     return jsonify({
         "message": "Violation submitted successfully.",
         "offense_count": offense_count,
-        "recommended_sanction": rule["recommended_sanction"]
+        "recommended_sanction": rule["recommended_sanction"],
+        "severity": rule["severity"],
+        "provision": rule["provision"],
+        "risk_score": risk_data["risk_score"],
+        "risk_level": risk_data["risk_level"],
+        "behavior_pattern": risk_data["behavior_pattern"],
+        "explanation": explanation
     }), 201
 
-
 # dashboard summary - retrieve the total number of students, total violations, pending actions, and repeat offenders for dashboard display
+
+
 @app.route("/api/dashboard/summary", methods=["GET"])
 def dashboard_summary():
     conn = get_db_connection()
@@ -541,86 +774,94 @@ def reports_summary():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
-    # violations by category
     cursor.execute(
         """
-        SELECT 
+        SELECT
             c.category_name AS label,
-            COUNT(v.violation_id) AS count
-        FROM offense_categories c
-        LEFT JOIN rules r ON c.category_id = r.category_id
-        LEFT JOIN violations v ON r.rule_id = v.rule_id
-        GROUP BY c.category_id, c.category_name
-        ORDER BY c.category_name ASC
+            COUNT(*) AS count
+        FROM violations v
+        JOIN rules r ON v.rule_id = r.rule_id
+        JOIN offense_categories c ON r.category_id = c.category_id
+        GROUP BY c.category_name
+        ORDER BY count DESC
         """
     )
     category_data = cursor.fetchall()
 
-    # violations by year level
     cursor.execute(
         """
-        SELECT 
+        SELECT
             s.year_level AS label,
-            COUNT(v.violation_id) AS count
-        FROM students s
-        LEFT JOIN violations v ON s.student_id = v.student_id
+            COUNT(*) AS count
+        FROM violations v
+        JOIN students s ON v.student_id = s.student_id
         GROUP BY s.year_level
         ORDER BY s.year_level ASC
         """
     )
     year_level_data = cursor.fetchall()
 
-    # repeat offenders
     cursor.execute(
         """
-        SELECT 
-            s.full_name AS name,
-            s.student_number AS id,
-            s.year_level AS year,
-            s.section AS section,
+        SELECT
+            s.student_id,
+            s.student_number,
+            s.full_name,
+            s.year_level,
+            s.section,
             COUNT(v.violation_id) AS violations
-        FROM students s
-        JOIN violations v ON s.student_id = v.student_id
-        GROUP BY s.student_id, s.full_name, s.student_number, s.year_level, s.section
+        FROM violations v
+        JOIN students s ON v.student_id = s.student_id
+        GROUP BY s.student_id, s.student_number, s.full_name, s.year_level, s.section
         HAVING COUNT(v.violation_id) >= 2
         ORDER BY violations DESC
         """
     )
-    repeat_offenders = cursor.fetchall()
+    repeat_rows = cursor.fetchall()
 
-    # add violation records per repeat offender
-    for offender in repeat_offenders:
+    repeat_offenders = []
+
+    for student in repeat_rows:
         cursor.execute(
             """
             SELECT
-                c.category_name AS category,
-                CONCAT(
-                    DATE_FORMAT(v.incident_date, '%Y-%m-%d'),
-                    ' • ',
-                    COALESCE(v.final_sanction, v.recommended_sanction)
-                ) AS detail
+                c.category_name,
+                r.offense_variety,
+                v.incident_date
             FROM violations v
             JOIN rules r ON v.rule_id = r.rule_id
             JOIN offense_categories c ON r.category_id = c.category_id
-            JOIN students s ON v.student_id = s.student_id
-            WHERE s.student_number = %s
+            WHERE v.student_id = %s
             ORDER BY v.incident_date DESC
-            LIMIT 3
             """,
-            (offender["id"],)
+            (student["student_id"],)
         )
 
-        offender["records"] = cursor.fetchall()
+        records = cursor.fetchall()
 
-    # sanction decision logs
+        repeat_offenders.append({
+            "id": student["student_number"],
+            "name": student["full_name"],
+            "year": student["year_level"],
+            "section": student["section"],
+            "violations": student["violations"],
+            "records": [
+                {
+                    "category": record["category_name"],
+                    "detail": f"{record['offense_variety']} - {record['incident_date']}"
+                }
+                for record in records
+            ]
+        })
+
     cursor.execute(
         """
-        SELECT 
+        SELECT
             s.full_name AS student,
-            CONCAT(c.category_name, ' - ', r.offense_variety) AS offense,
+            r.offense_variety AS offense,
             v.recommended_sanction AS recommended,
             COALESCE(v.final_sanction, v.recommended_sanction) AS final,
-            CASE 
+            CASE
                 WHEN v.final_sanction IS NOT NULL
                      AND v.final_sanction != v.recommended_sanction
                 THEN 'Overridden'
@@ -629,25 +870,48 @@ def reports_summary():
         FROM violations v
         JOIN students s ON v.student_id = s.student_id
         JOIN rules r ON v.rule_id = r.rule_id
-        JOIN offense_categories c ON r.category_id = c.category_id
         ORDER BY v.incident_date DESC
         LIMIT 10
         """
     )
     sanction_logs = cursor.fetchall()
 
-    # monthly violation trends
     cursor.execute(
         """
-        SELECT 
-            DATE_FORMAT(incident_date, '%M') AS month,
-            COUNT(violation_id) AS value
+        SELECT
+            DATE_FORMAT(incident_date, '%b') AS month,
+            COUNT(*) AS value
         FROM violations
-        GROUP BY MONTH(incident_date), DATE_FORMAT(incident_date, '%M')
+        GROUP BY MONTH(incident_date), DATE_FORMAT(incident_date, '%b')
         ORDER BY MONTH(incident_date)
         """
     )
     trend_data = cursor.fetchall()
+
+    cursor.execute("SELECT COUNT(*) AS total FROM violations")
+    total_violations = cursor.fetchone()["total"]
+
+    cursor.execute(
+        """
+        SELECT COUNT(DISTINCT student_id) AS total
+        FROM violations
+        """
+    )
+    students_with_violations = cursor.fetchone()["total"]
+
+    cursor.execute(
+        """
+        SELECT COUNT(*) AS accepted
+        FROM violations
+        WHERE final_sanction IS NULL OR final_sanction = recommended_sanction
+        """
+    )
+    accepted = cursor.fetchone()["accepted"]
+
+    override_rate = 0
+    if total_violations > 0:
+        override_rate = round(
+            ((total_violations - accepted) / total_violations) * 100, 1)
 
     cursor.close()
     conn.close()
@@ -657,7 +921,13 @@ def reports_summary():
         "yearLevelData": year_level_data,
         "repeatOffenders": repeat_offenders,
         "sanctionLogs": sanction_logs,
-        "trendData": trend_data
+        "trendData": trend_data,
+        "summaryStats": {
+            "totalViolations": total_violations,
+            "studentsWithViolations": students_with_violations,
+            "accepted": accepted,
+            "overrideRate": override_rate
+        }
     })
 
 

@@ -79,6 +79,8 @@ export default function Violation() {
   const [categories, setCategories] = useState([]);
   const [rules, setRules] = useState([]);
   const today = new Date().toISOString().split('T')[0];
+  const [recommendation, setRecommendation] = useState(null);
+  const [result, setResult] = useState(null);
 
   const handleLogout = () => {
     localStorage.removeItem('user');
@@ -197,8 +199,12 @@ export default function Violation() {
         return;
       }
 
+      setResult(data);
+      setShowToast(true);
+
       console.log('Saved violation:', data);
 
+      setRecommendation(data);
       setShowToast(true);
 
       setForm({
@@ -334,6 +340,80 @@ export default function Violation() {
             </button>
           </div>
         </form>
+
+        {recommendation && (
+          <div className="lv-result-card">
+            <h2>Sanction Recommendation</h2>
+
+            <div className="lv-result-grid">
+              <div>
+                <p>Recommended Sanction</p>
+                <strong>{recommendation.recommended_sanction}</strong>
+              </div>
+
+              <div>
+                <p>Severity</p>
+                <strong>{recommendation.severity}/10</strong>
+              </div>
+
+              <div>
+                <p>Offense Count</p>
+                <strong>{recommendation.offense_count}</strong>
+              </div>
+
+              <div>
+                <p>Risk Level</p>
+                <strong>{recommendation.risk_level}</strong>
+              </div>
+
+              <div>
+                <p>Behavior Pattern</p>
+                <strong>{recommendation.behavior_pattern}</strong>
+              </div>
+
+              <div>
+                <p>Handbook Provision</p>
+                <strong>{recommendation.provision}</strong>
+              </div>
+            </div>
+
+            <div className="lv-explanation-box">
+              <p>AI Explanation</p>
+              <span>{recommendation.explanation}</span>
+            </div>
+          </div>
+        )}
+
+        {result && (
+  <div className="lv-result-card">
+    <h3>Recommendation Result</h3>
+
+    <p>
+      <strong>Recommended Sanction:</strong> {result.recommended_sanction}
+    </p>
+
+    <p>
+      <strong>Severity:</strong> {result.severity}/10
+    </p>
+
+    <p>
+      <strong>Provision:</strong> {result.provision}
+    </p>
+
+    <p>
+      <strong>Risk Level:</strong> {result.risk_level} ({result.risk_score}/10)
+    </p>
+
+    <p>
+      <strong>Detected Pattern:</strong> {result.patterns?.join(', ')}
+    </p>
+
+    <div className="lv-explanation">
+      <strong>Explanation:</strong>
+      <p>{result.explanation}</p>
+    </div>
+  </div>
+)}
       </div>
 
       {showToast && (
