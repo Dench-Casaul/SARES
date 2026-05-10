@@ -601,25 +601,19 @@ export default function Rule() {
       />
 
       <main className="rule-main">
-        <section className="rule-hero">
-          <div className="rule-hero-content">
-            <h1>Rule Base Management</h1>
-            <p>Configure handbook rules and sanction mappings with version tracking</p>
+        <h1>Rule Base Management</h1>
+        <p>Configure handbook rules and sanction mappings with version tracking</p>
 
-            <div className="rule-hero-actions">
-              <button className="rule-primary-btn" onClick={() => setShowModal(true)}>
-                <span>+</span>
-                Add New Rule
-              </button>
+        <div className="rule-hero-actions">
+          <button className="rule-primary-btn" onClick={() => setShowModal(true)}>
+            <span>+</span>
+            Add New Rule
+          </button>
 
-              <button className="rule-secondary-btn" onClick={openHistory}>
-                View Version History
-              </button>
-            </div>
-          </div>
-
-          <div className="rule-hero-image"></div>
-        </section>
+          <button className="rule-secondary-btn" onClick={openHistory}>
+            View Version History
+          </button>
+        </div>
 
         <section className="rule-card">
           <div className="rule-card-header">

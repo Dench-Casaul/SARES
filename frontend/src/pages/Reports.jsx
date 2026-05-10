@@ -204,29 +204,18 @@ export default function Report() {
       <Sidebar activePage={location.pathname} isOpen={sidebarOpen} toggleSidebar={() => setSidebarOpen(false)} />
 
       <main className="report-main">
-        <section className="report-hero">
-          <div className="report-hero-content">
-            <h1>Reports & Analytics</h1>
-            <p>Comprehensive violation statistics and trend analysis</p>
+        <h1>Reports & Analytics</h1>
+        <p>Comprehensive violation statistics and trend analysis</p>
 
-            <div className="report-hero-actions">
-              <button onClick={handleExportPDF} className="report-secondary-btn">
-                Export PDF
-              </button>
+        <div className="report-hero-actions">
+          <button onClick={handleExportPDF} className="report-secondary-btn">
+            Export PDF
+          </button>
 
-              <button onClick={handleExportExcel} className="report-secondary-btn">
-                Export Excel
-              </button>
-            </div>
-          </div>
-
-          <div className="report-hero-icon">
-            <svg viewBox="0 0 24 24" fill="none">
-              <rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" strokeWidth="1.8" />
-              <path d="M8 3v4M16 3v4M4 9h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-            </svg>
-          </div>
-        </section>
+          <button onClick={handleExportExcel} className="report-secondary-btn">
+            Export Excel
+          </button>
+        </div>
 
         <section className="report-filter-card">
           <h2>Report Filters</h2>

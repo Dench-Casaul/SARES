@@ -156,6 +156,21 @@
   background: #f4f8fd;
 }
 
+.report-main > h1 {
+  color: #071f5f;
+  font-size: 32px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.report-main > p {
+  font-size: 15px;
+  color: #64748b;
+  margin: 0;
+  max-width: 560px;
+  line-height: 1.6;
+}
+
 /* hero */
 
 .report-hero {
