@@ -241,128 +241,6 @@
   cursor: pointer;
 }
 
-/* student searchable combobox */
-.v-student-combobox {
-  position: relative;
-  width: 100%;
-}
-
-.v-student-combobox--disabled .v-student-input:disabled {
-  opacity: 0.65;
-  cursor: not-allowed;
-  background: #f1f4f9;
-}
-
-.v-student-combobox--disabled .v-student-chevron-btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-  color: #94a3b8;
-}
-
-.v-student-combobox--disabled .v-student-chevron-btn:disabled:hover {
-  background: transparent;
-  color: #94a3b8;
-}
-
-.v-student-combobox-inner {
-  position: relative;
-  display: flex;
-  align-items: stretch;
-}
-
-.v-student-input {
-  padding-right: 46px !important;
-  cursor: text;
-}
-
-.v-student-chevron-btn {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  background: transparent;
-  color: #64748b;
-  cursor: pointer;
-  border-radius: 0 10px 10px 0;
-  transition: color 0.15s, background 0.15s;
-}
-
-.v-student-chevron-btn:hover {
-  color: #006ed0;
-  background: rgba(17, 152, 232, 0.08);
-}
-
-.v-student-chevron-btn:focus-visible {
-  outline: none;
-  box-shadow: inset 0 0 0 2px rgba(17, 152, 232, 0.45);
-}
-
-.v-student-chevron-btn svg {
-  transition: transform 0.2s ease;
-}
-
-.v-student-chevron-btn--open svg {
-  transform: rotate(180deg);
-}
-
-.v-student-dropdown {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: calc(100% + 6px);
-  margin: 0;
-  padding: 6px;
-  list-style: none;
-  max-height: 260px;
-  overflow-y: auto;
-  background: #ffffff;
-  border: 1px solid #dce5f2;
-  border-radius: 10px;
-  box-shadow: 0 12px 28px rgba(17, 44, 80, 0.12);
-  z-index: 60;
-}
-
-.v-student-option {
-  padding: 10px 12px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 14px;
-  color: #172033;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  transition: background 0.12s;
-}
-
-.v-student-option:hover {
-  background: #eaf4ff;
-}
-
-.v-student-option-name {
-  font-weight: 600;
-}
-
-.v-student-option-meta {
-  font-size: 12px;
-  color: #64748b;
-  font-weight: 500;
-}
-
-.v-student-option--empty {
-  cursor: default;
-  color: #64748b;
-  font-weight: 500;
-}
-
-.v-student-option--empty:hover {
-  background: transparent;
-}
-
 .v-textarea {
   min-height: 80px;
   resize: vertical;
@@ -437,6 +315,43 @@
   z-index: 200;
 }
 
+/* rewsults */
+.lv-result-card {
+  margin-top: 18px;
+  background: #ffffff;
+  border: 1px solid #d8e6f7;
+  border-radius: 14px;
+  padding: 18px;
+  color: #071f5f;
+  box-shadow: 0 8px 22px rgba(17, 44, 80, 0.055);
+}
+
+.lv-result-card h3 {
+  margin-bottom: 12px;
+  font-size: 18px;
+  font-weight: 800;
+  color: #071f5f;
+}
+
+.lv-result-card p {
+  font-size: 14px;
+  margin-bottom: 8px;
+  color: #365577;
+  line-height: 1.5;
+}
+
+.lv-result-card strong {
+  color: #071f5f;
+}
+
+.lv-explanation {
+  margin-top: 12px;
+  background: #f4f8fd;
+  border: 1px solid #d8e6f7;
+  border-radius: 10px;
+  padding: 12px;
+}
+
 /* responsive */
 @media (max-width: 768px) {
   .v-page {
@@ -460,97 +375,5 @@
 
   .v-textarea {
     min-height: 58px;
-  }
-}
-
-
-/* mobile menu bar */
-.v-mobile-menu-bar {
-  display: none;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  background: #1198e8;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 50;
-  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
-}
-
-.v-mobile-menu-bar .v-logo {
-  padding: 0;
-  margin: 0;
-  background: transparent;
-  gap: 10px;
-}
-
-.v-mobile-menu-bar .v-logo h1 {
-  font-size: 22px;
-  line-height: 1;
-}
-
-.v-mobile-menu-bar .v-logo-icon {
-  width: 40px;
-  height: 40px;
-}
-
-.v-mobile-menu-bar .school-logo {
-  width: 34px;
-  height: 34px;
-}
-
-.v-mobile-menu-btn {
-  background: none;
-  border: none;
-  color: #ffffff;
-  cursor: pointer;
-  padding: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-@media (max-width: 768px) {
-  .v-mobile-menu-bar {
-    display: flex;
-  }
-
-  .v-sidebar {
-    display: none;
-    position: fixed;
-    top: 60px;
-    left: 0;
-    bottom: 0;
-    z-index: 40;
-    width: 265px;
-    min-width: 265px;
-    height: calc(100vh - 60px);
-  }
-
-  .v-sidebar--open {
-    display: flex !important;
-    animation: v-slideIn 0.3s ease-out;
-  }
-
-  .v-main {
-    padding-top: 88px !important;
-    padding-left: 16px !important;
-    padding-right: 16px !important;
-  }
-
-  .v-field-row {
-    grid-template-columns: 1fr;
-    gap: 0;
-  }
-}
-
-@keyframes v-slideIn {
-  from {
-    transform: translateX(-100%);
-  }
-  to {
-    transform: translateX(0);
   }
 }

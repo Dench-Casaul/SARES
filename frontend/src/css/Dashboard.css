@@ -42,28 +42,13 @@
   padding: 4px;
 }
 
-.mobile-menu-bar .logo-icon-container {
-  width: 40px;
-  height: 40px;
-}
-
-.mobile-menu-bar .school-logo {
-  width: 34px;
-  height: 34px;
-}
-
-.mobile-menu-bar .admin-title {
-  font-size: 22px;
-  line-height: 1;
-}
-
 @media (max-width: 768px) {
   .mobile-menu-bar {
     display: flex;
   }
 
   .main-content {
-    padding-top: 88px;
+    padding-top: 60px;
   }
 }
 
@@ -94,8 +79,10 @@
     width: 220px;
   }
 
-  .sidebar--open { display: flex; animation: dash-slideIn 0.3s ease-out; } }
-@keyframes dash-slideIn { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+  .sidebar--open {
+    display: flex;
+  }
+}
 
 .sidebar-header {
   padding: 28px 20px;

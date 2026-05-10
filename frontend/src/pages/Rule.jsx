@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { addDoc, collection, getDocs, serverTimestamp, updateDoc, doc } from 'firebase/firestore'
-import { db } from '../firebase'
 import '../css/Rule.css'
 import wesleyLogo from '../assets/wesley-logo.png'
-import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X } from 'lucide-react'
+import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut } from 'lucide-react'
+const API_URL = 'http://127.0.0.1:5000'
 
-function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar }) {
+function Sidebar({ activePage, handleLogout }) {
   return (
-    <aside className={`rule-sidebar${isOpen ? ' rule-sidebar--open' : ''}`}>
+    <aside className="rule-sidebar">
       <div className="rule-sidebar-header">
         <div className="rule-logo">
           <div className="rule-logo-icon">
@@ -23,7 +22,7 @@ function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar }) {
       <nav className="rule-nav">
         <ul className="rule-nav-list">
           <li>
-            <Link to="/sares/dashboard" onClick={toggleSidebar} className={`rule-nav-item${activePage === '/sares/dashboard' ? ' rule-nav-item--active' : ''}`}>
+            <Link to="/sares/dashboard" className={`rule-nav-item${activePage === '/sares/dashboard' ? ' rule-nav-item--active' : ''}`}>
               <LayoutDashboard className="rule-nav-icon" />
               Dashboard
             </Link>
@@ -31,14 +30,14 @@ function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar }) {
 
           <li>
 
-            <Link to="/sares/students" onClick={toggleSidebar} className={`rule-nav-item${activePage === '/sares/students' ? ' rule-nav-item--active' : ''}`}>
+            <Link to="/sares/students" className={`rule-nav-item${activePage === '/sares/students' ? ' rule-nav-item--active' : ''}`}>
               <Users className="rule-nav-icon" />
               Students
             </Link>
           </li>
 
           <li>
-            <Link to="/sares/violation" onClick={toggleSidebar} className={`rule-nav-item${activePage === '/sares/violation' ? ' rule-nav-item--active' : ''}`}>
+            <Link to="/sares/violation" className={`rule-nav-item${activePage === '/sares/violation' ? ' rule-nav-item--active' : ''}`}>
               <ClipboardList className="rule-nav-icon" />
               Log Violation
             </Link>
@@ -46,7 +45,7 @@ function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar }) {
 
           <li>
 
-            <Link to="/sares/rules" onClick={toggleSidebar} className={`rule-nav-item${activePage === '/sares/rules' ? ' rule-nav-item--active' : ''}`}>
+            <Link to="/sares/rules" className={`rule-nav-item${activePage === '/sares/rules' ? ' rule-nav-item--active' : ''}`}>
               <ShieldCheck className="rule-nav-icon" />
               Rule Management
             </Link>
@@ -54,7 +53,7 @@ function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar }) {
 
           <li>
 
-            <Link to="/sares/reports" onClick={toggleSidebar} className={`rule-nav-item${activePage === '/sares/reports' ? ' rule-nav-item--active' : ''}`}>
+            <Link to="/sares/reports" className={`rule-nav-item${activePage === '/sares/reports' ? ' rule-nav-item--active' : ''}`}>
               <BarChart3 className="rule-nav-icon" />
               Reports
             </Link>
@@ -416,7 +415,6 @@ function EditRuleModal({ rule, onClose, onSave, categories }) {
 export default function Rule() {
   const location = useLocation();
   const navigate = useNavigate();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [rules, setRules] = useState(INITIAL_RULES);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All Categories');
@@ -428,7 +426,7 @@ export default function Rule() {
   const [history, setHistory] = useState([]);
   const [categories, setCategories] = useState([]);
 
-  const handleLogout = () => {
+    const handleLogout = () => {
     localStorage.removeItem('user');
     navigate('/login');
   };
@@ -444,43 +442,33 @@ export default function Rule() {
   }, []);
 
   const loadRules = async () => {
-    const snapshot = await getDocs(collection(db, 'rules'));
-    const data = snapshot.docs.map((ruleDoc) => {
-      const rule = ruleDoc.data();
-      return {
-        id: ruleDoc.id,
-        rule_id: rule.rule_id || ruleDoc.id,
-        category_id: rule.category_id || '',
-        category: rule.category_name || '',
-        variety: rule.offense_variety || '',
-        severity: rule.severity || 0,
-        sanction: rule.recommended_sanction || '',
-        provision: rule.provision || '',
-        modified: rule.modified_date || new Date().toISOString().slice(0, 10),
-        active: Boolean(rule.is_active),
-      };
-    });
-    setRules(data.sort((a, b) => String(b.modified).localeCompare(String(a.modified))));
+    const response = await fetch(`${API_URL}/api/rules`);
+    const data = await response.json();
+
+    setRules(data.map((rule) => ({
+      id: rule.rule_id,
+      category: rule.category_name,
+      variety: rule.offense_variety,
+      severity: rule.severity,
+      sanction: rule.recommended_sanction,
+      provision: rule.provision,
+      modified: rule.modified_date,
+      active: Boolean(rule.is_active),
+    })));
   };
 
   const loadCategories = async () => {
-    const snapshot = await getDocs(collection(db, 'offense_categories'));
-    const data = snapshot.docs.map((categoryDoc) => ({
-      ...categoryDoc.data(),
-      category_id: categoryDoc.data().category_id || categoryDoc.id,
-    }));
+    const response = await fetch(`${API_URL}/api/categories`);
+    const data = await response.json();
     setCategories(data);
   };
 
   const openHistory = async () => {
     try {
-      const snapshot = await getDocs(collection(db, 'rule_versions'));
-      const data = snapshot.docs.map((historyDoc) => ({
-        version_id: historyDoc.id,
-        ...historyDoc.data(),
-      }));
+      const response = await fetch(`${API_URL}/api/rules/history`);
+      const data = await response.json();
 
-      setHistory(data.sort((a, b) => String(b.changed_at || '').localeCompare(String(a.changed_at || ''))));
+      setHistory(data);
       setShowHistory(true);
     } catch (error) {
       console.error('Error loading rule history:', error);
@@ -502,32 +490,22 @@ export default function Rule() {
 
   const handleAddRule = async (form) => {
     const user = JSON.parse(localStorage.getItem('user'));
-    const selectedCategory = categories.find((category) => category.category_name === form.category);
-    const modifiedDate = new Date().toISOString().slice(0, 10);
 
-    const ruleRef = await addDoc(collection(db, 'rules'), {
-      rule_id: '',
-      category_id: selectedCategory?.category_id || '',
-      category_name: form.category,
-      offense_variety: form.variety,
-      severity: Number(form.severity),
-      recommended_sanction: form.sanction,
-      provision: form.provision,
-      is_active: Boolean(form.active),
-      modified_date: modifiedDate,
-      changed_by: user?.user_id || 'system',
-      created_at: serverTimestamp(),
+    const response = await fetch(`${API_URL}/api/rules`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...form,
+        changed_by: user?.user_id || 1,
+      }),
     });
 
-    await addDoc(collection(db, 'rule_versions'), {
-      rule_id: ruleRef.id,
-      action_type: 'created',
-      rule_name: form.variety,
-      category_name: form.category,
-      description: 'Rule was created.',
-      changed_by: user?.full_name || user?.email || 'Unknown',
-      changed_at: new Date().toISOString(),
-    });
+    const data = await response.json();
+
+    if (!response.ok) {
+      alert(data.message || 'Failed to add rule.');
+      return;
+    }
 
     await loadRules();
     setShowModal(false);
@@ -541,64 +519,46 @@ export default function Rule() {
 
   const handleSaveEdit = async (updatedRule) => {
     const user = JSON.parse(localStorage.getItem('user'));
-    const selectedCategory = categories.find((category) => category.category_name === updatedRule.category);
 
-    await updateDoc(doc(db, 'rules', updatedRule.id), {
-      category_id: selectedCategory?.category_id || '',
-      category_name: updatedRule.category,
-      offense_variety: updatedRule.variety,
-      severity: Number(updatedRule.severity),
-      recommended_sanction: updatedRule.sanction,
-      provision: updatedRule.provision,
-      is_active: Boolean(updatedRule.active),
-      modified_date: new Date().toISOString().slice(0, 10),
-      changed_by: user?.user_id || 'system',
-      updated_at: serverTimestamp(),
+    const response = await fetch(`${API_URL}/api/rules/${updatedRule.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        category: updatedRule.category,
+        variety: updatedRule.variety,
+        severity: updatedRule.severity,
+        sanction: updatedRule.sanction,
+        provision: updatedRule.provision,
+        active: updatedRule.active,
+        changed_by: user?.user_id || 1,
+      }),
     });
 
-    await addDoc(collection(db, 'rule_versions'), {
-      rule_id: updatedRule.id,
-      action_type: 'updated',
-      rule_name: updatedRule.variety,
-      category_name: updatedRule.category,
-      description: 'Rule was updated.',
-      changed_by: user?.full_name || user?.email || 'Unknown',
-      changed_at: new Date().toISOString(),
-    });
+    const data = await response.json();
+
+    if (!response.ok) {
+      alert(data.message || 'Failed to update rule.');
+      return;
+    }
 
     await loadRules();
     setShowEditModal(false);
     setSelectedRule(null);
     showToast('Rule updated successfully!');
   };
-  const toggleRule = async (id) => {
-    const currentRule = rules.find((rule) => rule.id === id);
-    if (!currentRule) return;
-    await updateDoc(doc(db, 'rules', id), { is_active: !currentRule.active });
-    await loadRules();
+  const toggleRule = (id) => {
+    setRules((prev) =>
+      prev.map((rule) =>
+        rule.id === id ? { ...rule, active: !rule.active } : rule
+      )
+    );
+
     showToast('Rule status updated successfully!');
   };
 
   return (
     <div className="rule-page">
-      <div className="mobile-menu-bar">
-        <div className="rule-logo">
-          <div className="rule-logo-icon">
-            <img src={wesleyLogo} alt="Olongapo Wesley School Logo" className="school-logo" />
-          </div>
-          <h1 className="rule-logo-text">SARES</h1>
-        </div>
-        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="mobile-menu-btn">
-          {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
-        </button>
-      </div>
-
-      <Sidebar
-        activePage={location.pathname}
-        handleLogout={handleLogout}
-        isOpen={sidebarOpen}
-        toggleSidebar={() => setSidebarOpen(false)}
-      />
+      <Sidebar activePage={location.pathname} handleLogout={handleLogout}/>
 
       <main className="rule-main">
         <section className="rule-hero">
@@ -607,14 +567,8 @@ export default function Rule() {
             <p>Configure handbook rules and sanction mappings with version tracking</p>
 
             <div className="rule-hero-actions">
-              <button className="rule-primary-btn" onClick={() => setShowModal(true)}>
-                <span>+</span>
-                Add New Rule
-              </button>
-
-              <button className="rule-secondary-btn" onClick={openHistory}>
-                View Version History
-              </button>
+              <button className="rule-primary-btn" onClick={() => setShowModal(true)}>+ Add New Rule</button>
+              <button className="rule-secondary-btn" onClick={openHistory}>View Version History</button>
             </div>
           </div>
 
