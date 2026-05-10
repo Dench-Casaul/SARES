@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import '../css/Reports.css'
-import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, TrendingUp, TriangleAlert, CheckCircle2 } from 'lucide-react'
+import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X } from 'lucide-react'
 import wesleyLogo from '../assets/wesley-logo.png'
 
 
-function Sidebar({ activePage, handleLogout }) {
+function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar }) {
   return (
-    <aside className="report-sidebar">
+    <aside className={`report-sidebar${isOpen ? ' report-sidebar--open' : ''}`}>
       <div className="report-sidebar-header">
         <div className="report-logo">
           <div className="report-logo-icon">
@@ -28,6 +28,7 @@ function Sidebar({ activePage, handleLogout }) {
           <li>
             <Link
               to="/sares/dashboard"
+              onClick={toggleSidebar}
               className={`report-nav-item${activePage === "/sares/dashboard" ? " report-nav-item--active" : ""}`}
             >
               <LayoutDashboard className="report-nav-icon" />
@@ -38,6 +39,7 @@ function Sidebar({ activePage, handleLogout }) {
           <li>
             <Link
               to="/sares/students"
+              onClick={toggleSidebar}
               className={`report-nav-item${activePage === "/sares/students" ? " report-nav-item--active" : ""}`}
             >
               <Users className="report-nav-icon" />
@@ -48,6 +50,7 @@ function Sidebar({ activePage, handleLogout }) {
           <li>
             <Link
               to="/sares/violation"
+              onClick={toggleSidebar}
               className={`report-nav-item${activePage === "/sares/violation" ? " report-nav-item--active" : ""}`}
             >
               <ClipboardList className="report-nav-icon" />
@@ -58,6 +61,7 @@ function Sidebar({ activePage, handleLogout }) {
           <li>
             <Link
               to="/sares/rules"
+              onClick={toggleSidebar}
               className={`report-nav-item${activePage === "/sares/rules" ? " report-nav-item--active" : ""}`}
             >
               <ShieldCheck className="report-nav-icon" />
@@ -68,6 +72,7 @@ function Sidebar({ activePage, handleLogout }) {
           <li>
             <Link
               to="/sares/reports"
+              onClick={toggleSidebar}
               className={`report-nav-item${activePage === "/sares/reports" ? " report-nav-item--active" : ""}`}
             >
               <BarChart3 className="report-nav-icon" />
@@ -87,74 +92,91 @@ function Sidebar({ activePage, handleLogout }) {
   );
 }
 
+const categoryData = [
+  { label: 'Academic Dishonesty', count: 1 },
+  { label: 'Behavioral Misconduct', count: 1 },
+  { label: 'Dress Code Violation', count: 1 },
+  { label: 'Attendance Violation', count: 1 },
+  { label: 'Technology Misuse', count: 1 },
+];
+
+const yearLevelData = [
+  { label: '1st Year', count: 1 },
+  { label: '2nd Year', count: 2 },
+  { label: '3rd Year', count: 1 },
+  { label: '4th Year', count: 1 },
+];
+
+const repeatOffenders = [
+  {
+    name: 'Jose Ramos',
+    id: '2024-00005',
+    year: '3rd Year',
+    section: 'B',
+    violations: 7,
+    records: [
+      {
+        category: 'Dress Code Violation',
+        detail: '2026-04-01 • Warning and parent notification',
+      },
+    ],
+  },
+  {
+    name: 'Maria Santos',
+    id: '2024-00002',
+    year: '2nd Year',
+    section: 'B',
+    violations: 5,
+    records: [
+      {
+        category: 'Academic Dishonesty',
+        detail: '2026-04-05 • Zero grade on assignment and one-week suspension',
+      },
+      {
+        category: 'Attendance Violation',
+        detail: '2026-03-28 • Parent conference and written warning',
+      },
+    ],
+  },
+];
+
+const sanctionLogs = [
+  {
+    student: 'Maria Santos',
+    offense: 'Academic Dishonesty - Plagiarism',
+    recommended: 'Zero grade on assignment and written warning',
+    final: 'Zero grade on assignment and one-week suspension',
+    status: 'Accepted',
+  },
+  {
+    student: 'Juan Dela Cruz',
+    offense: 'Behavioral Misconduct - Disrespect to Faculty',
+    recommended: 'Two-day suspension and parent conference',
+    final: 'Written apology and counseling session',
+    status: 'Overridden',
+  },
+];
+
+const trendData = [
+  { month: 'January', value: 8 },
+  { month: 'February', value: 12 },
+  { month: 'March', value: 10 },
+  { month: 'April', value: 5 },
+];
 
 export default function Report() {
   const location = useLocation();
   const navigate = useNavigate();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [activeTab, setActiveTab] = useState('frequency');
   const [yearFilter, setYearFilter] = useState('All Year Level');
   const [monthFilter, setMonthFilter] = useState('All Months');
   const [toast, setToast] = useState('');
 
-  const [categoryData, setCategoryData] = useState([]);
-  const [yearLevelData, setYearLevelData] = useState([]);
-  const [repeatOffenders, setRepeatOffenders] = useState([]);
-  const [sanctionLogs, setSanctionLogs] = useState([]);
-  const [trendData, setTrendData] = useState([]);
-  const [summaryStats, setSummaryStats] = useState({
-    totalViolations: 0,
-    studentsWithViolations: 0,
-    accepted: 0,
-    overrideRate: 0,
-  });
-  const [loading, setLoading] = useState(true);
-
-
-
-  const handleLogout = () => {
-    localStorage.removeItem('user');
-    navigate('/login');
-  };
-
   const showToast = (message) => {
     setToast(message);
     setTimeout(() => setToast(''), 3000);
-  };
-
-  useEffect(() => {
-    fetchReportsData();
-  }, []);
-
-  const fetchReportsData = async () => {
-    try {
-      setLoading(true);
-
-      const response = await fetch('http://127.0.0.1:5000/api/reports/summary');
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch reports data');
-      }
-
-      const data = await response.json();
-
-      setCategoryData(data.categoryData || []);
-      setYearLevelData(data.yearLevelData || []);
-      setRepeatOffenders(data.repeatOffenders || []);
-      setSanctionLogs(data.sanctionLogs || []);
-      setTrendData(data.trendData || []);
-      setSummaryStats(data.summaryStats || {
-        totalViolations: 0,
-        studentsWithViolations: 0,
-        accepted: 0,
-        overrideRate: 0,
-      });
-    } catch (error) {
-      console.error('Reports fetch error:', error);
-      showToast('Failed to load reports data.');
-    } finally {
-      setLoading(false);
-    }
   };
 
   const handleExportPDF = () => {
@@ -165,32 +187,27 @@ export default function Report() {
     showToast('Report exported to Excel successfully!');
   };
 
-  const mostCommonViolation =
-    categoryData.length > 0
-      ? categoryData.reduce((max, item) => item.count > max.count ? item : max, categoryData[0]).label
-      : 'No data yet';
-
-  const recommendationAcceptance =
-    summaryStats.totalViolations > 0
-      ? ((summaryStats.accepted / summaryStats.totalViolations) * 100).toFixed(1)
-      : '0.0';
-
-  const averageViolationsPerStudent =
-    summaryStats.studentsWithViolations > 0
-      ? (summaryStats.totalViolations / summaryStats.studentsWithViolations).toFixed(1)
-      : '0.0';
-
   return (
     <div className="report-page">
-      <Sidebar activePage={location.pathname} handleLogout={handleLogout} />
+      <div className="report-mobile-menu-bar">
+        <div className="report-logo">
+          <div className="report-logo-icon">
+            <img src={wesleyLogo} alt="Logo" className="school-logo" />
+          </div>
+          <h1 className="report-logo-text">SARES</h1>
+        </div>
+        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="report-mobile-menu-btn">
+          {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
+      </div>
+
+      <Sidebar activePage={location.pathname} isOpen={sidebarOpen} toggleSidebar={() => setSidebarOpen(false)} />
 
       <main className="report-main">
         <section className="report-hero">
           <div className="report-hero-content">
-            <div>
-              <h1>Reports & Analytics</h1>
-              <p>Comprehensive violation statistics and trend analysis</p>
-            </div>
+            <h1>Reports & Analytics</h1>
+            <p>Comprehensive violation statistics and trend analysis</p>
 
             <div className="report-hero-actions">
               <button onClick={handleExportPDF} className="report-secondary-btn">
@@ -201,6 +218,13 @@ export default function Report() {
                 Export Excel
               </button>
             </div>
+          </div>
+
+          <div className="report-hero-icon">
+            <svg viewBox="0 0 24 24" fill="none">
+              <rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" strokeWidth="1.8" />
+              <path d="M8 3v4M16 3v4M4 9h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
           </div>
         </section>
 
@@ -262,12 +286,6 @@ export default function Report() {
           </button>
         </div>
 
-        {loading && (
-          <p style={{ color: '#64748b', fontSize: '14px' }}>
-            Loading reports data...
-          </p>
-        )}
-
         {activeTab === 'frequency' && (
           <div className="report-tab-content">
             <section className="report-card">
@@ -286,22 +304,16 @@ export default function Report() {
                 </div>
 
                 <div className="report-bars-area">
-                  {
-                    categoryData.map((item) => (
-                      <div className="report-bar-item" key={item.label}>
-                        <div className="report-bar-wrap">
-                          <div
-                            className="report-bar"
-                            style={{
-                              height: `${Math.max(
-                                (item.count / Math.max(...categoryData.map((c) => c.count), 1)) * 100,
-                                5
-                              )}%`,
-                            }} />
-                        </div>
-                        <p className="report-bar-label">{item.label}</p>
+                  {categoryData.map((item) => (
+                    <div className="report-bar-item" key={item.label}>
+                      <div className="report-bar-wrap">
+                        <div
+                          className="report-bar"
+                          style={{ height: `${item.count * 100}%` }} />
                       </div>
-                    ))}
+                      <p className="report-bar-label">{item.label}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
             </section>
@@ -368,17 +380,17 @@ export default function Report() {
             <div className="report-stat-grid">
               <div className="report-stat-card">
                 <p>Total Sanctions</p>
-                <h3>{summaryStats.totalViolations}</h3>
+                <h3>5</h3>
               </div>
 
               <div className="report-stat-card">
                 <p>Accepted</p>
-                <h3 className="green">{summaryStats.accepted}</h3>
+                <h3 className="green">4</h3>
               </div>
 
               <div className="report-stat-card">
                 <p>Override Rate</p>
-                <h3 className="orange">{summaryStats.overrideRate}%</h3>
+                <h3 className="orange">20.0%</h3>
               </div>
             </div>
 
@@ -428,26 +440,36 @@ export default function Report() {
                 <p>Violation count over the past months</p>
               </div>
 
-              <div className="report-small-bars">
-                {trendData.length === 0 ? (
-                  <p style={{ color: '#64748b', fontSize: '14px' }}>
-                    No monthly trend data yet.
-                  </p>
-                ) : (
-                  trendData.map((item) => {
-                    const maxTrend = Math.max(...trendData.map((t) => t.value), 1);
+              <div className="report-line-chart">
+                <svg viewBox="0 0 700 260" preserveAspectRatio="none">
+                  <line x1="40" y1="20" x2="40" y2="220" />
+                  <line x1="40" y1="220" x2="670" y2="220" />
 
-                    return (
-                      <div className="report-small-bar-row" key={item.month}>
-                        <span>{item.month}</span>
-                        <div>
-                          <strong style={{ width: `${(item.value / maxTrend) * 100}%` }}></strong>
-                        </div>
-                        <p>{item.value}</p>
-                      </div>
-                    );
-                  })
-                )}
+                  <line x1="40" y1="20" x2="670" y2="20" className="grid" />
+                  <line x1="40" y1="70" x2="670" y2="70" className="grid" />
+                  <line x1="40" y1="120" x2="670" y2="120" className="grid" />
+                  <line x1="40" y1="170" x2="670" y2="170" className="grid" />
+
+                  <polyline
+                    points="40,86 250,20 460,53 670,136"
+                    fill="none"
+                    stroke="#6d6bff"
+                    strokeWidth="3"
+                  />
+
+                  <circle cx="40" cy="86" r="4" />
+                  <circle cx="250" cy="20" r="4" />
+                  <circle cx="460" cy="53" r="4" />
+                  <circle cx="670" cy="136" r="4" />
+                </svg>
+
+                <div className="report-line-labels">
+                  {trendData.map((item) => (
+                    <span key={item.month}>{item.month}</span>
+                  ))}
+                </div>
+
+                <p className="report-line-legend">• Violations</p>
               </div>
             </section>
 
@@ -459,26 +481,26 @@ export default function Report() {
 
                 <div className="report-insight-list">
                   <div className="report-insight blue">
-                    <TrendingUp size={18} />
+                    <span>↗</span>
                     <div>
                       <h3>Most Common Violation</h3>
-                      <p>{mostCommonViolation}</p>
+                      <p>Academic Dishonesty</p>
                     </div>
                   </div>
 
                   <div className="report-insight orange">
-                    <TriangleAlert size={18} />
+                    <span>⚠</span>
                     <div>
                       <h3>Repeat Offenders</h3>
-                      <p>{repeatOffenders.length} students require intervention</p>
+                      <p>2 students require intervention</p>
                     </div>
                   </div>
 
                   <div className="report-insight green">
-                    <CheckCircle2 size={18} />
+                    <span>▧</span>
                     <div>
                       <h3>Recommendation Acceptance</h3>
-                      <p>{recommendationAcceptance}% of recommendations accepted</p>
+                      <p>80.0% of recommendations accepted</p>
                     </div>
                   </div>
                 </div>
@@ -492,17 +514,17 @@ export default function Report() {
                 <div className="report-summary-list">
                   <div>
                     <p>Total Violations This Year</p>
-                    <h3>{summaryStats.totalViolations}</h3>
+                    <h3>5</h3>
                   </div>
 
                   <div>
                     <p>Students with Violations</p>
-                    <h3>{summaryStats.studentsWithViolations}</h3>
+                    <h3>4</h3>
                   </div>
 
                   <div>
                     <p>Average Violations per Student</p>
-                    <h3>{averageViolationsPerStudent}</h3>
+                    <h3>1.3</h3>
                   </div>
                 </div>
               </section>

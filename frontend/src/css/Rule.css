@@ -157,7 +157,6 @@
   border-color: #fecaca;
 }
 
-
 /* main */
 
 .rule-main {
@@ -174,17 +173,18 @@
 /* hero */
 
 .rule-hero {
-  min-height: auto;
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  overflow: visible;
-  display: block;
-  box-shadow: none;
+  min-height: 280px;
+  background: #ffffff;
+  border: 1px solid #d8e6f7;
+  border-radius: 16px;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  box-shadow: 0 8px 22px rgba(17, 44, 80, 0.055);
 }
 
 .rule-hero-content {
-  padding: 0;
+  padding: 34px 38px;
 }
 
 .rule-hero-content h1 {
@@ -205,7 +205,6 @@
 .rule-hero-actions {
   display: flex;
   gap: 12px;
-  margin-top: 18px;
 }
 
 .rule-primary-btn,
@@ -854,5 +853,69 @@
   .rule-field-row,
   .rule-meta {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Mobile menu bar */
+.mobile-menu-bar {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #1198e8;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+}
+
+.mobile-menu-bar .rule-logo {
+  gap: 10px;
+}
+
+.mobile-menu-bar .rule-logo-text {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.mobile-menu-bar .rule-logo-icon {
+  width: 40px;
+  height: 40px;
+}
+
+.mobile-menu-bar .school-logo {
+  width: 34px;
+  height: 34px;
+}
+
+.mobile-menu-btn {
+  background: none;
+  border: none;
+  color: #ffffff;
+  cursor: pointer;
+  padding: 4px;
+}
+
+@media (max-width: 900px) {
+  .mobile-menu-bar {
+    display: flex;
+  }
+  .rule-main {
+    padding-top: 88px !important;
+  }
+  .rule-sidebar {
+    display: none;
+    position: fixed;
+    top: 52px;
+    left: 0;
+    bottom: 0;
+    z-index: 40;
+    width: 220px !important;
+    height: 100vh !important;
+  }
+  .rule-sidebar--open {
+    display: flex !important;
   }
 }

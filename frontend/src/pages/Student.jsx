@@ -1,16 +1,15 @@
 import React, { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { addDoc, collection, deleteDoc, doc, getDocs, updateDoc } from 'firebase/firestore'
+import { db } from '../firebase'
 import '../css/Student.css'
 import wesleyLogo from '../assets/wesley-logo.png'
-import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, FileText } from 'lucide-react'
+import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X } from 'lucide-react'
 
 const YEARS = ["All Year", "Kindergarten", "1st Grade", "2nd Grade", "3rd Grade", "4th Grade", "5th Grade", "6th Grade", "7th Grade", "8th Grade", "9th Grade", "10th Grade"]
 const YEAR_LEVELS = ["Kindergarten", "1st Grade", "2nd Grade", "3rd Grade", "4th Grade", "5th Grade", "6th Grade", "7th Grade", "8th Grade", "9th Grade", "10th Grade"]
-const API_URL = "http://127.0.0.1:5000/api"
-
-
 /* sidebar */
-function Sidebar({ activePage }) {
+function Sidebar({ activePage, isOpen, toggleSidebar }) {
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -19,7 +18,7 @@ function Sidebar({ activePage }) {
   };
 
   return (
-    <div className="s-sidebar">
+    <div className={`s-sidebar${isOpen ? ' s-sidebar--open' : ''}`}>
       <div className="s-sidebar-header">
         <div className="s-logo">
           <div className="s-logo-icon">
@@ -38,6 +37,7 @@ function Sidebar({ activePage }) {
           <li>
             <Link
               to="/sares/dashboard"
+              onClick={toggleSidebar}
               className={`s-nav-item${activePage === "/sares/dashboard" ? " s-nav-item--active" : ""}`}
             >
               <LayoutDashboard className="s-nav-icon" />
@@ -48,6 +48,7 @@ function Sidebar({ activePage }) {
           <li>
             <Link
               to="/sares/students"
+              onClick={toggleSidebar}
               className={`s-nav-item${activePage === "/sares/students" ? " s-nav-item--active" : ""}`}
             >
               <Users className="s-nav-icon" />
@@ -58,6 +59,7 @@ function Sidebar({ activePage }) {
           <li>
             <Link
               to="/sares/violation"
+              onClick={toggleSidebar}
               className={`s-nav-item${activePage === "/sares/violation" ? " s-nav-item--active" : ""}`}
             >
               <ClipboardList className="s-nav-icon" />
@@ -68,6 +70,7 @@ function Sidebar({ activePage }) {
           <li>
             <Link
               to="/sares/rules"
+              onClick={toggleSidebar}
               className={`s-nav-item${activePage === "/sares/rules" ? " s-nav-item--active" : ""}`}
             >
               <ShieldCheck className="s-nav-icon" />
@@ -78,6 +81,7 @@ function Sidebar({ activePage }) {
           <li>
             <Link
               to="/sares/reports"
+              onClick={toggleSidebar}
               className={`s-nav-item${activePage === "/sares/reports" ? " s-nav-item--active" : ""}`}
             >
               <BarChart3 className="s-nav-icon" />
@@ -98,14 +102,14 @@ function Sidebar({ activePage }) {
 }
 
 /* Add Student Modal */
-function AddStudentModal({ onClose, onAdd, nextId }) {
+function AddStudentModal({ onClose, onAdd, initialForm, submitLabel = 'Add Student', title = 'Add New Student', subtitle = "Enter the student's information to create a new profile" }) {
   const [form, setForm] = useState({
-    id: nextId,
-    name: '',
-    year: '',
-    section: '',
-    email: '',
-    phone: '',
+    id: initialForm?.id || '',
+    name: initialForm?.name || '',
+    year: initialForm?.year || '',
+    section: initialForm?.section || '',
+    email: initialForm?.email || '',
+    phone: initialForm?.phone || '',
   });
 
   const handle = (e) => setForm({ ...form, [e.target.name]: e.target.value });
@@ -120,8 +124,8 @@ function AddStudentModal({ onClose, onAdd, nextId }) {
       <div className="s-modal" onClick={(e) => e.stopPropagation()}>
         <div className="s-modal-header">
           <div>
-            <h2 className="s-modal-title">Add New Student</h2>
-            <p className="s-modal-sub">Enter the student's information to create a new profile</p>
+            <h2 className="s-modal-title">{title}</h2>
+            <p className="s-modal-sub">{subtitle}</p>
           </div>
           <button className="s-modal-close" onClick={onClose}>
             <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
@@ -133,7 +137,13 @@ function AddStudentModal({ onClose, onAdd, nextId }) {
         <div className="s-modal-body">
           <div className="s-field">
             <label className="s-label">Student ID</label>
-            <input className="s-input" name="id" value={form.id} onChange={handle} />
+            <input
+              className="s-input"
+              name="id"
+              value={form.id}
+              onChange={handle}
+              placeholder="Enter student's LRN / official student ID"
+            />
           </div>
 
           <div className="s-field">
@@ -168,7 +178,7 @@ function AddStudentModal({ onClose, onAdd, nextId }) {
 
         <div className="s-modal-footer">
           <button className="s-btn-cancel" onClick={onClose}>Cancel</button>
-          <button className="s-btn-submit" onClick={submit}>Add Student</button>
+          <button className="s-btn-submit" onClick={submit}>{submitLabel}</button>
         </div>
       </div>
     </div>
@@ -176,10 +186,13 @@ function AddStudentModal({ onClose, onAdd, nextId }) {
 }
 
 /* Student List View */
-function StudentList({ students, onSelect, onAddStudent, location }) {
+function StudentList({ students, onSelect, onAddStudent, onEditStudent, onDeleteStudent, location, sidebarOpen, setSidebarOpen }) {
   const [search, setSearch] = useState('');
   const [yearFilter, setYearFilter] = useState('All Year');
   const [showModal, setShowModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingStudent, setEditingStudent] = useState(null);
+  const [openActionId, setOpenActionId] = useState(null);
   const [toast, setToast] = useState(false);
 
   const filtered = students.filter(s => {
@@ -190,8 +203,6 @@ function StudentList({ students, onSelect, onAddStudent, location }) {
     return matchSearch && matchYear;
   });
 
-  const nextId = `2024-${String(students.length + 1).padStart(5, '0')}`;
-
   const handleAdd = async (form) => {
     await onAddStudent(form);
     setShowModal(false);
@@ -199,9 +210,40 @@ function StudentList({ students, onSelect, onAddStudent, location }) {
     setTimeout(() => setToast(false), 3000);
   };
 
+  const openEdit = (student) => {
+    setEditingStudent(student);
+    setShowEditModal(true);
+    setOpenActionId(null);
+  };
+
+  const handleEdit = async (form) => {
+    if (!editingStudent) return;
+    await onEditStudent(editingStudent.docId, form);
+    setShowEditModal(false);
+    setEditingStudent(null);
+  };
+
+  const handleDelete = async (student) => {
+    const confirmed = window.confirm(`Delete ${student.name}? This cannot be undone.`);
+    if (!confirmed) return;
+    await onDeleteStudent(student.docId);
+    setOpenActionId(null);
+  };
+
   return (
     <div className="s-page">
-      <Sidebar activePage={location?.pathname || "/sares/students"} />
+      <div className="s-mobile-menu-bar">
+        <div className="s-logo">
+          <div className="s-logo-icon">
+            <img src={wesleyLogo} alt="Logo" className="school-logo" />
+          </div>
+          <h1 className="s-logo-text">SARES</h1>
+        </div>
+        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="s-mobile-menu-btn">
+          {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
+      </div>
+      <Sidebar activePage={location?.pathname || "/sares/students"} isOpen={sidebarOpen} toggleSidebar={() => setSidebarOpen(false)} />
 
       <div className="s-main">
         <div className="s-main-header">
@@ -268,11 +310,11 @@ function StudentList({ students, onSelect, onAddStudent, location }) {
 
               <tbody>
                 {filtered.map((student) => (
-                  <tr key={student.id} onClick={() => onSelect(student)}>
+                  <tr key={student.docId || student.id} onClick={() => onSelect(student)}>
                     <td className="s-student-name">{student.name}</td>
                     <td>{student.id}</td>
                     <td>{student.year} - {student.section}</td>
-                    <td>{student.violations}</td>
+                    <td>{student.violationCount}</td>
                     <td>
 
                     </td>
@@ -282,11 +324,65 @@ function StudentList({ students, onSelect, onAddStudent, location }) {
                         className="s-action-btn"
                         onClick={(e) => {
                           e.stopPropagation();
-                          onSelect(student);
+                          setOpenActionId((current) => (current === student.docId ? null : student.docId));
                         }}
                       >
                         ⋮
                       </button>
+                      {openActionId === student.docId && (
+                        <div
+                          style={{
+                            position: 'absolute',
+                            right: '12px',
+                            zIndex: 20,
+                            background: '#fff',
+                            border: '1px solid #dce7ff',
+                            borderRadius: '8px',
+                            boxShadow: '0 8px 24px rgba(12,39,95,0.12)',
+                            overflow: 'hidden',
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            type="button"
+                            style={{
+                              display: 'block',
+                              width: '100%',
+                              textAlign: 'left',
+                              padding: '8px 12px',
+                              background: '#ffffff',
+                              border: 'none',
+                              cursor: 'pointer',
+                              color: '#0f2553',
+                              fontSize: '14px',
+                              fontWeight: 600,
+                              whiteSpace: 'nowrap',
+                            }}
+                            onClick={() => openEdit(student)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            style={{
+                              display: 'block',
+                              width: '100%',
+                              textAlign: 'left',
+                              padding: '8px 12px',
+                              background: '#ffffff',
+                              border: 'none',
+                              color: '#c92020',
+                              cursor: 'pointer',
+                              fontSize: '14px',
+                              fontWeight: 600,
+                              whiteSpace: 'nowrap',
+                            }}
+                            onClick={() => handleDelete(student)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -310,7 +406,27 @@ function StudentList({ students, onSelect, onAddStudent, location }) {
         <AddStudentModal
           onClose={() => setShowModal(false)}
           onAdd={handleAdd}
-          nextId={nextId}
+        />
+      )}
+
+      {showEditModal && editingStudent && (
+        <AddStudentModal
+          onClose={() => {
+            setShowEditModal(false);
+            setEditingStudent(null);
+          }}
+          onAdd={handleEdit}
+          initialForm={{
+            id: editingStudent.id,
+            name: editingStudent.name,
+            year: editingStudent.year,
+            section: editingStudent.section,
+            email: editingStudent.email,
+            phone: editingStudent.phone,
+          }}
+          submitLabel="Save Changes"
+          title="Edit Student"
+          subtitle="Update the student's profile information"
         />
       )}
 
@@ -327,10 +443,21 @@ function StudentList({ students, onSelect, onAddStudent, location }) {
 }
 
 /* Student Profile */
-function StudentProfile({ student, onBack, onSelectViolation, location }) {
+function StudentProfile({ student, onBack, onSelectViolation, location, sidebarOpen, setSidebarOpen }) {
   return (
     <div className="s-page">
-      <Sidebar activePage={location.pathname} />
+      <div className="s-mobile-menu-bar">
+        <div className="s-logo">
+          <div className="s-logo-icon">
+            <img src={wesleyLogo} alt="Logo" className="school-logo" />
+          </div>
+          <h1 className="s-logo-text">SARES</h1>
+        </div>
+        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="s-mobile-menu-btn">
+          {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
+      </div>
+      <Sidebar activePage={location.pathname} isOpen={sidebarOpen} toggleSidebar={() => setSidebarOpen(false)} />
 
       <div className="s-main">
         <div className="s-back-bar">
@@ -352,10 +479,12 @@ function StudentProfile({ student, onBack, onSelectViolation, location }) {
               <p className="s-profile-id">{student.id}</p>
             </div>
           </div>
-          <Link to="/sares/violation" className="s-log-btn">
-            <FileText size={14} />
+          <button className="s-log-btn">
+            <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
+              <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+            </svg>
             Log Violation
-          </Link>
+          </button>
         </div>
 
         <div className="s-profile-grid">
@@ -395,7 +524,7 @@ function StudentProfile({ student, onBack, onSelectViolation, location }) {
 
             <div className="s-info-field">
               <span className="s-info-label">Total Violations</span>
-              <span className="s-violations-big">{student.violations}</span>
+              <span className="s-violations-big">{student.violationCount}</span>
             </div>
           </div>
 
@@ -404,11 +533,11 @@ function StudentProfile({ student, onBack, onSelectViolation, location }) {
             <h2 className="s-card-title">Disciplinary History</h2>
             <p className="s-card-sub">Complete record of violations and sanctions</p>
 
-            {student.history.length === 0 ? (
+            {student.violations.length === 0 ? (
               <div className="s-empty">No violations recorded.</div>
             ) : (
               <div className="s-history-list">
-                {student.history.map(v => (
+                {student.violations.map(v => (
                   <div
                     key={v.id}
                     className="s-history-item"
@@ -425,7 +554,7 @@ function StudentProfile({ student, onBack, onSelectViolation, location }) {
                         <svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12" style={{ marginRight: 4, verticalAlign: 'middle' }}>
                           <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
                         </svg>
-                        {v.date} {v.time && `• ${v.time}`}
+                        {v.date}
                       </span>
                       <span>
                         <svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12" style={{ marginRight: 4, verticalAlign: 'middle' }}>
@@ -454,10 +583,21 @@ function StudentProfile({ student, onBack, onSelectViolation, location }) {
 }
 
 /* Violation Details*/
-function ViolationDetails({ violation, student, onBack, location }) {
+function ViolationDetails({ violation, student, onBack, location, sidebarOpen, setSidebarOpen }) {
   return (
     <div className="s-page">
-      <Sidebar activePage={location.pathname} />
+      <div className="s-mobile-menu-bar">
+        <div className="s-logo">
+          <div className="s-logo-icon">
+            <img src={wesleyLogo} alt="Logo" className="school-logo" />
+          </div>
+          <h1 className="s-logo-text">SARES</h1>
+        </div>
+        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="s-mobile-menu-btn">
+          {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
+      </div>
+      <Sidebar activePage={location.pathname} isOpen={sidebarOpen} toggleSidebar={() => setSidebarOpen(false)} />
 
       <div className="s-main s-main--scrollable">
         <div className="s-back-bar">
@@ -494,9 +634,7 @@ function ViolationDetails({ violation, student, onBack, location }) {
                 <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" /></svg>
                 Date of Incident
               </div>
-              <div className="s-vd-field-value">
-                {violation.date} {violation.time && `• ${violation.time}`}
-              </div>
+              <div className="s-vd-field-value">{violation.date}</div>
             </div>
           </div>
           <div className="s-divider" />
@@ -579,6 +717,7 @@ function ViolationDetails({ violation, student, onBack, location }) {
 /* Students */
 export default function Students() {
   const location = useLocation();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [view, setView] = useState('list');
   const [students, setStudents] = useState([]);
@@ -597,8 +736,21 @@ export default function Students() {
 
     const colors = ['#7b9dff', '#d96eff', '#5fe0b0', '#ffc85c', '#ff7864'];
 
+    const violationList = Array.isArray(student.violations)
+      ? student.violations
+      : Array.isArray(student.history)
+        ? student.history
+        : [];
+
+    const violationCount =
+      typeof student.violation_count === 'number'
+        ? student.violation_count
+        : typeof student.violations === 'number'
+          ? student.violations
+          : violationList.length;
+
     return {
-      student_id: student.student_id,
+      docId: student.student_id || '',
       id: student.student_number,
       name: student.full_name,
       initials: initials || 'S',
@@ -607,49 +759,20 @@ export default function Students() {
       section: student.section,
       email: student.email || '',
       phone: student.phone_number || '',
-      violations: student.violations || 0,
+      violationCount,
       repeatOffender: student.repeat_offender || false,
-      history: student.history || [],
+      violations: violationList,
     };
   };
 
   const fetchStudents = async () => {
     try {
-      const [studentsRes, violationsRes] = await Promise.all([
-        fetch(`${API_URL}/students`),
-        fetch(`${API_URL}/violations`),
-      ]);
-
-      const studentsData = await studentsRes.json();
-      const violationsData = await violationsRes.json();
-
-      const formattedStudents = studentsData.map((student) => {
-        const studentViolations = violationsData
-          .filter((v) => v.student_id === student.student_id)
-          .map((v) => ({
-            id: v.violation_id,
-            category: v.category_name,
-            variety: v.offense_variety,
-            description: v.incident_description,
-            date: v.incident_date_display || v.incident_date,
-            time: v.created_time || '',
-            severity: v.severity,
-            sanction: v.recommended_sanction,
-            finalSanction: v.final_sanction,
-            provision: v.provision,
-            status: v.status,
-            overrideJustification: v.override_justification,
-          }));
-
-        return formatStudent({
-          ...student,
-          violations: studentViolations.length,
-          repeat_offender: studentViolations.length >= 2,
-          history: studentViolations,
-        });
-      });
-
-      setStudents(formattedStudents);
+      const snapshot = await getDocs(collection(db, 'students'));
+      const data = snapshot.docs.map((studentDoc) => ({
+        ...studentDoc.data(),
+        student_id: studentDoc.id,
+      }));
+      setStudents(data.map(formatStudent));
     } catch (error) {
       console.error('Failed to fetch students:', error);
     }
@@ -671,6 +794,35 @@ export default function Students() {
 
   const handleAddStudent = async (form) => {
     const studentData = {
+      student_id: '',
+      student_number: form.id,
+      full_name: form.name,
+      year_level: form.year,
+      section: form.section,
+      email: form.email,
+      phone_number: form.phone,
+      violation_count: 0,
+      violations: [],
+      repeat_offender: false,
+    };
+
+    try {
+      const newStudentRef = await addDoc(collection(db, 'students'), studentData);
+      const createdStudent = {
+        ...studentData,
+        student_id: newStudentRef.id,
+      };
+
+      setStudents((prev) => [formatStudent(createdStudent), ...prev]);
+    } catch (error) {
+      console.error('Failed to add student:', error);
+      alert('Failed to add student. Check Firebase permissions and connection.');
+    }
+  };
+
+  const handleEditStudent = async (docId, form) => {
+    if (!docId) return;
+    const payload = {
       student_number: form.id,
       full_name: form.name,
       year_level: form.year,
@@ -678,25 +830,28 @@ export default function Students() {
       email: form.email,
       phone_number: form.phone,
     };
+    await updateDoc(doc(db, 'students', docId), payload);
+    setStudents((prev) =>
+      prev.map((student) =>
+        student.docId === docId
+          ? {
+              ...student,
+              id: payload.student_number,
+              name: payload.full_name,
+              year: payload.year_level,
+              section: payload.section,
+              email: payload.email,
+              phone: payload.phone_number,
+            }
+          : student
+      )
+    );
+  };
 
-    try {
-      const response = await fetch(`${API_URL}/students`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(studentData),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to add student');
-      }
-
-      await fetchStudents();
-    } catch (error) {
-      console.error('Failed to add student:', error);
-      alert('Failed to add student. Check backend or database.');
-    }
+  const handleDeleteStudent = async (docId) => {
+    if (!docId) return;
+    await deleteDoc(doc(db, 'students', docId));
+    setStudents((prev) => prev.filter((student) => student.docId !== docId));
   };
 
   if (view === 'violation' && selectedViolation && selectedStudent) {
@@ -706,6 +861,8 @@ export default function Students() {
         student={selectedStudent}
         onBack={() => setView('profile')}
         location={location}
+        sidebarOpen={sidebarOpen}
+        setSidebarOpen={setSidebarOpen}
       />
     );
   }
@@ -717,6 +874,8 @@ export default function Students() {
         onBack={() => setView('list')}
         onSelectViolation={handleSelectViolation}
         location={location}
+        sidebarOpen={sidebarOpen}
+        setSidebarOpen={setSidebarOpen}
       />
     );
   }
@@ -726,7 +885,11 @@ export default function Students() {
       students={students}
       onSelect={handleSelectStudent}
       onAddStudent={handleAddStudent}
+      onEditStudent={handleEditStudent}
+      onDeleteStudent={handleDeleteStudent}
       location={location}
+      sidebarOpen={sidebarOpen}
+      setSidebarOpen={setSidebarOpen}
     />
   );
 }
