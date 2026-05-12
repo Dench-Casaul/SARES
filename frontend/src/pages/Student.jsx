@@ -443,7 +443,7 @@ function StudentList({ students, onSelect, onAddStudent, onEditStudent, onDelete
 }
 
 /* Student Profile */
-function StudentProfile({ student, onBack, onSelectViolation, location, sidebarOpen, setSidebarOpen }) {
+function StudentProfile({ student, onBack, onSelectViolation, onLogViolation, location, sidebarOpen, setSidebarOpen }) {
   return (
     <div className="s-page">
       <div className="s-mobile-menu-bar">
@@ -479,7 +479,7 @@ function StudentProfile({ student, onBack, onSelectViolation, location, sidebarO
               <p className="s-profile-id">{student.id}</p>
             </div>
           </div>
-          <button className="s-log-btn">
+          <button className="s-log-btn" onClick={onLogViolation}>
             <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
               <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
             </svg>
@@ -717,6 +717,7 @@ function ViolationDetails({ violation, student, onBack, location, sidebarOpen, s
 /* Students */
 export default function Students() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [view, setView] = useState('list');
@@ -790,6 +791,15 @@ export default function Students() {
   const handleSelectViolation = (violation) => {
     setSelectedViolation(violation);
     setView('violation');
+  };
+
+  const handleLogViolationForStudent = () => {
+    if (!selectedStudent) return;
+    navigate('/sares/violation', {
+      state: {
+        prefillStudentId: selectedStudent.docId,
+      },
+    });
   };
 
   const handleAddStudent = async (form) => {
@@ -873,6 +883,7 @@ export default function Students() {
         student={selectedStudent}
         onBack={() => setView('list')}
         onSelectViolation={handleSelectViolation}
+        onLogViolation={handleLogViolationForStudent}
         location={location}
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}

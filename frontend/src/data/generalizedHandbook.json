@@ -1,0 +1,334 @@
+{
+  "$schema": "SARES generalized student discipline handbook (extract)",
+  "source": "Generalized_Handbook (1).pdf / Generalized_Handbook.pdf — same policy text; extracted only; no invented policies",
+  "sections": {
+    "classification": "SECTION II. CLASSIFICATION OF OFFENSES",
+    "sanctionForms": "SECTION III. FORMS OF DISCIPLINARY SANCTIONS",
+    "sanctionSchedule": "SECTION IV. SCHEDULE OF DISCIPLINARY SANCTIONS",
+    "liability": "SECTION V. LIABILITY FOR DAMAGES",
+    "additional": "SECTION VI. ADDITIONAL PROVISIONS"
+  },
+  "offenseCategories": [
+    {
+      "id": "major",
+      "label": "Major Offenses",
+      "handbookSection": "II.A",
+      "description": "Acts of serious misconduct that directly threaten the safety, integrity, order, or welfare of any individual member of the school community or of the institution as a whole; may include preventive suspension pending proceedings."
+    },
+    {
+      "id": "minor",
+      "label": "Minor Offenses",
+      "handbookSection": "II.B",
+      "description": "Misconduct that does not constitute an immediate threat to safety or integrity but violates school rules and behavioral expectations; disrupts orderly functioning of the academic environment."
+    }
+  ],
+  "offenses": [
+    {
+      "handbookNumber": 1,
+      "categoryId": "major",
+      "title": "Deadly weapons",
+      "text": "Carrying or possession of deadly weapons, including but not limited to knives, daggers, bladed instruments, pellet guns, firearms, explosives, or any object intended to cause bodily harm, within the school premises or during any official school activity conducted on or off campus."
+    },
+    {
+      "handbookNumber": 2,
+      "categoryId": "major",
+      "title": "Prohibited drugs and illegal substances",
+      "text": "Possession, use, trafficking, or distribution of prohibited drugs, regulated substances without valid prescription, or any illegal chemical substance within the school premises or during any officially sanctioned school activity."
+    },
+    {
+      "handbookNumber": 3,
+      "categoryId": "major",
+      "title": "Liquor or intoxication",
+      "text": "Possession or consumption of liquor or alcoholic beverages within the school premises or the immediate surrounding area, or entering the school premises in a state of intoxication."
+    },
+    {
+      "handbookNumber": 4,
+      "categoryId": "major",
+      "title": "Physical violence",
+      "text": "Involvement in acts of physical violence, including fistfights, assault, battery, or the infliction of bodily injury upon any member of the school community within the premises or during any official off-campus activity."
+    },
+    {
+      "handbookNumber": 5,
+      "categoryId": "major",
+      "title": "Vandalism or willful destruction of property",
+      "text": "Vandalism or willful destruction of school property or the personal property of any student, faculty member, school official, or visitor, including graffiti, breaking of fixtures, defacement of walls, destruction of furniture, and damage to library materials or school equipment."
+    },
+    {
+      "handbookNumber": 6,
+      "categoryId": "major",
+      "title": "Academic dishonesty",
+      "text": "Any form of academic dishonesty, including cheating during examinations, plagiarism of submitted academic work, and the unauthorized use or reproduction of the work of others without proper attribution."
+    },
+    {
+      "handbookNumber": 7,
+      "categoryId": "major",
+      "title": "Extortion, blackmail, theft",
+      "text": "Any form of extortion, blackmail, theft, or attempted theft, whether or not the intended purpose is accomplished."
+    },
+    {
+      "handbookNumber": 8,
+      "categoryId": "major",
+      "title": "Gambling",
+      "text": "Any form of gambling, betting, or wagering, or any attempt thereof, within the school premises or during any official school activity."
+    },
+    {
+      "handbookNumber": 9,
+      "categoryId": "major",
+      "title": "Deliberate disruption of school operations",
+      "text": "Deliberate disruption of school operations, academic activities, or officially sanctioned events in a manner that creates disorder, breach of peace, or serious disturbance within the institution."
+    },
+    {
+      "handbookNumber": 10,
+      "categoryId": "major",
+      "title": "Forgery or falsification of official school records",
+      "text": "Forging, falsifying, tampering with, or unauthorized alteration of any official school record, document, receipt, credential, or identification card, or the creation and use of counterfeit school documents for the purpose of gaining access to or benefiting from school facilities and privileges."
+    },
+    {
+      "handbookNumber": 11,
+      "categoryId": "major",
+      "title": "Lewdness, immorality, obscene materials",
+      "text": "Commission of any act of lewdness, immorality, or the possession, creation, display, or distribution of pornographic or obscene material within the school premises."
+    },
+    {
+      "handbookNumber": 12,
+      "categoryId": "major",
+      "title": "Gross disrespect",
+      "text": "Gross disrespect, whether in word or in deed, directed against any school official, faculty member, staff, or visitor, in a manner that tends to place such person in ridicule, contempt, or dishonor."
+    },
+    {
+      "handbookNumber": 13,
+      "categoryId": "major",
+      "title": "Unauthorized solicitation",
+      "text": "Unauthorized solicitation of funds or goods from any member of the school community or the general public using the name or affiliation of the institution."
+    },
+    {
+      "handbookNumber": 14,
+      "categoryId": "major",
+      "title": "Bullying, harassment, intimidation, cyberbullying",
+      "text": "Any form of bullying, harassment, intimidation, or cyberbullying directed against any member of the school community, whether committed within the premises or through electronic or online means."
+    },
+    {
+      "handbookNumber": 15,
+      "categoryId": "major",
+      "title": "Acts discrediting the institution",
+      "text": "Any act, omission, or conduct that tends to cause dishonor, discredit, or contempt for the institution or that adversely affects its name and standing in the community."
+    },
+    {
+      "handbookNumber": 16,
+      "categoryId": "major",
+      "title": "Third minor offense in the same school year (elevation rule)",
+      "text": "Commission of a third minor offense within the same school year, which shall be automatically elevated to and treated as a major offense for the purpose of determining the applicable disciplinary sanction.",
+      "isMetaRule": true,
+      "elevatesFromCategory": "minor"
+    },
+    {
+      "handbookNumber": 17,
+      "categoryId": "minor",
+      "title": "Non-academic use of devices",
+      "text": "Use of mobile phones, electronic gadgets, or other personal devices for non-academic purposes inside classrooms, laboratories, libraries, or any area where learning activities are in progress, unless expressly authorized by the teacher or relevant authority."
+    },
+    {
+      "handbookNumber": 18,
+      "categoryId": "minor",
+      "title": "Improper or non-prescribed attire",
+      "text": "Wearing of improper or non-prescribed attire within the school premises, including but not limited to wearing of shorts, house slippers, spaghetti-strap blouses, caps, or any clothing deemed inappropriate for the academic environment."
+    },
+    {
+      "handbookNumber": 19,
+      "categoryId": "minor",
+      "title": "ID card or uniform",
+      "text": "Failure to wear or properly display the prescribed school identification card or uniform within the campus or during official school activities conducted off campus."
+    },
+    {
+      "handbookNumber": 20,
+      "categoryId": "minor",
+      "title": "Grooming standards",
+      "text": "Excessive or unkempt hair, non-prescribed hairstyles, unnaturally colored hair, excessive jewelry, heavy make-up, nail polish, or visible tattoos and body piercings in a manner inconsistent with the institution's grooming standards."
+    },
+    {
+      "handbookNumber": 21,
+      "categoryId": "minor",
+      "title": "Unauthorized use of school facilities or resources",
+      "text": "Unauthorized use of school facilities, equipment, or institutional resources for personal purposes or activities not sanctioned by the administration."
+    },
+    {
+      "handbookNumber": 22,
+      "categoryId": "minor",
+      "title": "Littering or failure to maintain cleanliness",
+      "text": "Littering or failure to maintain cleanliness within school premises, including the improper disposal of garbage or waste materials in unauthorized areas."
+    },
+    {
+      "handbookNumber": 23,
+      "categoryId": "minor",
+      "title": "Eating in prohibited areas",
+      "text": "Eating or consumption of food and beverages inside classrooms, laboratories, the library, the auditorium, the gymnasium, or any other area where such activity is expressly prohibited."
+    },
+    {
+      "handbookNumber": 24,
+      "categoryId": "minor",
+      "title": "Disruption of class or official activity",
+      "text": "Disruption of one's own or another's class session or any official school activity through unnecessary noise, disruptive behavior, or failure to observe proper decorum in learning spaces."
+    },
+    {
+      "handbookNumber": 25,
+      "categoryId": "minor",
+      "title": "Tardiness or unexcused absence",
+      "text": "Tardiness or unexcused absence from classes or any official school activity, whether on a single occasion or as a habitual pattern of conduct."
+    },
+    {
+      "handbookNumber": 26,
+      "categoryId": "minor",
+      "title": "Profane or disrespectful language",
+      "text": "Use of profane, vulgar, offensive, or disrespectful language within the school premises or in any official communication or interaction involving members of the school community."
+    },
+    {
+      "handbookNumber": 27,
+      "categoryId": "minor",
+      "title": "Loitering",
+      "text": "Loitering in corridors, stairways, restricted areas, or any location outside the student's assigned class or activity area without valid justification or proper authorization."
+    },
+    {
+      "handbookNumber": 28,
+      "categoryId": "minor",
+      "title": "Playing in undesignated areas",
+      "text": "Playing of ball games, contact sports, or other recreational activities in corridors, quadrangles, or areas not designated for such activities, particularly where such conduct poses a risk to persons or property."
+    },
+    {
+      "handbookNumber": 29,
+      "categoryId": "minor",
+      "title": "Public display of affection",
+      "text": "Public display of affection within the school premises, including but not limited to kissing, embracing, cuddling, or other forms of physical intimacy deemed inappropriate for an academic setting."
+    },
+    {
+      "handbookNumber": 30,
+      "categoryId": "minor",
+      "title": "Unauthorized entry, misuse of structures, tampering with fixtures",
+      "text": "Unauthorized entry into restricted areas of the school, sitting on tables, windowsills, stairway railings, or other structures not intended for such use, or tampering with electrical switches, fire alarm systems, or other institutional fixtures."
+    }
+  ],
+  "sanctionForms": [
+    {
+      "id": "preventive_suspension",
+      "handbookSection": "III.A",
+      "label": "Preventive Suspension",
+      "summary": "During investigation or pendency of proceedings; not a finding of guilt; without prejudice to outcome."
+    },
+    {
+      "id": "punitive_suspension",
+      "handbookSection": "III.B",
+      "label": "Punitive Suspension",
+      "summary": "After due process and finding of guilt; duration commensurate with offense; pupil not excused from assessments during suspension—failing mark for work not completed; may include assigned academic or community work."
+    },
+    {
+      "id": "exclusion_forced_transfer",
+      "handbookSection": "III.C",
+      "label": "Exclusion or Forced Transfer",
+      "summary": "Excluded from honor rolls for current school year; required to transfer; transfer credentials issued."
+    },
+    {
+      "id": "expulsion",
+      "handbookSection": "III.D",
+      "label": "Expulsion",
+      "summary": "Most severe; no transfer credentials; only after due process and resolution by appropriate administrative authority."
+    }
+  ],
+  "sanctionSchedule": {
+    "handbookSection": "IV",
+    "preamble": "Sanctions escalate progressively based on the frequency of violations within the same school year. Institution may deviate where nature and gravity warrant a more severe response.",
+    "majorOffenses": {
+      "trackLabel": "For Major Offenses",
+      "tiers": [
+        {
+          "ordinal": 1,
+          "label": "First Offense",
+          "sanctions": [
+            "Suspension from attending classes and all school activities for a period of two school days.",
+            "Formal written notice to the pupil and communicated to the pupil's parent or guardian.",
+            "Pupil required to appear before the disciplinary authority.",
+            "Pupil shall submit a written undertaking to comply with institutional policies."
+          ]
+        },
+        {
+          "ordinal": 2,
+          "label": "Second Offense",
+          "sanctions": [
+            "Suspension from attending classes and all school activities for a period of five school days.",
+            "Corresponding entry in the pupil's official disciplinary record.",
+            "Reinstatement subject to conditions set by the disciplinary authority, which may include counseling, community service, or a formal conference involving the pupil and their parent or guardian."
+          ]
+        },
+        {
+          "ordinal": 3,
+          "label": "Third Offense",
+          "sanctions": [
+            "Pupil shall be recommended for exclusion or forced transfer from the institution.",
+            "Case elevated to the appropriate administrative authority for final resolution.",
+            "Pupil and parent or guardian formally notified in writing of the decision and of all available rights to appeal per institutional procedures."
+          ]
+        }
+      ]
+    },
+    "minorOffenses": {
+      "trackLabel": "For Minor Offenses",
+      "tiers": [
+        {
+          "ordinal": 1,
+          "label": "First Offense",
+          "sanctions": [
+            "Verbal warning administered by the concerned faculty member, class adviser, or disciplinary officer.",
+            "Record of the incident noted in the pupil's file for monitoring purposes.",
+            "Pupil reminded of the applicable rule and the consequences of repeated violations."
+          ]
+        },
+        {
+          "ordinal": 2,
+          "label": "Second Offense",
+          "sanctions": [
+            "Formal written warning, placed on file and communicated to the pupil's parent or guardian as appropriate.",
+            "Pupil required to submit a written explanation of the conduct.",
+            "Pupil shall attend a guidance counseling session as directed by the institution."
+          ]
+        },
+        {
+          "ordinal": 3,
+          "label": "Third Offense",
+          "sanctions": [
+            "Suspension from attending classes and all school activities for a period of two school days.",
+            "Formal conference involving the pupil, their parent or guardian, and the appropriate school authorities."
+          ],
+          "subsequentViolationsNote": "Subsequent violations following this stage shall result in the automatic reclassification of the conduct as a major offense, with the corresponding sanctions applied accordingly."
+        }
+      ]
+    }
+  },
+  "repeatAndEscalationPatterns": [
+    {
+      "handbookReference": "IV (intro)",
+      "pattern": "Progressive sanctions within the same school year based on frequency of violations."
+    },
+    {
+      "handbookReference": "II.A.16",
+      "pattern": "A third minor offense within the same school year is automatically elevated to and treated as a major offense for determining the applicable disciplinary sanction."
+    },
+    {
+      "handbookReference": "IV (Minor, Third Offense)",
+      "pattern": "After the third minor tier (including two school days suspension and conference), further violations result in automatic reclassification as a major offense with major sanctions."
+    },
+    {
+      "handbookReference": "VI",
+      "pattern": "Disciplinary authority may adjust sanctions upward or downward for aggravating or mitigating circumstances, documented in the case record. Repeated violations (same or different nature) subject to progressively severe sanctions; accumulation of minor offenses may be elevated to major offense level."
+    },
+    {
+      "handbookReference": "III (intro)",
+      "pattern": "Institution may accelerate sanction or impose a more severe penalty depending on assessment of extent and degree of offense."
+    }
+  ],
+  "liabilityForDamages": {
+    "handbookSection": "V",
+    "summary": "Pupil causing damage may face financial liability (repair/replacement per institution) and administrative liability where conduct approximates or constitutes vandalism or willful destruction (additional measures per sanction schedule). May include medical expenses for victims. Settlement at school financial office within prescribed period."
+  },
+  "implementationNotes": [
+    "Section IV schedules are keyed to 'First/Second/Third Offense' within each of Major and Minor tracks; the handbook ties frequency to the same school year but does not explicitly state whether counts are per specific offense type or across all offenses in that track. Thesis implementation should document the chosen counting rule and cite handbook language.",
+    "Item 16 (handbook) is a classification/elevation rule, not a standalone act description like items 1–15 and 17–30."
+  ]
+}

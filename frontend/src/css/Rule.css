@@ -295,8 +295,24 @@
 
 .rule-controls {
   display: grid;
-  grid-template-columns: 1fr 200px;
+  grid-template-columns: 1fr auto 200px;
   gap: 12px;
+}
+
+.rule-enable-all-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 4px;
+  white-space: nowrap;
+  color: #365577;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.rule-enable-all-wrap .rule-toggle:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .rule-search-wrap {

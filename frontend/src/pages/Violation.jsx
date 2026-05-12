@@ -11,6 +11,7 @@ import {
   updateDoc,
 } from 'firebase/firestore'
 import { db } from '../firebase'
+import { evaluateSaresRecommendation } from '../engine/ruleEngine'
 import '../css/Violation.css'
 import wesleyLogo from '../assets/wesley-logo.png'
 import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X, ChevronDown } from 'lucide-react'
@@ -90,7 +91,6 @@ export default function Violation() {
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [showToast, setShowToast] = useState(false);
   const [students, setStudents] = useState([]);
   const [categories, setCategories] = useState([]);
   const [rules, setRules] = useState([]);
@@ -156,6 +156,21 @@ export default function Violation() {
     fetchStudents();
     fetchCategories();
   }, []);
+
+  useEffect(() => {
+    const prefillStudentId = location.state?.prefillStudentId;
+    if (!prefillStudentId || students.length === 0) return;
+
+    const matched = students.find(
+      (student) => String(student.student_id) === String(prefillStudentId)
+    );
+    if (!matched) return;
+
+    setForm((prev) => ({ ...prev, student_id: String(matched.student_id) }));
+    setStudentQuery(matched.full_name || '');
+    setStudentMenuOpen(false);
+    navigate(location.pathname, { replace: true, state: {} });
+  }, [location.state, location.pathname, navigate, students]);
 
   const fetchStudents = async () => {
     try {
@@ -390,24 +405,34 @@ export default function Violation() {
       }
 
       const violationsSnapshot = await getDocs(collection(db, 'violations'));
+      const existingViolations = violationsSnapshot.docs.map((d) => d.data());
       const offenseCount =
-        violationsSnapshot.docs.filter((violationDoc) => {
-          const violation = violationDoc.data();
+        existingViolations.filter((violation) => {
           return (
             String(violation.student_id) === String(form.student_id) &&
             String(violation.rule_id) === String(form.rule_id)
           );
         }).length + 1;
 
-      await addDoc(collection(db, 'violations'), {
+      const recommendation = evaluateSaresRecommendation({
+        rule: selectedRule,
+        category: selectedCategory,
+        studentId: form.student_id,
+        incidentDate: form.incident_date,
+        existingViolations,
+      });
+
+      const handbookTrack = String(selectedCategory.handbook_track || '')
+        .toLowerCase();
+      const violationPayload = {
         student_id: form.student_id,
         rule_id: form.rule_id,
         incident_date: form.incident_date,
         incident_description: form.incident_description,
         offense_count: offenseCount,
-        severity: selectedRule.severity,
-        recommended_sanction: selectedRule.recommended_sanction,
-        provision: selectedRule.provision,
+        severity: recommendation.recommendedSeverity,
+        recommended_sanction: recommendation.recommendedSanction,
+        provision: recommendation.provision,
         status: 'pending',
         created_by: user?.user_id || 'system',
         student_name: selectedStudent.full_name,
@@ -416,7 +441,23 @@ export default function Violation() {
         category_name: selectedCategory.category_name,
         offense_variety: selectedRule.offense_variety,
         created_at: serverTimestamp(),
-      });
+        school_year_key: recommendation.schoolYearKey,
+        engine_mode: recommendation.mode,
+        handbook_tier_ordinal: recommendation.tierOrdinal,
+        base_rule_severity: Number(selectedRule.severity) || 0,
+      };
+
+      if (handbookTrack === 'major' || handbookTrack === 'minor') {
+        violationPayload.handbook_track = handbookTrack;
+      }
+      if (recommendation.mode === 'handbook' && recommendation.sanctionTrack) {
+        violationPayload.sanction_track = recommendation.sanctionTrack;
+      }
+      if (recommendation.trace) {
+        violationPayload.engine_trace = recommendation.trace;
+      }
+
+      await addDoc(collection(db, 'violations'), violationPayload);
 
       if (selectedStudent.__docId) {
         await updateDoc(doc(db, 'students', selectedStudent.__docId), {
@@ -427,37 +468,22 @@ export default function Violation() {
             variety: selectedRule.offense_variety,
             description: form.incident_description,
             date: form.incident_date,
-            severity: selectedRule.severity,
-            sanction: selectedRule.recommended_sanction,
+            severity: recommendation.recommendedSeverity,
+            sanction: recommendation.recommendedSanction,
             provision: selectedRule.provision,
             status: 'pending',
           }),
         });
       }
 
-      setShowToast(true);
-
-      setForm({
-        student_id: '',
-        incident_date: today,
-        category_id: '',
-        rule_id: '',
-        incident_description: '',
+      navigate('/sares/case-assessment', {
+        state: {
+          caseData: {
+            ...violationPayload,
+            status: 'pending',
+          },
+        },
       });
-
-      setStudentQuery('');
-      setStudentMenuOpen(false);
-
-      setCategoryQuery('');
-      setCategoryMenuOpen(false);
-      setRuleQuery('');
-      setRuleMenuOpen(false);
-
-      setRules([]);
-
-      setTimeout(() => {
-        setShowToast(false);
-      }, 3000);
     } catch (error) {
       console.error('Error saving violation:', error);
       alert('Failed to submit violation. Check Firebase rules and data.');
@@ -739,14 +765,6 @@ export default function Violation() {
         </form>
       </div>
 
-      {showToast && (
-        <div className="v-toast">
-          <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-          </svg>
-          Violation logged successfully!
-        </div>
-      )}
     </div>
   );
 }

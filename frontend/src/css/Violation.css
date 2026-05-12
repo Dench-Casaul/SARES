@@ -437,6 +437,112 @@
   z-index: 200;
 }
 
+/* handbook rule engine preview */
+.v-engine-preview {
+  margin-top: 8px;
+  padding: 20px;
+  border-radius: 14px;
+  border: 1px solid #c8e6fc;
+  background: linear-gradient(180deg, #f0f9ff 0%, #ffffff 64%);
+  box-shadow: 0 6px 18px rgba(17, 44, 80, 0.06);
+}
+
+.v-engine-preview-header {
+  margin-bottom: 16px;
+}
+
+.v-engine-preview-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: #071f5f;
+}
+
+.v-engine-preview-sub {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.v-engine-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 20px;
+}
+
+.v-engine-stat {
+  min-width: 0;
+}
+
+.v-engine-block {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.v-engine-block--facts .v-engine-facts {
+  font-size: 13px;
+  color: #475569;
+}
+
+.v-engine-kicker {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #1198e8;
+  margin-bottom: 4px;
+}
+
+.v-engine-value {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: #071f5f;
+}
+
+.v-engine-value--sm {
+  font-size: 15px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.v-engine-meta {
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.v-engine-body {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #1e293b;
+}
+
+.v-engine-body--multiline {
+  white-space: pre-line;
+}
+
+.v-engine-notes {
+  margin: 14px 0 0;
+  padding-left: 18px;
+  color: #334155;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.v-engine-notes li {
+  margin-bottom: 4px;
+}
+
+@media (max-width: 768px) {
+  .v-engine-preview-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* responsive */
 @media (max-width: 768px) {
   .v-page {

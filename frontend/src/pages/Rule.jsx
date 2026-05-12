@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { addDoc, collection, getDocs, serverTimestamp, updateDoc, doc } from 'firebase/firestore'
+import { addDoc, collection, getDocs, serverTimestamp, updateDoc, doc, writeBatch } from 'firebase/firestore'
 import { db } from '../firebase'
 import '../css/Rule.css'
 import wesleyLogo from '../assets/wesley-logo.png'
@@ -427,6 +427,7 @@ export default function Rule() {
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [bulkUpdating, setBulkUpdating] = useState(false);
 
   const handleLogout = () => {
     localStorage.removeItem('user');
@@ -579,6 +580,31 @@ export default function Rule() {
     showToast('Rule status updated successfully!');
   };
 
+  const allRulesEnabled = rules.length > 0 && rules.every((rule) => rule.active);
+
+  const toggleAllRules = async () => {
+    if (rules.length === 0 || bulkUpdating) return;
+    setBulkUpdating(true);
+    try {
+      const nextActiveState = !allRulesEnabled;
+      const batch = writeBatch(db);
+      rules.forEach((rule) => {
+        batch.update(doc(db, 'rules', rule.id), {
+          is_active: nextActiveState,
+          updated_at: serverTimestamp(),
+        });
+      });
+      await batch.commit();
+      await loadRules();
+      showToast(nextActiveState ? 'All rules enabled.' : 'All rules disabled.');
+    } catch (error) {
+      console.error('Error updating all rules:', error);
+      alert('Failed to update all rules.');
+    } finally {
+      setBulkUpdating(false);
+    }
+  };
+
   return (
     <div className="rule-page">
       <div className="mobile-menu-bar">
@@ -635,6 +661,19 @@ export default function Rule() {
               />
             </div>
 
+            <div className="rule-enable-all-wrap">
+              <span>{allRulesEnabled ? 'All Enabled' : 'Enable All'}</span>
+              <button
+                type="button"
+                className={`rule-toggle${allRulesEnabled ? ' active' : ''}`}
+                onClick={toggleAllRules}
+                disabled={bulkUpdating || rules.length === 0}
+                title={allRulesEnabled ? 'Disable all rules' : 'Enable all rules'}
+              >
+                <span></span>
+              </button>
+            </div>
+
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
@@ -652,8 +691,8 @@ export default function Rule() {
                 <div className="rule-item-top">
                   <div>
                     <div className="rule-title-row">
-                      <h3>{rule.category}</h3>
-                      <span>{rule.variety}</span>
+                      <h3>{rule.variety}</h3>
+                      <span>{rule.category}</span>
                     </div>
 
                     <div className="rule-severity-row">
