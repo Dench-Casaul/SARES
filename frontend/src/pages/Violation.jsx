@@ -11,7 +11,7 @@ import {
   updateDoc,
 } from 'firebase/firestore'
 import { db } from '../firebase'
-import { evaluateSaresRecommendation } from '../engine/ruleEngine'
+import { evaluateSaresRecommendation, MODIFIER_WEIGHTS } from '../engine/ruleEngine'
 import '../css/Violation.css'
 import wesleyLogo from '../assets/wesley-logo.png'
 import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X, ChevronDown } from 'lucide-react'
@@ -139,6 +139,7 @@ export default function Violation() {
     category_id: '',
     rule_id: '',
     incident_description: '',
+    modifiers: [],
   });
 
   const filteredRules = useMemo(() => {
@@ -378,6 +379,18 @@ export default function Violation() {
     });
   };
 
+  const handleModifierToggle = (mod) => {
+    setForm(prev => {
+      const isSelected = prev.modifiers.includes(mod);
+      return {
+        ...prev,
+        modifiers: isSelected 
+          ? prev.modifiers.filter(m => m !== mod) 
+          : [...prev.modifiers, mod]
+      };
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -420,6 +433,7 @@ export default function Violation() {
         studentId: form.student_id,
         incidentDate: form.incident_date,
         existingViolations,
+        modifiers: form.modifiers,
       });
 
       const handbookTrack = String(selectedCategory.handbook_track || '')
@@ -455,6 +469,12 @@ export default function Violation() {
       }
       if (recommendation.trace) {
         violationPayload.engine_trace = recommendation.trace;
+      }
+      if (form.modifiers.length > 0) {
+        violationPayload.applied_modifiers = form.modifiers;
+      }
+      if (recommendation.xaiPayload) {
+        violationPayload.xai_explanation = recommendation.xaiPayload.deterministicExplanation;
       }
 
       await addDoc(collection(db, 'violations'), violationPayload);
@@ -750,6 +770,26 @@ export default function Violation() {
             />
             <p className="v-page-sub">
               Include relevant details such as witnesses, location, and circumstances
+            </p>
+          </div>
+
+          <div className="v-field">
+            <label className="v-label">Context Modifiers (Optional)</label>
+            <div className="v-modifiers-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px', marginTop: '8px' }}>
+              {Object.entries(MODIFIER_WEIGHTS).map(([mod, weight]) => (
+                <label key={mod} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', cursor: 'pointer' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={form.modifiers.includes(mod)}
+                    onChange={() => handleModifierToggle(mod)}
+                    style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                  />
+                  <span style={{ textTransform: 'capitalize' }}>{mod} ({weight > 0 ? `+${weight}` : weight})</span>
+                </label>
+              ))}
+            </div>
+            <p className="v-page-sub" style={{ marginTop: '8px' }}>
+              Select any factors that should dynamically adjust the baseline severity of this violation.
             </p>
           </div>
 

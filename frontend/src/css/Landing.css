@@ -1,0 +1,107 @@
+.landing-page {
+  min-height: 100vh;
+  color: #f2f6ff;
+  background:
+    radial-gradient(circle at 10% -10%, rgba(67, 123, 255, 0.2) 0%, rgba(67, 123, 255, 0) 42%),
+    radial-gradient(circle at 85% 5%, rgba(35, 98, 224, 0.2) 0%, rgba(35, 98, 224, 0) 38%),
+    linear-gradient(180deg, #040c1f 0%, #091733 55%, #0d1e3d 100%);
+}
+
+.landing-hero {
+  position: relative;
+  text-align: center;
+  padding: clamp(56px, 9vw, 110px) 20px;
+  background-image: radial-gradient(rgba(166, 195, 255, 0.28) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+.hero-logos {
+  margin: 0 auto 22px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+}
+
+.hero-logo {
+  width: clamp(90px, 12vw, 132px);
+  height: clamp(90px, 12vw, 132px);
+  object-fit: contain;
+}
+
+.hero-eyebrow {
+  margin: 0;
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+  color: rgba(220, 234, 255, 0.9);
+}
+
+.landing-hero h1 {
+  margin: 18px auto 0;
+  max-width: 900px;
+  font-size: clamp(2rem, 7vw, 4.7rem);
+  line-height: 1.04;
+  letter-spacing: -0.03em;
+  color: #ffffff;
+}
+
+.hero-subcopy {
+  margin: 24px auto 0;
+  max-width: 760px;
+  font-size: 1.04rem;
+  color: rgba(229, 238, 255, 0.92);
+}
+
+.hero-cta {
+  margin-top: 30px;
+  padding: 14px 24px;
+  border-radius: 12px;
+  border: 1px solid rgba(173, 202, 255, 0.85);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.landing-features {
+  padding: clamp(34px, 7vw, 70px) clamp(20px, 4vw, 56px) clamp(42px, 8vw, 86px);
+  background: #e8edf8;
+  color: #0f1b36;
+}
+
+.landing-features h2 {
+  margin: 0;
+  text-align: center;
+  font-size: clamp(1.55rem, 4vw, 2.2rem);
+}
+
+.feature-grid {
+  margin-top: 32px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.feature-item {
+  padding: 22px 20px;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 1px solid #d7e0f2;
+}
+
+.feature-item h3 {
+  margin: 0;
+  font-size: 1.12rem;
+}
+
+.feature-item p {
+  margin: 10px 0 0;
+  color: #33415f;
+  line-height: 1.5;
+}
+
+@media (max-width: 900px) {
+  .feature-grid {
+    grid-template-columns: 1fr;
+  }
+}

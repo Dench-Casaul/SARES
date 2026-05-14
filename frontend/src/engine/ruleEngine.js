@@ -20,6 +20,77 @@ const DEFAULT_ESCALATION = {
   maxSeverity: 10,
 };
 
+export const MODIFIER_WEIGHTS = {
+  'intentional misconduct': 2,
+  'threatening behavior': 3,
+  'property damage': 2,
+  'harm caused': 2,
+  'repeat offense': 1.5,
+  'cooperative behavior': -1,
+};
+
+export function extractContextModifiers(modifiers = []) {
+  const appliedModifiers = [];
+  let totalModifierScore = 0;
+
+  modifiers.forEach(mod => {
+    const name = mod.toLowerCase();
+    const weight = MODIFIER_WEIGHTS[name];
+    if (weight !== undefined) {
+      appliedModifiers.push({ name, weight });
+      totalModifierScore += weight;
+    }
+  });
+
+  return { appliedModifiers, totalModifierScore };
+}
+
+export function computeSeverityScore(baseSeverity, totalModifierScore, historicalEscalationBump) {
+  const rawScore = baseSeverity + totalModifierScore + historicalEscalationBump;
+  return clamp(Math.round(rawScore), 1, 10);
+}
+
+export function computeRiskLevel(severityScore) {
+  if (severityScore <= 3) return 'Low Risk';
+  if (severityScore <= 7) return 'Medium Risk';
+  return 'High Risk';
+}
+
+export function generateExplanationPayload(riskLevel, finalScore, baseSeverity, appliedModifiers, historicalEscalationBump) {
+  let prompt = `Explain this disciplinary recommendation: The student is classified as ${riskLevel} with a final severity score of ${finalScore}/10. `;
+  prompt += `The baseline offense severity was ${baseSeverity}. `;
+  
+  const reasons = [];
+  if (historicalEscalationBump > 0) {
+    reasons.push(`repeated offenses (+${historicalEscalationBump})`);
+  }
+  
+  const negativeMods = appliedModifiers.filter(m => m.weight > 0);
+  if (negativeMods.length > 0) {
+    reasons.push(`aggravating factors: ${negativeMods.map(m => `${m.name} (+${m.weight})`).join(', ')}`);
+  }
+  
+  if (reasons.length > 0) {
+    prompt += `The score increased due to ${reasons.join(' and ')}. `;
+  }
+  
+  const positiveMods = appliedModifiers.filter(m => m.weight < 0);
+  if (positiveMods.length > 0) {
+    prompt += `Mitigating factors were considered: ${positiveMods.map(m => `${m.name} (${m.weight})`).join(', ')}. `;
+  }
+  
+  prompt += `Keep the explanation professional and concise, summarizing the justification for this risk level without being overly robotic.`;
+  
+  const deterministicExplanation = `Student classified as ${riskLevel} (Score: ${finalScore}/10). Base severity: ${baseSeverity}. ` +
+    (reasons.length > 0 ? `Increases: ${reasons.join(', ')}. ` : '') +
+    (positiveMods.length > 0 ? `Mitigations: ${positiveMods.map(m => m.name).join(', ')}.` : '');
+    
+  return {
+    prompt,
+    deterministicExplanation: deterministicExplanation.trim()
+  };
+}
+
 /** Month (1–12) when the school year label rolls over. Default 6 = June (common PH). */
 export const SCHOOL_YEAR_START_MONTH = 6;
 
@@ -187,9 +258,11 @@ function handbookSeverity(rule, sanctionTrack, tierOrdinal) {
  * @param {object} rule — Firestore rule doc
  * @param {object} [options]
  * @param {object} [options.escalation]
+ * @param {string[]} [options.modifiers]
  */
 export function evaluateRecommendation(rule, facts, options = {}) {
   const escalation = { ...DEFAULT_ESCALATION, ...(options.escalation || {}) };
+  const modifiers = options.modifiers || [];
 
   const baseSanction = rule?.recommended_sanction || rule?.sanction || '';
   const baseSeverity = Number(rule?.severity) || 0;
@@ -198,7 +271,7 @@ export function evaluateRecommendation(rule, facts, options = {}) {
   const notes = [];
   let tier = 1;
   let recommendedSanction = baseSanction;
-  let recommendedSeverity = baseSeverity;
+  let historicalEscalationBump = 0;
 
   if (n >= 3) {
     tier = 3;
@@ -219,16 +292,22 @@ export function evaluateRecommendation(rule, facts, options = {}) {
   }
 
   if (n >= 2 && escalation.severityBumpPerRepeat > 0) {
-    const bump = Math.min(
+    historicalEscalationBump = Math.min(
       escalation.maxSeverity - baseSeverity,
       Math.ceil((n - 1) * escalation.severityBumpPerRepeat)
     );
-    if (bump > 0) {
-      recommendedSeverity = Math.min(escalation.maxSeverity, baseSeverity + bump);
-      notes.push(
-        `Severity adjusted for repeat offense (cap ${escalation.maxSeverity}).`
-      );
+    if (historicalEscalationBump > 0) {
+      notes.push(`Historical escalation bump applied: +${historicalEscalationBump}`);
     }
+  }
+
+  const { appliedModifiers, totalModifierScore } = extractContextModifiers(modifiers);
+  const recommendedSeverity = computeSeverityScore(baseSeverity, totalModifierScore, historicalEscalationBump);
+  const riskLevel = computeRiskLevel(recommendedSeverity);
+  const xaiPayload = generateExplanationPayload(riskLevel, recommendedSeverity, baseSeverity, appliedModifiers, historicalEscalationBump);
+
+  if (appliedModifiers.length > 0) {
+    notes.push(`Context modifiers applied: ${appliedModifiers.map(m => m.name).join(', ')} (Total: ${totalModifierScore})`);
   }
 
   return {
@@ -240,6 +319,9 @@ export function evaluateRecommendation(rule, facts, options = {}) {
     recommendedSanction,
     baseSeverity,
     recommendedSeverity,
+    riskLevel,
+    xaiPayload,
+    appliedModifiers,
     provision: rule?.provision || '',
     offenseVariety: rule?.offense_variety || '',
     notes,
@@ -257,6 +339,7 @@ export function evaluateRecommendation(rule, facts, options = {}) {
  * @param {string} params.studentId
  * @param {string} params.incidentDate — YYYY-MM-DD
  * @param {object[]} params.existingViolations
+ * @param {string[]} [params.modifiers]
  */
 export function evaluateSaresRecommendation({
   rule,
@@ -264,6 +347,7 @@ export function evaluateSaresRecommendation({
   studentId,
   incidentDate,
   existingViolations = [],
+  modifiers = [],
 }) {
   const schoolYearKey = getSchoolYearKey(incidentDate);
   const actTrack = normalizeHandbookTrack(category?.handbook_track);
@@ -276,7 +360,7 @@ export function evaluateSaresRecommendation({
   });
 
   if (!actTrack) {
-    const rec = evaluateRecommendation(rule, legacyFacts);
+    const rec = evaluateRecommendation(rule, legacyFacts, { modifiers });
     return {
       ...rec,
       mode: 'legacy',
@@ -292,17 +376,31 @@ export function evaluateSaresRecommendation({
   });
 
   const resolved = resolveHandbookSanctionTrackAndTier(actTrack, hf);
-  const recommendedSeverity = handbookSeverity(
+  
+  const baseSeverity = Number(rule?.severity) || 0;
+  const handbookCalculatedSeverity = handbookSeverity(
     rule,
     resolved.sanctionTrack,
     resolved.tierOrdinal
   );
+  const historicalEscalationBump = handbookCalculatedSeverity - baseSeverity;
+
+  const { appliedModifiers, totalModifierScore } = extractContextModifiers(modifiers);
+  const recommendedSeverity = computeSeverityScore(baseSeverity, totalModifierScore, historicalEscalationBump);
+  const riskLevel = computeRiskLevel(recommendedSeverity);
+  const xaiPayload = generateExplanationPayload(riskLevel, recommendedSeverity, baseSeverity, appliedModifiers, historicalEscalationBump);
 
   const notes = [
     ...resolved.notes,
     `School year ${schoolYearKey}: ${hf.minorActCountPrior} prior minor act(s), ${hf.majorActCountPrior} prior major act(s) counted in engine (tagged records only).`,
   ];
 
+  if (historicalEscalationBump > 0) {
+    notes.push(`Handbook escalation bump applied: +${historicalEscalationBump}`);
+  }
+  if (appliedModifiers.length > 0) {
+    notes.push(`Context modifiers applied: ${appliedModifiers.map(m => m.name).join(', ')} (Total: ${totalModifierScore})`);
+  }
   if (hf.violationsInYearTagged === 0 && existingViolations.length > 0) {
     notes.push(
       'Note: Prior violations without handbook_track are excluded from tier counts. Backfill that field for accurate history.'
@@ -318,8 +416,11 @@ export function evaluateSaresRecommendation({
     actTrack,
     baseRecommendedSanction: rule?.recommended_sanction || rule?.sanction || '',
     recommendedSanction: resolved.recommendedSanction,
-    baseSeverity: Number(rule?.severity) || 0,
+    baseSeverity,
     recommendedSeverity,
+    riskLevel,
+    xaiPayload,
+    appliedModifiers,
     provision: rule?.provision || 'Student Discipline Policy — Section IV',
     offenseVariety: rule?.offense_variety || '',
     notes,
