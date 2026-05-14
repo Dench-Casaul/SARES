@@ -14,13 +14,14 @@ const Dashboard = () => {
   const [summary, setSummary] = useState({
     total_students: 0,
     total_violations: 0,
-    pending_actions: 0,
     repeat_offenders: 0,
   });
 
   const [recentViolations, setRecentViolations] = useState([]);
   const [repeatOffenders, setRepeatOffenders] = useState([]);
   const [categoryStats, setCategoryStats] = useState([]);
+  const [violationTrends, setViolationTrends] = useState([]);
+  const [monthlyTrends, setMonthlyTrends] = useState([]);
 
   useEffect(() => {
     loadDashboard();
@@ -38,7 +39,6 @@ const Dashboard = () => {
         ...violationDoc.data(),
       }));
 
-      const pendingActions = violationsData.filter((violation) => violation.status === 'pending').length;
       const repeatOffendersCount = new Set(
         violationsData
           .map((violation) => String(violation.student_id || ''))
@@ -49,12 +49,21 @@ const Dashboard = () => {
       setSummary({
         total_students: studentsData.length,
         total_violations: violationsData.length,
-        pending_actions: pendingActions,
         repeat_offenders: repeatOffendersCount,
       });
-      setRecentViolations(violationsData.slice(0, 5));
+      setRecentViolations(
+        [...violationsData]
+          .sort((a, b) => {
+            const timeA = a.created_at?.seconds || 0;
+            const timeB = b.created_at?.seconds || 0;
+            return timeB - timeA;
+          })
+          .slice(0, 5)
+      );
       setRepeatOffenders(getRepeatOffenders(violationsData));
       setCategoryStats(getCategoryStats(violationsData));
+      setViolationTrends(getViolationTrends(violationsData));
+      setMonthlyTrends(getMonthlyTrends(violationsData));
     } catch (error) {
       console.error('Dashboard load error:', error);
     }
@@ -83,6 +92,32 @@ const Dashboard = () => {
       .slice(0, 5);
   };
 
+  const getMonthlyTrends = (violations) => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const stats = {};
+    
+    // Initialize last 6 months
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      const m = d.getMonth();
+      const y = d.getFullYear();
+      const key = `${months[m]} ${y}`;
+      stats[key] = 0;
+    }
+
+    violations.forEach(v => {
+      if (!v.incident_date) return;
+      const d = new Date(v.incident_date);
+      const key = `${months[d.getMonth()]} ${d.getFullYear()}`;
+      if (stats.hasOwnProperty(key)) {
+        stats[key]++;
+      }
+    });
+
+    return Object.entries(stats).map(([month, count]) => ({ month, count }));
+  };
+
   const handleLogout = () => {
     // Clear any stored user data (e.g., tokens, user info)
     localStorage.removeItem('user');
@@ -92,20 +127,46 @@ const Dashboard = () => {
 
 
   const getCategoryStats = (violations) => {
-    const grouped = {};
+    const labels = {
+      light: 'Light',
+      less_serious: 'Less Serious',
+      serious: 'Serious',
+      very_serious: 'Very Serious'
+    };
+    
+    const grouped = { light: 0, less_serious: 0, serious: 0, very_serious: 0 };
 
     violations.forEach((v) => {
-      const category = v.category_name || 'Uncategorized';
-      grouped[category] = (grouped[category] || 0) + 1;
+      const sub = v.subcategory_id;
+      if (grouped.hasOwnProperty(sub)) {
+        grouped[sub]++;
+      }
     });
 
     const total = violations.length || 1;
 
-    return Object.entries(grouped).map(([category, count]) => ({
-      category,
+    return Object.entries(grouped).map(([id, count]) => ({
+      category: labels[id],
       count,
       percent: Math.round((count / total) * 100),
     }));
+  };
+
+  const getViolationTrends = (violations) => {
+    const grouped = {};
+    violations.forEach((v) => {
+      const variety = v.offense_variety || v.category_name || 'Unspecified';
+      grouped[variety] = (grouped[variety] || 0) + 1;
+    });
+    const total = violations.length || 1;
+    return Object.entries(grouped)
+      .map(([variety, count]) => ({
+        variety,
+        count,
+        percent: Math.round((count / total) * 100),
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
   };
 
   const getInitials = (name) => {
@@ -166,12 +227,6 @@ const Dashboard = () => {
               </Link>
             </li>
             <li>
-              <Link to="/sares/violation" onClick={() => setSidebarOpen(false)} className={`nav-item${location.pathname === '/sares/violation' ? '-active' : ''}`}>
-                <ClipboardList className="nav-icon" />
-                <span className="nav-text">Log Violation</span>
-              </Link>
-            </li>
-            <li>
               <Link to="/sares/rules" onClick={() => setSidebarOpen(false)} className={`nav-item${location.pathname === '/sares/rules' ? '-active' : ''}`}>
                 <ShieldCheck className="nav-icon" />
                 <span className="nav-text">Rule Management</span>
@@ -181,6 +236,12 @@ const Dashboard = () => {
               <Link to="/sares/reports" onClick={() => setSidebarOpen(false)} className={`nav-item${location.pathname === '/sares/reports' ? '-active' : ''}`}>
                 <BarChart3 className="nav-icon" />
                 <span className="nav-text">Reports</span>
+              </Link>
+            </li>
+            <li>
+              <Link to="/sares/violation" onClick={() => setSidebarOpen(false)} className={`nav-item${location.pathname === '/sares/violation' ? '-active' : ''}`}>
+                <ClipboardList className="nav-icon" />
+                <span className="nav-text">Log Violation</span>
               </Link>
             </li>
           </ul>
@@ -247,14 +308,14 @@ const Dashboard = () => {
               <p className="card-value">{summary.total_students}</p>
               <p className="card-subtitle">In the system</p>
             </div>
-
-
-            <div className="stat-card pending-card">
+            <div className="stat-card">
               <div className="card-header">
-                <h3 className="card-title">Pending Actions</h3>
+                <h3 className="card-title">Top Violation</h3>
               </div>
-              <p className="card-value pending-card-value">{summary.pending_actions}</p>
-              <p className="card-subtitle">For review</p>
+              <p className="card-value" style={{ fontSize: '18px', marginTop: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {violationTrends[0]?.variety || 'None'}
+              </p>
+              <p className="card-subtitle">{violationTrends[0]?.count || 0} occurrences</p>
             </div>
           </div>
 
@@ -266,6 +327,22 @@ const Dashboard = () => {
                 <p className="chart-subtitle">Monthly violation count over time</p>
               </div>
               <div className="chart-container">
+                <div className="trend-bar-container">
+                  {monthlyTrends.map((data, i) => {
+                    const maxCount = Math.max(...monthlyTrends.map(t => t.count), 1);
+                    return (
+                      <div key={data.month} className="trend-bar-wrapper">
+                        <div 
+                          className="trend-bar" 
+                          style={{ height: `${Math.max((data.count / maxCount) * 100, 5)}%` }}
+                        >
+                          <span className="trend-tooltip">{data.count} violations</span>
+                        </div>
+                        <span className="trend-month">{data.month.split(' ')[0]}</span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
@@ -289,7 +366,47 @@ const Dashboard = () => {
                 </div>
               </div>
             </div>
+
+            {/* Violation Trend Ranking (Moved inside) */}
+            <div className="chart-card">
+              <div className="chart-header">
+                <h3 className="chart-title">Trend Ranking</h3>
+                <p className="chart-subtitle">Top violations by frequency</p>
+              </div>
+              <div style={{ padding: '4px 0' }}>
+                {violationTrends.length === 0 ? (
+                  <p className="card-subtitle">No data yet.</p>
+                ) : (
+                  violationTrends.slice(0, 5).map((item, index) => (
+                    <div key={item.variety} style={{ marginBottom: '10px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 600, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                            width: '18px', height: '18px', borderRadius: '50%', fontSize: '10px', fontWeight: 800,
+                            background: index === 0 ? '#fbbf24' : index === 1 ? '#94a3b8' : index === 2 ? '#c97c2b' : '#e2e8f0',
+                            color: index < 3 ? '#fff' : '#64748b',
+                          }}>{index + 1}</span>
+                          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100px' }}>{item.variety}</span>
+                        </span>
+                        <span style={{ fontSize: '12px', fontWeight: 700, color: '#1198e8' }}>{item.percent}%</span>
+                      </div>
+                      <div style={{ height: '4px', background: '#e8f0fb', borderRadius: '4px', overflow: 'hidden' }}>
+                        <div style={{
+                          height: '100%',
+                          width: `${item.percent}%`,
+                          borderRadius: '4px',
+                          background: index === 0 ? '#f59e0b' : index === 1 ? '#64748b' : index === 2 ? '#c97c2b' : '#1198e8',
+                        }} />
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
+
+
 
           {/* Bottom: Recent Activity + Repeat Offender Alerts */}
           <div className="bottom-grid">
@@ -308,11 +425,11 @@ const Dashboard = () => {
 
                     <div className="violation-info">
                       <div className="violation-name">{v.student_name}</div>
-                      <div className="violation-type">{v.category_name}</div>
+                      <div className="violation-type">{v.offense_variety || v.category_name}</div>
                       <div className="violation-date">{v.incident_date}</div>
                     </div>
 
-                    <span className="badge badge--resolved">{v.status}</span>
+
                   </div>
                 ))}
               </div>

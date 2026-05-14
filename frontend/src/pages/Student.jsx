@@ -58,17 +58,6 @@ function Sidebar({ activePage, isOpen, toggleSidebar }) {
 
           <li>
             <Link
-              to="/sares/violation"
-              onClick={toggleSidebar}
-              className={`s-nav-item${activePage === "/sares/violation" ? " s-nav-item--active" : ""}`}
-            >
-              <ClipboardList className="s-nav-icon" />
-              <span>Log Violation</span>
-            </Link>
-          </li>
-
-          <li>
-            <Link
               to="/sares/rules"
               onClick={toggleSidebar}
               className={`s-nav-item${activePage === "/sares/rules" ? " s-nav-item--active" : ""}`}
@@ -86,6 +75,17 @@ function Sidebar({ activePage, isOpen, toggleSidebar }) {
             >
               <BarChart3 className="s-nav-icon" />
               <span>Reports</span>
+            </Link>
+          </li>
+
+          <li>
+            <Link
+              to="/sares/violation"
+              onClick={toggleSidebar}
+              className={`s-nav-item${activePage === "/sares/violation" ? " s-nav-item--active" : ""}`}
+            >
+              <ClipboardList className="s-nav-icon" />
+              <span>Log Violation</span>
             </Link>
           </li>
         </ul>
@@ -483,7 +483,7 @@ function StudentProfile({ student, onBack, onSelectViolation, onLogViolation, lo
             <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
               <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
             </svg>
-            Log Violation
+            Add Violation
           </button>
         </div>
 
@@ -545,7 +545,6 @@ function StudentProfile({ student, onBack, onSelectViolation, onLogViolation, lo
                   >
                     <div className="s-history-item-header">
                       <span className="s-history-category">{v.category}</span>
-                      <span className={`s-status-badge s-status-badge--${v.status}`}>{v.status}</span>
                     </div>
                     <p className="s-history-variety">{v.variety}</p>
                     <p className="s-history-desc">{v.description}</p>
@@ -614,7 +613,6 @@ function ViolationDetails({ violation, student, onBack, location, sidebarOpen, s
             <h1 className="s-vd-title">Violation Details</h1>
             <p className="s-vd-sub">Review violation and sanction recommendation</p>
           </div>
-          <span className={`s-status-badge s-status-badge--${violation.status}`}>{violation.status}</span>
         </div>
 
         {/* Violation Information */}
@@ -782,6 +780,18 @@ export default function Students() {
   useEffect(() => {
     fetchStudents();
   }, []);
+
+  useEffect(() => {
+    if (location.state?.openStudentId && students.length > 0) {
+      const target = students.find(s => s.docId === location.state.openStudentId);
+      if (target) {
+        setSelectedStudent(target);
+        setView('profile');
+        // clear state
+        navigate(location.pathname, { replace: true, state: {} });
+      }
+    }
+  }, [students, location.state, navigate]);
 
   const handleSelectStudent = (student) => {
     setSelectedStudent(student);

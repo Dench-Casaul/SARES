@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { addDoc, collection, getDocs, serverTimestamp, updateDoc, doc, writeBatch } from 'firebase/firestore'
-import { db } from '../firebase'
 import '../css/Rule.css'
 import wesleyLogo from '../assets/wesley-logo.png'
-import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X } from 'lucide-react'
+import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react'
+import handbook from '../data/generalizedHandbook.json'
 
 function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar }) {
   return (
@@ -30,7 +29,6 @@ function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar }) {
           </li>
 
           <li>
-
             <Link to="/sares/students" onClick={toggleSidebar} className={`rule-nav-item${activePage === '/sares/students' ? ' rule-nav-item--active' : ''}`}>
               <Users className="rule-nav-icon" />
               Students
@@ -38,14 +36,6 @@ function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar }) {
           </li>
 
           <li>
-            <Link to="/sares/violation" onClick={toggleSidebar} className={`rule-nav-item${activePage === '/sares/violation' ? ' rule-nav-item--active' : ''}`}>
-              <ClipboardList className="rule-nav-icon" />
-              Log Violation
-            </Link>
-          </li>
-
-          <li>
-
             <Link to="/sares/rules" onClick={toggleSidebar} className={`rule-nav-item${activePage === '/sares/rules' ? ' rule-nav-item--active' : ''}`}>
               <ShieldCheck className="rule-nav-icon" />
               Rule Management
@@ -53,10 +43,16 @@ function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar }) {
           </li>
 
           <li>
-
             <Link to="/sares/reports" onClick={toggleSidebar} className={`rule-nav-item${activePage === '/sares/reports' ? ' rule-nav-item--active' : ''}`}>
               <BarChart3 className="rule-nav-icon" />
               Reports
+            </Link>
+          </li>
+
+          <li>
+            <Link to="/sares/violation" onClick={toggleSidebar} className={`rule-nav-item${activePage === '/sares/violation' ? ' rule-nav-item--active' : ''}`}>
+              <ClipboardList className="rule-nav-icon" />
+              Log Violation
             </Link>
           </li>
         </ul>
@@ -72,537 +68,69 @@ function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar }) {
   );
 }
 
-const OFFENSES = {
-  'Academic Dishonesty': ['Cheating', 'Plagiarism', 'Copying Assignment'],
-  'Behavioral Misconduct': ['Fighting', 'Disrespect to Faculty', 'Bullying'],
-  'Dress Code Violation': ['Improper Uniform', 'No ID', 'Improper Shoes'],
-  'Technology Misuse': ['Unauthorized Device Use', 'Phone Use During Class'],
-};
-
-const INITIAL_RULES = [
-  {
-    id: 1,
-    category: 'Academic Dishonesty',
-    variety: 'Cheating',
-    severity: 9,
-    sanction: 'Zero score for assessment, written warning, and parent conference.',
-    provision: 'Article III, Section 5.1',
-    modified: '2026-01-15',
-    active: true,
-  },
-  {
-    id: 2,
-    category: 'Academic Dishonesty',
-    variety: 'Plagiarism',
-    severity: 8,
-    sanction: 'Resubmission with citation, written warning, and counseling session.',
-    provision: 'Article III, Section 5.2',
-    modified: '2026-01-15',
-    active: true,
-  },
-  {
-    id: 3,
-    category: 'Behavioral Misconduct',
-    variety: 'Fighting',
-    severity: 8,
-    sanction: 'Parent conference, written apology, and possible suspension.',
-    provision: 'Article II, Section 3.1',
-    modified: '2026-01-14',
-    active: true,
-  },
-];
-
-function AddRuleModal({ onClose, onAdd, categories }) {
-  const [form, setForm] = useState({
-    category: '',
-    variety: '',
-    severity: 5,
-    sanction: '',
-    provision: '',
-    active: true,
-  });
-
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-
-    if (name === 'category') {
-      setForm({
-        ...form,
-        category: value,
-        variety: '',
-      });
-      return;
-    }
-
-    setForm({
-      ...form,
-      [name]: type === 'checkbox' ? checked : value,
-    });
-  };
-
-  const submit = (e) => {
-    e.preventDefault();
-
-    if (!form.category || !form.variety || !form.severity || !form.sanction || !form.provision) {
-      alert('Please fill in all required fields.');
-      return;
-    }
-
-    onAdd(form);
-  };
-
-  return (
-    <div className="rule-modal-backdrop">
-      <form className="rule-modal" onSubmit={submit}>
-        <div className="rule-modal-header">
-          <div>
-            <h2>Add New Rule</h2>
-            <p>Create a new handbook rule with sanction mapping</p>
-          </div>
-
-          <button type="button" className="rule-modal-close" onClick={onClose}>
-            ×
-          </button>
-        </div>
-
-        <div className="rule-modal-body">
-          <div className="rule-field-row">
-            <div className="rule-field">
-              <label>Offense Category *</label>
-              <select name="category" value={form.category} onChange={handleChange}>
-                <option value="">Select category</option>
-                {categories.map((category) => (
-                  <option key={category.category_id} value={category.category_name}>
-                    {category.category_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="rule-field">
-              <label>Offense Variety *</label>
-              <select
-                name="variety"
-                value={form.variety}
-                onChange={handleChange}
-                disabled={!form.category}
-              >
-                <option value="">
-                  {form.category ? 'Select variety' : 'Select category first'}
-                </option>
-                {form.category &&
-                  (OFFENSES[form.category] || []).map((variety) => (
-                    <option key={variety} value={variety}>{variety}</option>
-                  ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="rule-field">
-            <label>Severity Level (1-10) *</label>
-            <input
-              type="number"
-              min="1"
-              max="10"
-              name="severity"
-              value={form.severity}
-              onChange={handleChange}
-            />
-          </div>
-
-          <div className="rule-field">
-            <label>Recommended Sanction *</label>
-            <textarea
-              name="sanction"
-              value={form.sanction}
-              onChange={handleChange}
-              placeholder="Describe the recommended sanction..."
-              rows="3"
-            />
-          </div>
-
-          <div className="rule-field">
-            <label>Handbook Provision *</label>
-            <input
-              name="provision"
-              value={form.provision}
-              onChange={handleChange}
-              placeholder="e.g., Article III, Section 5.1"
-            />
-          </div>
-
-          <div className="rule-active-row">
-            <span>Active</span>
-
-            <label className="rule-switch">
-              <input
-                type="checkbox"
-                name="active"
-                checked={form.active}
-                onChange={handleChange}
-              />
-              <span></span>
-            </label>
-          </div>
-        </div>
-
-        <div className="rule-modal-footer">
-          <button type="button" className="rule-cancel-btn" onClick={onClose}>
-            Cancel
-          </button>
-
-          <button type="submit" className="rule-submit-btn">
-            Add Rule
-          </button>
-        </div>
-      </form>
-    </div>
-  );
+const SUBCATEGORY_COLORS = {
+  light: { bg: '#eaf4ff', color: '#006ed0', border: '#b9d9fb' },
+  less_serious: { bg: '#fff7ed', color: '#c2410c', border: '#fed7aa' },
+  serious: { bg: '#fef2f2', color: '#be123c', border: '#fecaca' },
+  very_serious: { bg: '#7f1d1d', color: '#ffffff', border: '#b91c1c' },
 }
 
-function EditRuleModal({ rule, onClose, onSave, categories }) {
-  const [form, setForm] = useState({
-    category: rule.category,
-    variety: rule.variety,
-    severity: rule.severity,
-    sanction: rule.sanction,
-    provision: rule.provision,
-    active: rule.active,
-  });
-
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-
-    if (name === 'category') {
-      setForm({
-        ...form,
-        category: value,
-        variety: '',
-      });
-      return;
-    }
-
-    setForm({
-      ...form,
-      [name]: type === 'checkbox' ? checked : value,
-    });
-  };
-
-  const submit = (e) => {
-    e.preventDefault();
-
-    if (!form.category || !form.variety || !form.severity || !form.sanction || !form.provision) {
-      alert('Please fill in all required fields.');
-      return;
-    }
-
-    onSave({
-      ...rule,
-      ...form,
-      severity: Number(form.severity),
-      modified: new Date().toISOString().slice(0, 10),
-    });
-  };
-
-  return (
-    <div className="rule-modal-backdrop">
-      <form className="rule-modal" onSubmit={submit}>
-        <div className="rule-modal-header">
-          <div>
-            <h2>Edit Rule</h2>
-            <p>Update handbook rule and sanction mapping</p>
-          </div>
-
-          <button type="button" className="rule-modal-close" onClick={onClose}>
-            ×
-          </button>
-        </div>
-
-        <div className="rule-modal-body">
-          <div className="rule-field-row">
-            <div className="rule-field">
-              <label>Offense Category *</label>
-              <select name="category" value={form.category} onChange={handleChange}>
-                <option value="">Select category</option>
-                {categories.map((category) => (
-                  <option key={category.category_id} value={category.category_name}>
-                    {category.category_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="rule-field">
-              <label>Offense Variety *</label>
-              <select
-                name="variety"
-                value={form.variety}
-                onChange={handleChange}
-                disabled={!form.category}
-              >
-                <option value="">
-                  {form.category ? 'Select variety' : 'Select category first'}
-                </option>
-                {form.category &&
-                  (OFFENSES[form.category] || []).map((variety) => (
-                    <option key={variety} value={variety}>{variety}</option>
-                  ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="rule-field">
-            <label>Severity Level (1-10) *</label>
-            <input
-              type="number"
-              min="1"
-              max="10"
-              name="severity"
-              value={form.severity}
-              onChange={handleChange}
-            />
-          </div>
-
-          <div className="rule-field">
-            <label>Recommended Sanction *</label>
-            <textarea
-              name="sanction"
-              value={form.sanction}
-              onChange={handleChange}
-              placeholder="Describe the recommended sanction..."
-              rows="3"
-            />
-          </div>
-
-          <div className="rule-field">
-            <label>Handbook Provision *</label>
-            <input
-              name="provision"
-              value={form.provision}
-              onChange={handleChange}
-              placeholder="e.g., Article III, Section 5.1"
-            />
-          </div>
-
-          <div className="rule-active-row">
-            <span>Active</span>
-
-            <label className="rule-switch">
-              <input
-                type="checkbox"
-                name="active"
-                checked={form.active}
-                onChange={handleChange}
-              />
-              <span></span>
-            </label>
-          </div>
-        </div>
-
-        <div className="rule-modal-footer">
-          <button type="button" className="rule-cancel-btn" onClick={onClose}>
-            Cancel
-          </button>
-
-          <button type="submit" className="rule-submit-btn">
-            Save Changes
-          </button>
-        </div>
-      </form>
-    </div>
-  );
+const SUBCATEGORY_LABELS = {
+  light: 'Light',
+  less_serious: 'Less Serious',
+  serious: 'Serious',
+  very_serious: 'Very Serious',
 }
 
 export default function Rule() {
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [rules, setRules] = useState(INITIAL_RULES);
-  const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('All Categories');
-  const [showModal, setShowModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [selectedRule, setSelectedRule] = useState(null);
-  const [toast, setToast] = useState('');
-  const [showHistory, setShowHistory] = useState(false);
-  const [history, setHistory] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [bulkUpdating, setBulkUpdating] = useState(false);
+  const [activeType, setActiveType] = useState('minor');
+  const [activeSubcategory, setActiveSubcategory] = useState(null);
+  const [expandedGroup, setExpandedGroup] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
 
   const handleLogout = () => {
     localStorage.removeItem('user');
     navigate('/login');
   };
 
-  const showToast = (message) => {
-    setToast(message);
-    setTimeout(() => setToast(''), 3000);
+  const offenseTypes = handbook.offenseTypes;
+  const currentType = offenseTypes.find(t => t.id === activeType);
+  const subcategories = currentType?.subcategories || [];
+
+  // Auto-select first subcategory if none selected
+  const effectiveSubcategory = activeSubcategory || subcategories[0]?.id || null;
+
+  const toggleGroup = (num) => {
+    setExpandedGroup(expandedGroup === num ? null : num);
   };
 
-  useEffect(() => {
-    loadRules();
-    loadCategories();
-  }, []);
+  // Get all unique categories for dropdown
+  const allCategories = [...new Set(handbook.offenseGroups.map(g => g.groupTitle))].sort();
 
-  const loadRules = async () => {
-    const snapshot = await getDocs(collection(db, 'rules'));
-    const data = snapshot.docs.map((ruleDoc) => {
-      const rule = ruleDoc.data();
-      return {
-        id: ruleDoc.id,
-        rule_id: rule.rule_id || ruleDoc.id,
-        category_id: rule.category_id || '',
-        category: rule.category_name || '',
-        variety: rule.offense_variety || '',
-        severity: rule.severity || 0,
-        sanction: rule.recommended_sanction || '',
-        provision: rule.provision || '',
-        modified: rule.modified_date || new Date().toISOString().slice(0, 10),
-        active: Boolean(rule.is_active),
-      };
-    });
-    setRules(data.sort((a, b) => String(b.modified).localeCompare(String(a.modified))));
-  };
+  // Unified filtering logic
+  const filteredGroups = handbook.offenseGroups.filter(g => {
+    const matchType = activeType === 'all' || g.categoryId === activeType;
+    const matchSub = !activeSubcategory || activeSubcategory === 'all' || g.subcategoryId === activeSubcategory;
+    const matchCat = categoryFilter === 'all' || g.groupTitle === categoryFilter;
+    
+    const searchLower = searchQuery.toLowerCase();
+    const matchSearch = searchQuery === '' || 
+      g.groupTitle.toLowerCase().includes(searchLower) ||
+      g.offenses.some(o => o.title.toLowerCase().includes(searchLower));
 
-  const loadCategories = async () => {
-    const snapshot = await getDocs(collection(db, 'offense_categories'));
-    const data = snapshot.docs.map((categoryDoc) => ({
-      ...categoryDoc.data(),
-      category_id: categoryDoc.data().category_id || categoryDoc.id,
-    }));
-    setCategories(data);
-  };
-
-  const openHistory = async () => {
-    try {
-      const snapshot = await getDocs(collection(db, 'rule_versions'));
-      const data = snapshot.docs.map((historyDoc) => ({
-        version_id: historyDoc.id,
-        ...historyDoc.data(),
-      }));
-
-      setHistory(data.sort((a, b) => String(b.changed_at || '').localeCompare(String(a.changed_at || ''))));
-      setShowHistory(true);
-    } catch (error) {
-      console.error('Error loading rule history:', error);
-      alert('Failed to load version history.');
-    }
-  };
-
-  const filteredRules = rules.filter((rule) => {
-    const matchSearch =
-      rule.category.toLowerCase().includes(search.toLowerCase()) ||
-      rule.variety.toLowerCase().includes(search.toLowerCase()) ||
-      rule.provision.toLowerCase().includes(search.toLowerCase());
-
-    const matchCategory =
-      categoryFilter === 'All Categories' || rule.category === categoryFilter;
-
-    return matchSearch && matchCategory;
+    return matchType && matchSub && matchCat && matchSearch;
   });
 
-  const handleAddRule = async (form) => {
-    const user = JSON.parse(localStorage.getItem('user'));
-    const selectedCategory = categories.find((category) => category.category_name === form.category);
-    const modifiedDate = new Date().toISOString().slice(0, 10);
-
-    const ruleRef = await addDoc(collection(db, 'rules'), {
-      rule_id: '',
-      category_id: selectedCategory?.category_id || '',
-      category_name: form.category,
-      offense_variety: form.variety,
-      severity: Number(form.severity),
-      recommended_sanction: form.sanction,
-      provision: form.provision,
-      is_active: Boolean(form.active),
-      modified_date: modifiedDate,
-      changed_by: user?.user_id || 'system',
-      created_at: serverTimestamp(),
-    });
-
-    await addDoc(collection(db, 'rule_versions'), {
-      rule_id: ruleRef.id,
-      action_type: 'created',
-      rule_name: form.variety,
-      category_name: form.category,
-      description: 'Rule was created.',
-      changed_by: user?.full_name || user?.email || 'Unknown',
-      changed_at: new Date().toISOString(),
-    });
-
-    await loadRules();
-    setShowModal(false);
-    showToast('Rule added successfully!');
-  };
-
-  const openEditModal = (rule) => {
-    setSelectedRule(rule);
-    setShowEditModal(true);
-  };
-
-  const handleSaveEdit = async (updatedRule) => {
-    const user = JSON.parse(localStorage.getItem('user'));
-    const selectedCategory = categories.find((category) => category.category_name === updatedRule.category);
-
-    await updateDoc(doc(db, 'rules', updatedRule.id), {
-      category_id: selectedCategory?.category_id || '',
-      category_name: updatedRule.category,
-      offense_variety: updatedRule.variety,
-      severity: Number(updatedRule.severity),
-      recommended_sanction: updatedRule.sanction,
-      provision: updatedRule.provision,
-      is_active: Boolean(updatedRule.active),
-      modified_date: new Date().toISOString().slice(0, 10),
-      changed_by: user?.user_id || 'system',
-      updated_at: serverTimestamp(),
-    });
-
-    await addDoc(collection(db, 'rule_versions'), {
-      rule_id: updatedRule.id,
-      action_type: 'updated',
-      rule_name: updatedRule.variety,
-      category_name: updatedRule.category,
-      description: 'Rule was updated.',
-      changed_by: user?.full_name || user?.email || 'Unknown',
-      changed_at: new Date().toISOString(),
-    });
-
-    await loadRules();
-    setShowEditModal(false);
-    setSelectedRule(null);
-    showToast('Rule updated successfully!');
-  };
-  const toggleRule = async (id) => {
-    const currentRule = rules.find((rule) => rule.id === id);
-    if (!currentRule) return;
-    await updateDoc(doc(db, 'rules', id), { is_active: !currentRule.active });
-    await loadRules();
-    showToast('Rule status updated successfully!');
-  };
-
-  const allRulesEnabled = rules.length > 0 && rules.every((rule) => rule.active);
-
-  const toggleAllRules = async () => {
-    if (rules.length === 0 || bulkUpdating) return;
-    setBulkUpdating(true);
-    try {
-      const nextActiveState = !allRulesEnabled;
-      const batch = writeBatch(db);
-      rules.forEach((rule) => {
-        batch.update(doc(db, 'rules', rule.id), {
-          is_active: nextActiveState,
-          updated_at: serverTimestamp(),
-        });
-      });
-      await batch.commit();
-      await loadRules();
-      showToast(nextActiveState ? 'All rules enabled.' : 'All rules disabled.');
-    } catch (error) {
-      console.error('Error updating all rules:', error);
-      alert('Failed to update all rules.');
-    } finally {
-      setBulkUpdating(false);
+  // Get sanction info
+  const getSanctions = () => {
+    if (activeType === 'minor') {
+      return currentType?.sanctionSchedule || [];
     }
+    return currentType?.severitySanctionMap || [];
   };
 
   return (
@@ -627,187 +155,216 @@ export default function Rule() {
       />
 
       <main className="rule-main">
-        <h1>Rule Base Management</h1>
-        <p>Configure handbook rules and sanction mappings with version tracking</p>
+        <h1>Rule Management</h1>
+        <p>Browse the complete handbook of offenses, classifications, and sanctions</p>
 
-        <div className="rule-hero-actions">
-          <button className="rule-primary-btn" onClick={() => setShowModal(true)}>
-            <span>+</span>
-            Add New Rule
-          </button>
+        {/* Search and Filters Bar */}
+        <div className="rm-filter-bar">
+          <div className="rm-search-wrap">
+            <svg className="rm-search-icon" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
+            </svg>
+            <input 
+              type="text" 
+              placeholder="Search violations or categories..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
 
-          <button className="rule-secondary-btn" onClick={openHistory}>
-            View Version History
-          </button>
+          <div className="rm-filters">
+            <div className="rm-filter-item">
+              <label>Offense Type</label>
+              <select value={activeType} onChange={(e) => {
+                setActiveType(e.target.value);
+                setActiveSubcategory('all');
+              }}>
+                <option value="all">All Types</option>
+                <option value="minor">Minor Offenses</option>
+                <option value="major">Major Offenses</option>
+              </select>
+            </div>
+
+            <div className="rm-filter-item">
+              <label>Severity</label>
+              <select value={activeSubcategory || 'all'} onChange={(e) => setActiveSubcategory(e.target.value)}>
+                <option value="all">All Severities</option>
+                <option value="light">Light</option>
+                <option value="less_serious">Less Serious</option>
+                <option value="serious">Serious</option>
+                <option value="very_serious">Very Serious</option>
+              </select>
+            </div>
+
+            <div className="rm-filter-item">
+              <label>Category</label>
+              <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+                <option value="all">All Categories</option>
+                {allCategories.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+            </div>
+          </div>
         </div>
 
-        <section className="rule-card">
-          <div className="rule-card-header">
-            <h2>Handbook Rules</h2>
-            <p>Search and manage all encoded rules</p>
-          </div>
-
-          <div className="rule-controls">
-            <div className="rule-search-wrap">
-              <svg className="rule-search-icon" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
-              </svg>
-
-              <input
-                type="text"
-                placeholder="Search rules..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-
-            <div className="rule-enable-all-wrap">
-              <span>{allRulesEnabled ? 'All Enabled' : 'Enable All'}</span>
-              <button
-                type="button"
-                className={`rule-toggle${allRulesEnabled ? ' active' : ''}`}
-                onClick={toggleAllRules}
-                disabled={bulkUpdating || rules.length === 0}
-                title={allRulesEnabled ? 'Disable all rules' : 'Enable all rules'}
-              >
-                <span></span>
-              </button>
-            </div>
-
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
+        {/* Offense Type Tabs */}
+        <div className="rm-type-tabs">
+          {offenseTypes.map(type => (
+            <button
+              key={type.id}
+              className={`rm-type-tab${activeType === type.id ? ' rm-type-tab--active' : ''}`}
+              onClick={() => {
+                setActiveType(type.id);
+                setActiveSubcategory(null);
+                setExpandedGroup(null);
+              }}
             >
-              <option>All Categories</option>
-              {categories.map((category) => (
-                <option key={category.category_id}>{category.category_name}</option>
-              ))}
-            </select>
-          </div>
+              <span className="rm-type-tab-label">{type.label}</span>
+              <span className="rm-type-tab-count">{type.subcategories.length} classifications</span>
+            </button>
+          ))}
+        </div>
 
-          <div className="rule-list">
-            {filteredRules.map((rule) => (
-              <article className="rule-item" key={rule.id}>
-                <div className="rule-item-top">
-                  <div>
-                    <div className="rule-title-row">
-                      <h3>{rule.variety}</h3>
-                      <span>{rule.category}</span>
-                    </div>
-
-                    <div className="rule-severity-row">
-                      <p>Severity:</p>
-                      <div className="rule-severity-bar">
-                        <div style={{ width: `${rule.severity * 10}%` }}></div>
-                      </div>
-                      <strong>{rule.severity}/10</strong>
-                    </div>
-                  </div>
-
-                  <div className="rule-item-actions">
-                    <button
-                      className="rule-edit-btn"
-                      title="Edit rule"
-                      onClick={() => openEditModal(rule)}
-                    >
-                      ✎
-                    </button>
-
-                    <button
-                      className={`rule-toggle${rule.active ? ' active' : ''}`}
-                      onClick={() => toggleRule(rule.id)}
-                      title="Toggle rule"
-                    >
-                      <span></span>
-                    </button>
-                  </div>
+        {/* Sanction Schedule Card */}
+        <div className="rm-sanction-card">
+          <h3 className="rm-sanction-title">
+            {activeType === 'minor' ? 'Sanction Schedule (Cumulative)' : 'Severity-Based Sanctions'}
+          </h3>
+          <p className="rm-sanction-note">
+            {activeType === 'minor' ? currentType?.countingNote : currentType?.scoringNote}
+          </p>
+          <div className="rm-sanction-grid">
+            {getSanctions().map((s, i) => (
+              <div className="rm-sanction-item" key={i}>
+                <div className="rm-sanction-number">
+                  {activeType === 'minor' ? s.label : `Score ${s.label}`}
                 </div>
-
-                <div className="rule-item-body">
-                  <p className="rule-label">Recommended Sanction:</p>
-                  <div className="rule-sanction">{rule.sanction}</div>
-
-                  <div className="rule-meta">
-                    <span>▧ {rule.provision}</span>
-                    <span>Last modified: {rule.modified}</span>
-                    <span>By: Admin User</span>
-                  </div>
-                </div>
-              </article>
+                <div className="rm-sanction-text">{s.sanction}</div>
+              </div>
             ))}
           </div>
-        </section>
-      </main>
+          {activeType === 'major' && currentType?.authorityNote && (
+            <div className="rm-authority-note">
+              <AlertTriangle size={14} />
+              <span>{currentType.authorityNote}</span>
+            </div>
+          )}
+        </div>
 
-      {showModal && (
-        <AddRuleModal
-          onClose={() => setShowModal(false)}
-          onAdd={handleAddRule}
-          categories={categories}
-        />
-      )}
-
-      {showEditModal && selectedRule && (
-        <EditRuleModal
-          rule={selectedRule}
-          onClose={() => {
-            setShowEditModal(false);
-            setSelectedRule(null);
-          }}
-          onSave={handleSaveEdit}
-          categories={categories}
-        />
-      )}
-
-      {showHistory && (
-        <div className="rule-modal-backdrop">
-          <div className="rule-modal">
-            <div className="rule-modal-header">
-              <div>
-                <h2>Version History</h2>
-                <p>Recent changes made to handbook rules</p>
-              </div>
-
+        {/* Subcategory Tabs */}
+        <div className="rm-sub-tabs">
+          {subcategories.map(sub => {
+            const colors = SUBCATEGORY_COLORS[sub.id] || {};
+            const groupCount = handbook.offenseGroups.filter(
+              g => g.categoryId === activeType && g.subcategoryId === sub.id
+            ).length;
+            return (
               <button
-                type="button"
-                className="rule-modal-close"
-                onClick={() => setShowHistory(false)}
+                key={sub.id}
+                className={`rm-sub-tab${effectiveSubcategory === sub.id ? ' rm-sub-tab--active' : ''}`}
+                style={{
+                  '--sub-bg': colors.bg,
+                  '--sub-color': colors.color,
+                  '--sub-border': colors.border,
+                }}
+                onClick={() => {
+                  setActiveSubcategory(sub.id);
+                  setExpandedGroup(null);
+                }}
               >
-                ×
+                <span className="rm-sub-tab-label">{sub.label}</span>
+                <span className="rm-sub-tab-count">{groupCount} categories</span>
               </button>
-            </div>
+            );
+          })}
+        </div>
 
-            <div className="rule-modal-body">
-              {history.length === 0 ? (
-                <p>No version history yet.</p>
-              ) : (
-                history.map((item) => (
-                  <div className="rule-history-item" key={item.version_id}>
-                    <div className="rule-history-top">
-                      <strong>{item.rule_name}</strong>
-                      <span>{item.action_type}</span>
+        {/* Offense Groups */}
+        <div className="rm-groups">
+          {filteredGroups.length === 0 ? (
+            <div className="rm-empty">No offenses found matching your current filters.</div>
+          ) : (
+            filteredGroups.map(group => {
+              const isExpanded = expandedGroup === group.handbookNumber;
+              const subColors = SUBCATEGORY_COLORS[group.subcategoryId] || {};
+              return (
+                <div className={`rm-group${isExpanded ? ' rm-group--open' : ''}`} key={`${group.categoryId}-${group.subcategoryId}-${group.handbookNumber}`}>
+                  <button className="rm-group-header" onClick={() => toggleGroup(group.handbookNumber)}>
+                    <div className="rm-group-left">
+                      <span className="rm-group-number" style={{ background: subColors.bg, color: subColors.color, border: `1px solid ${subColors.border}` }}>
+                        {group.handbookNumber}
+                      </span>
+                      <div>
+                        <h3 className="rm-group-title">{group.groupTitle}</h3>
+                        <span className="rm-group-meta">{group.offenses.length} specific violations</span>
+                      </div>
                     </div>
+                    <div className="rm-group-right">
+                      <span className="rm-group-badge" style={{ background: subColors.bg, color: subColors.color, border: `1px solid ${subColors.border}` }}>
+                        {SUBCATEGORY_LABELS[group.subcategoryId]}
+                      </span>
+                      {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                    </div>
+                  </button>
 
-                    <p>{item.category_name}</p>
-                    <small>
-                      {item.description} • By {item.changed_by || 'Unknown'} • {item.changed_at}
-                    </small>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
+                  {isExpanded && (
+                    <div className="rm-group-body">
+                      <table className="rm-offense-table">
+                        <thead>
+                          <tr>
+                            <th style={{ width: '50px' }}>#</th>
+                            <th>Violation</th>
+                            <th style={{ width: '80px' }}>Illegal</th>
+                            {activeType === 'minor' && (
+                              <>
+                                <th>1st Offense</th>
+                                <th>2nd Offense</th>
+                                <th>3rd Offense</th>
+                              </>
+                            )}
+                            {activeType === 'major' && (
+                              <>
+                                <th>Score 1–3</th>
+                                <th>Score 4–6</th>
+                                <th>Score 7–8</th>
+                                <th>Score 9–10</th>
+                              </>
+                            )}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {group.offenses.map((offense, idx) => (
+                            <tr key={offense.id}>
+                              <td className="rm-offense-idx">{idx + 1}</td>
+                              <td className="rm-offense-title">{offense.title}</td>
+                              <td>
+                                {offense.isIllegal ? (
+                                  <span className="rm-illegal-badge">
+                                    <AlertTriangle size={10} /> Yes
+                                  </span>
+                                ) : (
+                                  <span className="rm-legal-badge">No</span>
+                                )}
+                              </td>
+                              {activeType === 'minor' && currentType?.sanctionSchedule?.map((s) => (
+                                <td key={s.offenseNumber} className="rm-sanction-cell">{s.sanction}</td>
+                              ))}
+                              {activeType === 'major' && currentType?.severitySanctionMap?.map((s, i) => (
+                                <td key={i} className="rm-sanction-cell">{s.sanction}</td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
         </div>
-      )}
-
-      {toast && (
-        <div className="rule-toast">
-          <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-          </svg>
-          {toast}
-        </div>
-      )}
+      </main>
     </div>
   );
 }

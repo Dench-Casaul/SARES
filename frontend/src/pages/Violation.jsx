@@ -1,522 +1,315 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import {
-  addDoc,
-  arrayUnion,
-  collection,
-  doc,
-  getDocs,
-  increment,
-  serverTimestamp,
-  updateDoc,
-} from 'firebase/firestore'
+import { addDoc, collection, getDocs, serverTimestamp } from 'firebase/firestore'
 import { db } from '../firebase'
-import { evaluateSaresRecommendation, MODIFIER_WEIGHTS } from '../engine/ruleEngine'
+import {
+  evaluateSaresRecommendation,
+  getSchoolYearKey,
+} from '../engine/ruleEngine'
+import {
+  listOffenseTypes,
+  getSubcategories,
+  listOffenseGroups,
+  listOffensesByGroup,
+  getMinorSanctionSchedule,
+  getMajorSanctionMap,
+} from '../data/handbookIndex'
 import '../css/Violation.css'
 import wesleyLogo from '../assets/wesley-logo.png'
-import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X, ChevronDown } from 'lucide-react'
+import {
+  LayoutDashboard, Users, ClipboardList, ShieldCheck,
+  BarChart3, LogOut, Menu, X, ChevronRight, AlertTriangle,
+  CheckCircle, ChevronLeft,
+} from 'lucide-react'
 
 function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar }) {
   return (
     <div className={`v-sidebar${isOpen ? ' v-sidebar--open' : ''}`}>
       <div className="v-logo">
         <div className="v-logo-icon">
-          <img
-            src={wesleyLogo}
-            alt="Olongapo Wesley School Logo"
-            className="school-logo"
-          />
+          <img src={wesleyLogo} alt="Olongapo Wesley School Logo" className="school-logo" />
         </div>
         <h1>SARES</h1>
       </div>
-
       <nav className="v-nav">
-        <Link
-          to="/sares/dashboard"
-          onClick={toggleSidebar}
-          className={`v-nav-item${activePage === "/sares/dashboard" ? " active" : ""}`}
-        >
-          <LayoutDashboard className="v-nav-icon" />
-          <span>Dashboard</span>
+        <Link to="/sares/dashboard" onClick={toggleSidebar} className={`v-nav-item${activePage === '/sares/dashboard' ? ' active' : ''}`}>
+          <LayoutDashboard className="v-nav-icon" /><span>Dashboard</span>
         </Link>
-
-        <Link
-          to="/sares/students"
-          onClick={toggleSidebar}
-          className={`v-nav-item${activePage === "/sares/students" ? " active" : ""}`}
-        >
-          <Users className="v-nav-icon" />
-          <span>Students</span>
+        <Link to="/sares/students" onClick={toggleSidebar} className={`v-nav-item${activePage === '/sares/students' ? ' active' : ''}`}>
+          <Users className="v-nav-icon" /><span>Students</span>
         </Link>
-
-        <Link
-          to="/sares/violation"
-          onClick={toggleSidebar}
-          className={`v-nav-item${activePage === "/sares/violation" ? " active" : ""}`}
-        >
-          <ClipboardList className="v-nav-icon" />
-          <span>Log Violation</span>
+        <Link to="/sares/rules" onClick={toggleSidebar} className={`v-nav-item${activePage === '/sares/rules' ? ' active' : ''}`}>
+          <ShieldCheck className="v-nav-icon" /><span>Rule Management</span>
         </Link>
-
-        <Link
-          to="/sares/rules"
-          onClick={toggleSidebar}
-          className={`v-nav-item${activePage === "/sares/rules" ? " active" : ""}`}
-        >
-          <ShieldCheck className="v-nav-icon" />
-          <span>Rule Management</span>
+        <Link to="/sares/reports" onClick={toggleSidebar} className={`v-nav-item${activePage === '/sares/reports' ? ' active' : ''}`}>
+          <BarChart3 className="v-nav-icon" /><span>Reports</span>
         </Link>
-
-        <Link
-          to="/sares/reports"
-          onClick={toggleSidebar}
-          className={`v-nav-item${activePage === "/sares/reports" ? " active" : ""}`}
-        >
-          <BarChart3 className="v-nav-icon" />
-          <span>Reports</span>
+        <Link to="/sares/violation" onClick={toggleSidebar} className={`v-nav-item${activePage === '/sares/violation' ? ' active' : ''}`}>
+          <ClipboardList className="v-nav-icon" /><span>Log Violation</span>
         </Link>
       </nav>
-
       <div className="v-logout-section">
         <button className="v-logout" onClick={handleLogout}>
-          <LogOut className="v-nav-icon" />
-          <span>Logout</span>
+          <LogOut className="v-nav-icon" /><span>Logout</span>
         </button>
       </div>
     </div>
-  );
+  )
+}
+
+const STEPS = ['Student & Date', 'Offense Type', 'Subcategory', 'Violation', 'Sanction', 'Description', 'Review']
+const MINOR_SANCTIONS = getMinorSanctionSchedule()
+const MAJOR_SANCTIONS = getMajorSanctionMap()
+
+function deterministicTemplateExplanation({
+  offenseCategory,
+  offenseType,
+  offenseCount,
+  severityScore,
+  recommendedSanction,
+}) {
+  return `Based on the recorded violation, the case is classified under ${offenseCategory || "Unspecified Category"} (${offenseType || "Unspecified Offense"}). ` +
+    `This incident corresponds to offense count ${offenseCount ?? "N/A"} with a severity score of ${severityScore ?? "N/A"}. ` +
+    `Following the system's deterministic rule engine, the recommended sanction is: ${recommendedSanction || "N/A"}. ` +
+    `This explanation is generated for counselor review and does not replace formal disciplinary due process.`;
 }
 
 export default function Violation() {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [students, setStudents] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [rules, setRules] = useState([]);
-  const [studentQuery, setStudentQuery] = useState('');
-  const [studentMenuOpen, setStudentMenuOpen] = useState(false);
-  const studentBlurTimer = useRef(null);
+  const location = useLocation()
+  const navigate = useNavigate()
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [step, setStep] = useState(0)
+  const [students, setStudents] = useState([])
+  const [studentQuery, setStudentQuery] = useState('')
+  const [studentMenuOpen, setStudentMenuOpen] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
 
-  const [categoryQuery, setCategoryQuery] = useState('');
-  const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
-  const categoryBlurTimer = useRef(null);
-
-  const [ruleQuery, setRuleQuery] = useState('');
-  const [ruleMenuOpen, setRuleMenuOpen] = useState(false);
-  const ruleBlurTimer = useRef(null);
-
-  const today = new Date().toISOString().split('T')[0];
-
-  const filteredStudents = useMemo(() => {
-    const q = studentQuery.trim().toLowerCase();
-    if (!q) return students;
-    return students.filter(
-      (s) =>
-        (s.full_name && s.full_name.toLowerCase().includes(q)) ||
-        String(s.student_number ?? '').toLowerCase().includes(q)
-    );
-  }, [students, studentQuery]);
-
-  const filteredCategories = useMemo(() => {
-    const q = categoryQuery.trim().toLowerCase();
-    if (!q) return categories;
-    return categories.filter(
-      (c) => c.category_name && c.category_name.toLowerCase().includes(q)
-    );
-  }, [categories, categoryQuery]);
-
-  const handleLogout = () => {
-    localStorage.removeItem('user');
-    navigate('/login');
-  };
-
-
+  const today = new Date().toISOString().split('T')[0]
 
   const [form, setForm] = useState({
     student_id: '',
     incident_date: today,
-    category_id: '',
-    rule_id: '',
+    offense_type: '',       // 'minor' | 'major'
+    subcategory_id: '',     // 'light' | 'less_serious' | 'serious' | 'very_serious'
+    group_number: null,     // handbookNumber
+    group_title: '',
+    offense_id: '',         // e.g. "m-l-1-1"
+    offense_title: '',
+    offense_number: 1,      // minor: 1/2/3
+    severity_score: 5,      // major: 1-10
     incident_description: '',
-    modifiers: [],
-  });
+  })
 
-  const filteredRules = useMemo(() => {
-    if (!form.category_id) return [];
-    const q = ruleQuery.trim().toLowerCase();
-    if (!q) return rules;
-    return rules.filter(
-      (r) =>
-        (r.offense_variety && r.offense_variety.toLowerCase().includes(q)) ||
-        (r.severity && String(r.severity).toLowerCase().includes(q))
-    );
-  }, [rules, ruleQuery, form.category_id]);
+  const [recommendation, setRecommendation] = useState(null)
+  const [existingViolations, setExistingViolations] = useState([])
+  const [currentPage, setCurrentPage] = useState(1)
 
-  useEffect(() => {
-    fetchStudents();
-    fetchCategories();
-  }, []);
+  const handleLogout = () => {
+    localStorage.removeItem('user')
+    navigate('/login')
+  }
+
+  useEffect(() => { 
+    fetchStudents() 
+    fetchViolations()
+  }, [])
 
   useEffect(() => {
-    const prefillStudentId = location.state?.prefillStudentId;
-    if (!prefillStudentId || students.length === 0) return;
-
-    const matched = students.find(
-      (student) => String(student.student_id) === String(prefillStudentId)
-    );
-    if (!matched) return;
-
-    setForm((prev) => ({ ...prev, student_id: String(matched.student_id) }));
-    setStudentQuery(matched.full_name || '');
-    setStudentMenuOpen(false);
-    navigate(location.pathname, { replace: true, state: {} });
-  }, [location.state, location.pathname, navigate, students]);
+    const prefill = location.state?.prefillStudentId
+    if (!prefill || students.length === 0) return
+    const matched = students.find(s => String(s.student_id) === String(prefill))
+    if (!matched) return
+    setForm(f => ({ ...f, student_id: String(matched.student_id) }))
+    setStudentQuery(matched.full_name || '')
+    setStep(1) // Auto-advance to Offense Type
+    fetchViolations() // Pre-fetch existing violations
+    navigate(location.pathname, { replace: true, state: {} })
+  }, [location.state, students])
 
   const fetchStudents = async () => {
     try {
-      const snapshot = await getDocs(collection(db, 'students'));
-      const data = snapshot.docs.map((studentDoc) => ({
-        ...studentDoc.data(),
-        __docId: studentDoc.id,
-        student_id: studentDoc.data().student_id || studentDoc.id,
-      }));
-      setStudents(data);
-    } catch (error) {
-      console.error('Error fetching students:', error);
-      alert('Failed to load students.');
-    }
-  };
+      const snap = await getDocs(collection(db, 'students'))
+      setStudents(snap.docs.map(d => ({
+        ...d.data(),
+        __docId: d.id,
+        student_id: d.data().student_id || d.id,
+      })))
+    } catch { alert('Failed to load students.') }
+  }
 
-  const fetchCategories = async () => {
+  const fetchViolations = async () => {
     try {
-      const snapshot = await getDocs(collection(db, 'offense_categories'));
-      const data = snapshot.docs.map((categoryDoc) => ({
-        ...categoryDoc.data(),
-        category_id: categoryDoc.data().category_id || categoryDoc.id,
-      }));
-      setCategories(data);
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-      alert('Failed to load categories.');
-    }
-  };
+      const snap = await getDocs(collection(db, 'violations'))
+      const records = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      records.sort((a, b) => {
+        const timeA = a.created_at?.seconds || 0
+        const timeB = b.created_at?.seconds || 0
+        return timeB - timeA
+      })
+      setExistingViolations(records)
+    } catch { /* non-critical */ }
+  }
 
-  const fetchRulesByCategory = async (categoryId) => {
-    try {
-      const snapshot = await getDocs(collection(db, 'rules'));
-      const data = snapshot.docs
-        .map((ruleDoc) => ({
-          ...ruleDoc.data(),
-          rule_id: ruleDoc.data().rule_id || ruleDoc.id,
-        }))
-        .filter((rule) => String(rule.category_id) === String(categoryId) && Boolean(rule.is_active));
-      setRules(data);
-    } catch (error) {
-      console.error('Error fetching rules:', error);
-      alert('Failed to load offense varieties.');
-    }
-  };
+  const filteredStudents = students.filter(s => {
+    const q = studentQuery.trim().toLowerCase()
+    if (!q) return true
+    return (s.full_name || '').toLowerCase().includes(q) ||
+      String(s.student_number || '').toLowerCase().includes(q)
+  })
 
-  const clearStudentBlurTimer = () => {
-    if (studentBlurTimer.current) {
-      clearTimeout(studentBlurTimer.current);
-      studentBlurTimer.current = null;
-    }
-  };
+  const selectedStudent = students.find(s => String(s.student_id) === String(form.student_id))
 
-  const openStudentMenu = () => {
-    clearStudentBlurTimer();
-    setStudentMenuOpen(true);
-  };
-
-  const scheduleCloseStudentMenu = () => {
-    clearStudentBlurTimer();
-    studentBlurTimer.current = setTimeout(() => setStudentMenuOpen(false), 175);
-  };
-
-  const pickStudent = (student) => {
-    setForm((f) => ({
-      ...f,
-      student_id: String(student.student_id),
-    }));
-    setStudentQuery(student.full_name);
-    setStudentMenuOpen(false);
-  };
-
-  const onStudentInputChange = (e) => {
-    const value = e.target.value;
-    setStudentQuery(value);
-    openStudentMenu();
-    setForm((f) => {
-      if (!value.trim()) return { ...f, student_id: '' };
-      if (!f.student_id) return f;
-      const current = students.find((s) => String(s.student_id) === String(f.student_id));
-      if (current && value === current.full_name) return f;
-      return { ...f, student_id: '' };
-    });
-  };
-
-  const toggleStudentMenu = () => {
-    clearStudentBlurTimer();
-    setStudentMenuOpen((open) => !open);
-  };
-
-  const clearCategoryBlurTimer = () => {
-    if (categoryBlurTimer.current) {
-      clearTimeout(categoryBlurTimer.current);
-      categoryBlurTimer.current = null;
-    }
-  };
-
-  const openCategoryMenu = () => {
-    clearCategoryBlurTimer();
-    setCategoryMenuOpen(true);
-  };
-
-  const scheduleCloseCategoryMenu = () => {
-    clearCategoryBlurTimer();
-    categoryBlurTimer.current = setTimeout(() => setCategoryMenuOpen(false), 175);
-  };
-
-  const pickCategory = (category) => {
-    const id = String(category.category_id);
-    setRules([]);
-    setForm((f) => ({
-      ...f,
-      category_id: id,
-      rule_id: '',
-    }));
-    setCategoryQuery(category.category_name);
-    setCategoryMenuOpen(false);
-    setRuleQuery('');
-    fetchRulesByCategory(id);
-  };
-
-  const onCategoryInputChange = (e) => {
-    const value = e.target.value;
-    setCategoryQuery(value);
-    openCategoryMenu();
-    setForm((f) => {
-      if (!value.trim()) return { ...f, category_id: '', rule_id: '' };
-      if (!f.category_id) return f;
-      const current = categories.find((c) => String(c.category_id) === String(f.category_id));
-      if (current && value === current.category_name) return f;
-      return { ...f, category_id: '', rule_id: '' };
-    });
-  };
-
-  const toggleCategoryMenu = () => {
-    clearCategoryBlurTimer();
-    setCategoryMenuOpen((open) => !open);
-  };
-
-  const clearRuleBlurTimer = () => {
-    if (ruleBlurTimer.current) {
-      clearTimeout(ruleBlurTimer.current);
-      ruleBlurTimer.current = null;
-    }
-  };
-
-  const openRuleMenu = () => {
-    if (!form.category_id) return;
-    clearRuleBlurTimer();
-    setRuleMenuOpen(true);
-  };
-
-  const scheduleCloseRuleMenu = () => {
-    clearRuleBlurTimer();
-    ruleBlurTimer.current = setTimeout(() => setRuleMenuOpen(false), 175);
-  };
-
-  const pickRule = (rule) => {
-    setForm((f) => ({ ...f, rule_id: String(rule.rule_id) }));
-    setRuleQuery(rule.offense_variety);
-    setRuleMenuOpen(false);
-  };
-
-  const onRuleInputChange = (e) => {
-    if (!form.category_id) return;
-    const value = e.target.value;
-    setRuleQuery(value);
-    openRuleMenu();
-    setForm((f) => {
-      if (!value.trim()) return { ...f, rule_id: '' };
-      if (!f.rule_id) return f;
-      const current = rules.find((r) => String(r.rule_id) === String(f.rule_id));
-      if (current && value === current.offense_variety) return f;
-      return { ...f, rule_id: '' };
-    });
-  };
-
-  const toggleRuleMenu = () => {
-    if (!form.category_id) return;
-    clearRuleBlurTimer();
-    setRuleMenuOpen((open) => !open);
-  };
-
+  // Compute recommendation when we reach the sanction step
   useEffect(() => {
-    if (!form.category_id) {
-      setRules([]);
-      setRuleQuery('');
+    if (step !== 4 || !form.offense_id || !form.student_id) return
+    const rec = evaluateSaresRecommendation({
+      offenseType: form.offense_type,
+      offenseId: form.offense_id,
+      studentId: form.student_id,
+      incidentDate: form.incident_date,
+      severityScore: form.severity_score,
+      existingViolations,
+    })
+    setRecommendation(rec)
+
+    // Auto-set the offense number for minor violations based on history
+    if (form.offense_type === 'minor' && rec.offenseNumber && form.offense_number !== rec.offenseNumber) {
+      setForm(f => ({ ...f, offense_number: rec.offenseNumber }))
     }
-  }, [form.category_id]);
+  }, [step, form.offense_id, form.offense_type, form.incident_date, form.student_id, form.severity_score])
 
-  useEffect(
-    () => () => {
-      clearStudentBlurTimer();
-      clearCategoryBlurTimer();
-      clearRuleBlurTimer();
-    },
-    []
-  );
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setForm({
-      ...form,
-      [name]: value,
-    });
-  };
-
-  const handleModifierToggle = (mod) => {
-    setForm(prev => {
-      const isSelected = prev.modifiers.includes(mod);
-      return {
-        ...prev,
-        modifiers: isSelected 
-          ? prev.modifiers.filter(m => m !== mod) 
-          : [...prev.modifiers, mod]
-      };
-    });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    if (
-      !form.student_id ||
-      !form.category_id ||
-      !form.rule_id ||
-      !form.incident_date ||
-      !form.incident_description
-    ) {
-      alert('Please fill in all required fields.');
-      return;
+  const goNext = async () => {
+    if (step === 0) {
+      if (!form.student_id) { alert('Please select a student.'); return }
+      if (!form.incident_date) { alert('Please select a date.'); return }
+      await fetchViolations()
     }
+    if (step === 3 && !form.offense_id) { alert('Please select a violation.'); return }
+    if (step === 5 && !form.incident_description.trim()) { alert('Please provide an incident description.'); return }
+    setStep(s => s + 1)
+  }
 
-    const user = JSON.parse(localStorage.getItem('user'));
+  const goBack = () => setStep(s => s - 1)
 
+  const pickOffenseType = (type) => {
+    setForm(f => ({ ...f, offense_type: type, subcategory_id: '', group_number: null, group_title: '', offense_id: '', offense_title: '' }))
+    setStep(2)
+  }
+
+  const pickSubcategory = (subId) => {
+    setForm(f => ({ ...f, subcategory_id: subId, group_number: null, group_title: '', offense_id: '', offense_title: '' }))
+    setStep(3)
+  }
+
+  const pickGroup = (group) => {
+    setForm(f => ({ ...f, group_number: group.handbookNumber, group_title: group.groupTitle, offense_id: '', offense_title: '' }))
+  }
+
+  const pickOffense = (offense) => {
+    setForm(f => ({ ...f, offense_id: offense.id, offense_title: offense.title }))
+  }
+
+  const handleSubmit = async () => {
+    if (!recommendation) return
+    setSubmitting(true)
     try {
-      const selectedStudent = students.find((student) => String(student.student_id) === String(form.student_id));
-      const selectedRule = rules.find((rule) => String(rule.rule_id) === String(form.rule_id));
-      const selectedCategory = categories.find((category) => String(category.category_id) === String(form.category_id));
+      const user = JSON.parse(localStorage.getItem('user'))
+      const offenseCount = form.offense_type === 'minor' ? recommendation.offenseNumber : 1
+      const severityScore = form.offense_type === 'major' ? form.severity_score : null
 
-      if (!selectedStudent || !selectedRule || !selectedCategory) {
-        alert('Selected student, category, or rule was not found.');
-        return;
+      let generatedExplanation = deterministicTemplateExplanation({
+        offenseCategory: form.group_title,
+        offenseType: form.offense_title,
+        offenseCount,
+        severityScore,
+        recommendedSanction: recommendation.recommendedSanction,
+      })
+      let explanationSource = 'fallback'
+
+      try {
+        const response = await fetch('/api/generate-explanation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            offenseCategory: form.group_title,
+            offenseType: form.offense_title,
+            offenseCount,
+            severityScore,
+            recommendedSanction: recommendation.recommendedSanction,
+          }),
+        })
+        if (response.ok) {
+          const result = await response.json()
+          if (result?.explanation) {
+            generatedExplanation = result.explanation
+            explanationSource = result?.source || 'gemini'
+          }
+        }
+      } catch {
+        // Fallback template remains active.
       }
 
-      const violationsSnapshot = await getDocs(collection(db, 'violations'));
-      const existingViolations = violationsSnapshot.docs.map((d) => d.data());
-      const offenseCount =
-        existingViolations.filter((violation) => {
-          return (
-            String(violation.student_id) === String(form.student_id) &&
-            String(violation.rule_id) === String(form.rule_id)
-          );
-        }).length + 1;
-
-      const recommendation = evaluateSaresRecommendation({
-        rule: selectedRule,
-        category: selectedCategory,
-        studentId: form.student_id,
-        incidentDate: form.incident_date,
-        existingViolations,
-        modifiers: form.modifiers,
-      });
-
-      const handbookTrack = String(selectedCategory.handbook_track || '')
-        .toLowerCase();
-      const violationPayload = {
+      const payload = {
         student_id: form.student_id,
-        rule_id: form.rule_id,
+        student_name: selectedStudent?.full_name || '',
+        student_number: selectedStudent?.student_number || '',
+        year_level: selectedStudent?.year_level || '',
         incident_date: form.incident_date,
         incident_description: form.incident_description,
-        offense_count: offenseCount,
-        severity: recommendation.recommendedSeverity,
+        offense_type: form.offense_type,
+        subcategory_id: form.subcategory_id,
+        group_number: form.group_number,
+        group_title: form.group_title,
+        offense_id: form.offense_id,
+        offense_variety: form.offense_title,
+        category_name: form.group_title,
+        offense_number: form.offense_type === 'minor' ? recommendation.offenseNumber : null,
+        severity_score: form.offense_type === 'major' ? form.severity_score : null,
         recommended_sanction: recommendation.recommendedSanction,
-        provision: recommendation.provision,
-        status: 'pending',
+        generated_explanation: generatedExplanation,
+        explanation_source: explanationSource,
+        suggest_authorities: recommendation.suggestAuthorities,
+        status: 'recorded',
         created_by: user?.user_id || 'system',
-        student_name: selectedStudent.full_name,
-        student_number: selectedStudent.student_number,
-        year_level: selectedStudent.year_level,
-        category_name: selectedCategory.category_name,
-        offense_variety: selectedRule.offense_variety,
-        created_at: serverTimestamp(),
         school_year_key: recommendation.schoolYearKey,
-        engine_mode: recommendation.mode,
-        handbook_tier_ordinal: recommendation.tierOrdinal,
-        base_rule_severity: Number(selectedRule.severity) || 0,
-      };
-
-      if (handbookTrack === 'major' || handbookTrack === 'minor') {
-        violationPayload.handbook_track = handbookTrack;
+        engine_mode: 'handbook_v2',
+        created_at: serverTimestamp(),
       }
-      if (recommendation.mode === 'handbook' && recommendation.sanctionTrack) {
-        violationPayload.sanction_track = recommendation.sanctionTrack;
-      }
-      if (recommendation.trace) {
-        violationPayload.engine_trace = recommendation.trace;
-      }
-      if (form.modifiers.length > 0) {
-        violationPayload.applied_modifiers = form.modifiers;
-      }
-      if (recommendation.xaiPayload) {
-        violationPayload.xai_explanation = recommendation.xaiPayload.deterministicExplanation;
-      }
-
-      await addDoc(collection(db, 'violations'), violationPayload);
-
-      if (selectedStudent.__docId) {
-        await updateDoc(doc(db, 'students', selectedStudent.__docId), {
-          violation_count: increment(1),
-          violations: arrayUnion({
-            id: `${Date.now()}`,
-            category: selectedCategory.category_name,
-            variety: selectedRule.offense_variety,
-            description: form.incident_description,
-            date: form.incident_date,
-            severity: recommendation.recommendedSeverity,
-            sanction: recommendation.recommendedSanction,
-            provision: selectedRule.provision,
-            status: 'pending',
-          }),
-        });
-      }
-
+      const saved = await addDoc(collection(db, 'violations'), payload)
       navigate('/sares/case-assessment', {
         state: {
           caseData: {
-            ...violationPayload,
-            status: 'pending',
+            ...payload,
+            id: saved.id,
           },
         },
-      });
-    } catch (error) {
-      console.error('Error saving violation:', error);
-      alert('Failed to submit violation. Check Firebase rules and data.');
+      })
+    } catch (err) {
+      console.error(err)
+      alert('Failed to submit violation.')
+    } finally {
+      setSubmitting(false)
     }
-  };
+  }
+
+  const subcategories = form.offense_type ? getSubcategories(form.offense_type) : []
+  const offenseGroups = (form.offense_type && form.subcategory_id)
+    ? listOffenseGroups(form.offense_type, form.subcategory_id)
+    : []
+  const groupOffenses = (form.offense_type && form.subcategory_id && form.group_number !== null)
+    ? listOffensesByGroup(form.offense_type, form.subcategory_id, form.group_number)
+    : []
+
+  const isMajor = form.offense_type === 'major'
+  const sanctionForDisplay = recommendation?.recommendedSanction || ''
+  const suggestAuthorities = recommendation?.suggestAuthorities || false
 
   return (
     <div className="v-page">
+      {/* Mobile bar */}
       <div className="v-mobile-menu-bar">
         <div className="v-logo">
-          <div className="v-logo-icon">
-            <img src={wesleyLogo} alt="Logo" className="school-logo" />
-          </div>
+          <div className="v-logo-icon"><img src={wesleyLogo} alt="Logo" className="school-logo" /></div>
           <h1>SARES</h1>
         </div>
         <button onClick={() => setSidebarOpen(!sidebarOpen)} className="v-mobile-menu-btn">
@@ -524,15 +317,9 @@ export default function Violation() {
         </button>
       </div>
 
-      <Sidebar 
-        activePage={location.pathname} 
-        handleLogout={handleLogout} 
-        isOpen={sidebarOpen} 
-        toggleSidebar={() => setSidebarOpen(false)} 
-      />
+      <Sidebar activePage={location.pathname} handleLogout={handleLogout} isOpen={sidebarOpen} toggleSidebar={() => setSidebarOpen(false)} />
 
       <div className="v-main">
-
         <div className="v-main-header">
           <div>
             <h1 className="v-page-title">Log New Violation</h1>
@@ -540,271 +327,412 @@ export default function Violation() {
           </div>
         </div>
 
-        <form className="v-directory-card v-form-card" onSubmit={handleSubmit}>
-          <div className="v-directory-header">
-            <h2 className="v-directory-title">Violation Details</h2>
-            <p className="v-directory-sub">Fill in all required information</p>
-          </div>
+        {/* Step indicator */}
+        <div className="v-wizard-steps">
+          {STEPS.map((label, i) => (
+            <div key={label} className={`v-wizard-step ${i < step ? 'done' : ''} ${i === step ? 'active' : ''}`}>
+              <div className="v-wizard-step-circle">
+                {i < step ? <CheckCircle size={16} /> : <span>{i + 1}</span>}
+              </div>
+              <span className="v-wizard-step-label">{label}</span>
+              {i < STEPS.length - 1 && <div className="v-wizard-step-line" />}
+            </div>
+          ))}
+        </div>
 
-          <div className="v-field-row">
-            <div className="v-field">
-              <label className="v-label" id="v-student-label">
-                Student *
-              </label>
-              <div
-                className="v-student-combobox"
-                role="combobox"
-                aria-expanded={studentMenuOpen}
-                aria-haspopup="listbox"
-                aria-labelledby="v-student-label"
-              >
-                <div className="v-student-combobox-inner">
-                  <input
-                    type="text"
-                    className="v-input v-student-input"
-                    autoComplete="off"
-                    placeholder="Search or select a student"
-                    value={studentQuery}
-                    onChange={onStudentInputChange}
-                    onFocus={openStudentMenu}
-                    onBlur={scheduleCloseStudentMenu}
-                    aria-controls="v-student-listbox"
-                    aria-autocomplete="list"
-                  />
-                  <button
-                    type="button"
-                    className={`v-student-chevron-btn${studentMenuOpen ? ' v-student-chevron-btn--open' : ''}`}
-                    aria-label={studentMenuOpen ? 'Close student list' : 'Open student list'}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={toggleStudentMenu}
-                  >
-                    <ChevronDown size={20} strokeWidth={2.25} aria-hidden />
-                  </button>
+        <div className="v-directory-card v-form-card">
+
+          {/* STEP 0: Student & Date */}
+          {step === 0 && (
+            <div className="v-step-content">
+              <h2 className="v-directory-title">Step 1: Student & Date</h2>
+              <p className="v-directory-sub">Select the student and incident date</p>
+
+              <div className="v-field" style={{ marginTop: '1.5rem' }}>
+                <label className="v-label">Student *</label>
+                <div className="v-student-combobox">
+                  <div className="v-student-combobox-inner">
+                    <input
+                      type="text"
+                      className="v-input v-student-input"
+                      autoComplete="off"
+                      placeholder="Search or select a student"
+                      value={studentQuery}
+                      onChange={e => {
+                        setStudentQuery(e.target.value)
+                        setStudentMenuOpen(true)
+                        if (!e.target.value.trim()) setForm(f => ({ ...f, student_id: '' }))
+                      }}
+                      onFocus={() => setStudentMenuOpen(true)}
+                      onBlur={() => setTimeout(() => setStudentMenuOpen(false), 175)}
+                    />
+                    <button type="button" className="v-student-chevron-btn" onMouseDown={e => e.preventDefault()} onClick={() => setStudentMenuOpen(o => !o)}>
+                      <ChevronRight size={20} />
+                    </button>
+                  </div>
+                  {studentMenuOpen && (
+                    <ul className="v-student-dropdown">
+                      {filteredStudents.length === 0
+                        ? <li className="v-student-option v-student-option--empty">No matching students.</li>
+                        : filteredStudents.map(s => (
+                          <li key={s.student_id} className="v-student-option"
+                            onMouseDown={e => e.preventDefault()}
+                            onClick={() => { setForm(f => ({ ...f, student_id: String(s.student_id) })); setStudentQuery(s.full_name); setStudentMenuOpen(false) }}>
+                            <span className="v-student-option-name">{s.full_name}</span>
+                            {s.student_number && <span className="v-student-option-meta">{s.student_number}</span>}
+                          </li>
+                        ))}
+                    </ul>
+                  )}
                 </div>
-                {studentMenuOpen && (
-                  <ul
-                    className="v-student-dropdown"
-                    id="v-student-listbox"
-                    role="listbox"
-                  >
-                    {filteredStudents.length === 0 ? (
-                      <li className="v-student-option v-student-option--empty">
-                        {students.length === 0 ? 'No students loaded.' : 'No matching students.'}
-                      </li>
-                    ) : (
-                      filteredStudents.map((student) => (
-                        <li
-                          key={student.student_id}
-                          role="option"
-                          aria-selected={String(student.student_id) === String(form.student_id)}
-                          className="v-student-option"
-                          onMouseDown={(e) => e.preventDefault()}
-                          onClick={() => pickStudent(student)}
-                        >
-                          <span className="v-student-option-name">{student.full_name}</span>
-                          {student.student_number ? (
-                            <span className="v-student-option-meta">{student.student_number}</span>
-                          ) : null}
-                        </li>
-                      ))
-                    )}
-                  </ul>
-                )}
+              </div>
+
+              <div className="v-field" style={{ marginTop: '1rem' }}>
+                <label className="v-label">Date of Incident *</label>
+                <input className="v-input" type="date" value={form.incident_date}
+                  onChange={e => setForm(f => ({ ...f, incident_date: e.target.value }))} />
               </div>
             </div>
+          )}
 
-            <div className="v-field">
-              <label className="v-label">Date of Incident *</label>
-              <input
-                className="v-input"
-                type="date"
-                name="incident_date"
-                value={form.incident_date}
-                onChange={handleChange}
-              />
-            </div>
-          </div>
-
-          <div className="v-field-row">
-            <div className="v-field">
-              <label className="v-label" id="v-category-label">
-                Offense Category *
-              </label>
-              <div
-                className="v-student-combobox"
-                role="combobox"
-                aria-expanded={categoryMenuOpen}
-                aria-haspopup="listbox"
-                aria-labelledby="v-category-label"
-              >
-                <div className="v-student-combobox-inner">
-                  <input
-                    type="text"
-                    className="v-input v-student-input"
-                    autoComplete="off"
-                    placeholder="Search or select a category"
-                    value={categoryQuery}
-                    onChange={onCategoryInputChange}
-                    onFocus={openCategoryMenu}
-                    onBlur={scheduleCloseCategoryMenu}
-                    aria-controls="v-category-listbox"
-                    aria-autocomplete="list"
-                  />
-                  <button
-                    type="button"
-                    className={`v-student-chevron-btn${categoryMenuOpen ? ' v-student-chevron-btn--open' : ''}`}
-                    aria-label={categoryMenuOpen ? 'Close category list' : 'Open category list'}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={toggleCategoryMenu}
-                  >
-                    <ChevronDown size={20} strokeWidth={2.25} aria-hidden />
-                  </button>
-                </div>
-                {categoryMenuOpen && (
-                  <ul
-                    className="v-student-dropdown"
-                    id="v-category-listbox"
-                    role="listbox"
-                  >
-                    {filteredCategories.length === 0 ? (
-                      <li className="v-student-option v-student-option--empty">
-                        {categories.length === 0 ? 'No categories loaded.' : 'No matching categories.'}
-                      </li>
-                    ) : (
-                      filteredCategories.map((category) => (
-                        <li
-                          key={category.category_id}
-                          role="option"
-                          aria-selected={String(category.category_id) === String(form.category_id)}
-                          className="v-student-option"
-                          onMouseDown={(e) => e.preventDefault()}
-                          onClick={() => pickCategory(category)}
-                        >
-                          <span className="v-student-option-name">{category.category_name}</span>
-                        </li>
-                      ))
-                    )}
-                  </ul>
-                )}
+          {/* STEP 1: Offense Type */}
+          {step === 1 && (
+            <div className="v-step-content">
+              <h2 className="v-directory-title">Step 2: Offense Type</h2>
+              <p className="v-directory-sub">Is this a Minor or Major offense?</p>
+              <div className="v-offense-type-grid">
+                <button className={`v-offense-type-card v-offense-type-card--minor ${form.offense_type === 'minor' ? 'selected' : ''}`}
+                  onClick={() => pickOffenseType('minor')}>
+                  <span className="v-offense-type-badge">Minor</span>
+                  <h3>Minor Offense</h3>
+                  <p>Violations that do not constitute an immediate threat. Sanctions are based on 1st, 2nd, or 3rd offense count.</p>
+                  <div className="v-offense-type-sub-labels">
+                    <span>Light</span><span>Less Serious</span>
+                  </div>
+                </button>
+                <button className={`v-offense-type-card v-offense-type-card--major ${form.offense_type === 'major' ? 'selected' : ''}`}
+                  onClick={() => pickOffenseType('major')}>
+                  <span className="v-offense-type-badge v-offense-type-badge--major">Major</span>
+                  <h3>Major Offense</h3>
+                  <p>Acts of serious misconduct. Sanctions are based on a severity score (1–10) assessed by the admin/counselor.</p>
+                  <div className="v-offense-type-sub-labels">
+                    <span>Serious</span><span>Very Serious</span>
+                  </div>
+                </button>
               </div>
             </div>
+          )}
 
-            <div className="v-field">
-              <label className="v-label" id="v-rule-label">
-                Offense Variety *
-              </label>
-              <div
-                className={`v-student-combobox${!form.category_id ? ' v-student-combobox--disabled' : ''}`}
-                role="combobox"
-                aria-expanded={ruleMenuOpen}
-                aria-haspopup="listbox"
-                aria-labelledby="v-rule-label"
-              >
-                <div className="v-student-combobox-inner">
-                  <input
-                    type="text"
-                    className="v-input v-student-input"
-                    autoComplete="off"
-                    placeholder={form.category_id ? 'Search or select a variety' : 'Select category first'}
-                    value={ruleQuery}
-                    onChange={onRuleInputChange}
-                    onFocus={openRuleMenu}
-                    onBlur={scheduleCloseRuleMenu}
-                    aria-controls="v-rule-listbox"
-                    aria-autocomplete="list"
-                    disabled={!form.category_id}
-                  />
-                  <button
-                    type="button"
-                    className={`v-student-chevron-btn${ruleMenuOpen ? ' v-student-chevron-btn--open' : ''}`}
-                    aria-label={ruleMenuOpen ? 'Close variety list' : 'Open variety list'}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={toggleRuleMenu}
-                    disabled={!form.category_id}
-                  >
-                    <ChevronDown size={20} strokeWidth={2.25} aria-hidden />
+          {/* STEP 2: Subcategory */}
+          {step === 2 && (
+            <div className="v-step-content">
+              <h2 className="v-directory-title">Step 3: Subcategory</h2>
+              <p className="v-directory-sub">
+                {form.offense_type === 'minor' ? 'Minor Offense' : 'Major Offense'} → Select subcategory level
+              </p>
+              <div className="v-subcategory-grid">
+                {subcategories.map(sub => (
+                  <button key={sub.id}
+                    className={`v-subcategory-card ${form.subcategory_id === sub.id ? 'selected' : ''} ${form.offense_type === 'major' ? 'major' : ''}`}
+                    onClick={() => pickSubcategory(sub.id)}>
+                    <h3>{sub.label}</h3>
+                    <p className="v-subcategory-hint">
+                      {sub.id === 'light' && 'Dress code, ID, grooming, cleanliness, loitering'}
+                      {sub.id === 'less_serious' && 'Class disruption, tardiness, devices, language, facility misuse'}
+                      {sub.id === 'serious' && 'Academic dishonesty, forgery, vandalism, theft, disrespect, bullying'}
+                      {sub.id === 'very_serious' && 'Physical violence, weapons, drugs & alcohol, immorality, gambling'}
+                    </p>
                   </button>
-                </div>
-                {ruleMenuOpen && form.category_id && (
-                  <ul
-                    className="v-student-dropdown"
-                    id="v-rule-listbox"
-                    role="listbox"
-                  >
-                    {filteredRules.length === 0 ? (
-                      <li className="v-student-option v-student-option--empty">
-                        {rules.length === 0 ? 'Loading varieties…' : 'No matching varieties.'}
-                      </li>
-                    ) : (
-                      filteredRules.map((rule) => (
-                        <li
-                          key={rule.rule_id}
-                          role="option"
-                          aria-selected={String(rule.rule_id) === String(form.rule_id)}
-                          className="v-student-option"
-                          onMouseDown={(e) => e.preventDefault()}
-                          onClick={() => pickRule(rule)}
-                        >
-                          <span className="v-student-option-name">{rule.offense_variety}</span>
-                          {rule.severity ? (
-                            <span className="v-student-option-meta">{rule.severity}</span>
-                          ) : null}
-                        </li>
-                      ))
-                    )}
-                  </ul>
-                )}
+                ))}
               </div>
             </div>
-          </div>
+          )}
 
-          <div className="v-field">
-            <label className="v-label">Incident Description *</label>
-            <textarea
-              className="v-input v-textarea"
-              name="incident_description"
-              value={form.incident_description}
-              onChange={handleChange}
-              placeholder="Provide detailed description of the incident..."
-              rows="3"
-            />
-            <p className="v-page-sub">
-              Include relevant details such as witnesses, location, and circumstances
-            </p>
-          </div>
+          {/* STEP 3: Specific Violation */}
+          {step === 3 && (
+            <div className="v-step-content">
+              <h2 className="v-directory-title">Step 4: Specific Violation</h2>
+              <p className="v-directory-sub">
+                {form.offense_type === 'minor' ? 'Minor' : 'Major'} → {subcategories.find(s => s.id === form.subcategory_id)?.label} → Select violation group and specific act
+              </p>
 
-          <div className="v-field">
-            <label className="v-label">Context Modifiers (Optional)</label>
-            <div className="v-modifiers-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px', marginTop: '8px' }}>
-              {Object.entries(MODIFIER_WEIGHTS).map(([mod, weight]) => (
-                <label key={mod} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', cursor: 'pointer' }}>
-                  <input 
-                    type="checkbox" 
-                    checked={form.modifiers.includes(mod)}
-                    onChange={() => handleModifierToggle(mod)}
-                    style={{ cursor: 'pointer', width: '16px', height: '16px' }}
-                  />
-                  <span style={{ textTransform: 'capitalize' }}>{mod} ({weight > 0 ? `+${weight}` : weight})</span>
-                </label>
-              ))}
+              <div className="v-groups-list">
+                {offenseGroups.map(group => (
+                  <div key={group.handbookNumber} className={`v-group-item ${form.group_number === group.handbookNumber ? 'expanded' : ''}`}>
+                    <button className="v-group-header" onClick={() => pickGroup(group)}>
+                      <span>{group.groupTitle}</span>
+                      <ChevronRight size={16} className={`v-group-chevron ${form.group_number === group.handbookNumber ? 'rotated' : ''}`} />
+                    </button>
+                    {form.group_number === group.handbookNumber && (
+                      <div className="v-offense-options">
+                        {listOffensesByGroup(form.offense_type, form.subcategory_id, group.handbookNumber).map(offense => (
+                          <button key={offense.id}
+                            className={`v-offense-option ${form.offense_id === offense.id ? 'selected' : ''}`}
+                            onClick={() => pickOffense(offense)}>
+                            {offense.isIllegal && <AlertTriangle size={13} className="v-illegal-icon" />}
+                            {offense.title}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
-            <p className="v-page-sub" style={{ marginTop: '8px' }}>
-              Select any factors that should dynamically adjust the baseline severity of this violation.
-            </p>
+          )}
+
+          {/* STEP 4: Sanction */}
+          {step === 4 && (
+            <div className="v-step-content">
+              <h2 className="v-directory-title">Step 5: Sanction</h2>
+
+              {!isMajor ? (
+                /* MINOR — pick offense number */
+                <div>
+                  <p className="v-directory-sub">Select which offense number this is for this student</p>
+                  <div className="v-offense-number-grid">
+                    {MINOR_SANCTIONS.map(s => (
+                      <button key={s.offenseNumber}
+                        className={`v-offense-number-card ${form.offense_number === s.offenseNumber ? 'selected' : ''}`}
+                        onClick={() => setForm(f => ({ ...f, offense_number: s.offenseNumber }))}>
+                        <span className="v-offense-number-label">{s.label}</span>
+                        <p className="v-offense-number-sanction">{s.sanction}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                /* MAJOR — enter severity score */
+                <div>
+                  <p className="v-directory-sub">Assess a severity score (1–10) based on the gravity of this incident</p>
+                  <div className="v-severity-map">
+                    {MAJOR_SANCTIONS.map(s => (
+                      <div key={s.label} className={`v-severity-band ${form.severity_score >= s.min && form.severity_score <= s.max ? 'active' : ''}`}>
+                        <span className="v-severity-band-score">{s.label}</span>
+                        <span className="v-severity-band-sanction">{s.sanction}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="v-severity-slider-wrap">
+                    <label className="v-label">Severity Score: <strong>{form.severity_score}</strong> / 10</label>
+                    <input type="range" min="1" max="10" step="1" value={form.severity_score}
+                      onChange={e => setForm(f => ({ ...f, severity_score: Number(e.target.value) }))}
+                      className="v-severity-slider" />
+                    <div className="v-severity-slider-ticks">
+                      {[1,2,3,4,5,6,7,8,9,10].map(n => <span key={n}>{n}</span>)}
+                    </div>
+                  </div>
+                  {recommendation && (
+                    <div className="v-sanction-result">
+                      <h4>Recommended Sanction</h4>
+                      <p>{recommendation.recommendedSanction}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {suggestAuthorities && (
+                <div className="v-authority-alert">
+                  <AlertTriangle size={18} />
+                  <div>
+                    <strong>Authority Involvement Suggested</strong>
+                    <p>This violation may involve illegal activity. Consider referral to proper authorities (police/security) at school discretion.</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* STEP 5: Description */}
+          {step === 5 && (
+            <div className="v-step-content">
+              <h2 className="v-directory-title">Step 6: Incident Description</h2>
+              <p className="v-directory-sub">Provide a detailed account of the incident</p>
+              <div className="v-field" style={{ marginTop: '1.5rem' }}>
+                <label className="v-label">Incident Description *</label>
+                <textarea className="v-input v-textarea" rows="5"
+                  placeholder="Include relevant details such as witnesses, location, and circumstances..."
+                  value={form.incident_description}
+                  onChange={e => setForm(f => ({ ...f, incident_description: e.target.value }))} />
+              </div>
+            </div>
+          )}
+
+          {/* STEP 6: Review */}
+          {step === 6 && recommendation && (
+            <div className="v-step-content">
+              <h2 className="v-directory-title">Step 7: Review & Submit</h2>
+              <p className="v-directory-sub">Confirm all details before submitting</p>
+
+              <div className="v-review-grid">
+                <div className="v-review-section">
+                  <h4>Student</h4>
+                  <p>{selectedStudent?.full_name}</p>
+                  <p className="v-review-meta">{selectedStudent?.student_number} · {selectedStudent?.year_level}</p>
+                </div>
+                <div className="v-review-section">
+                  <h4>Date</h4>
+                  <p>{form.incident_date}</p>
+                </div>
+                <div className="v-review-section">
+                  <h4>Offense Classification</h4>
+                  <p>
+                    <span className={`v-review-badge ${form.offense_type}`}>{form.offense_type === 'minor' ? 'Minor' : 'Major'}</span>
+                    {' → '}
+                    {subcategories.find(s => s.id === form.subcategory_id)?.label}
+                  </p>
+                </div>
+                <div className="v-review-section">
+                  <h4>Violation</h4>
+                  <p className="v-review-group">{form.group_title}</p>
+                  <p>{form.offense_title}</p>
+                </div>
+                {form.offense_type === 'minor' && (
+                  <div className="v-review-section">
+                    <h4>Offense Number</h4>
+                    <p>{recommendation.offenseLabel}</p>
+                  </div>
+                )}
+                {form.offense_type === 'major' && (
+                  <div className="v-review-section">
+                    <h4>Severity Score</h4>
+                    <p>{form.severity_score} / 10</p>
+                  </div>
+                )}
+                <div className="v-review-section v-review-section--full">
+                  <h4>Recommended Sanction</h4>
+                  <p className="v-review-sanction">{recommendation.recommendedSanction}</p>
+                </div>
+                <div className="v-review-section v-review-section--full">
+                  <h4>Incident Description</h4>
+                  <p>{form.incident_description}</p>
+                </div>
+              </div>
+
+              {recommendation.suggestAuthorities && (
+                <div className="v-authority-alert">
+                  <AlertTriangle size={18} />
+                  <div>
+                    <strong>Authority Involvement Suggested</strong>
+                    <p>This violation may involve illegal activity. Consider referral to proper authorities at school discretion.</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Navigation */}
+          <div className="v-wizard-nav">
+            {step > 0 && step !== 1 && step !== 2 && (
+              <button className="v-btn-cancel" onClick={goBack}>
+                <ChevronLeft size={16} /> Back
+              </button>
+            )}
+            {step === 1 && (
+              <button className="v-btn-cancel" onClick={goBack}>
+                <ChevronLeft size={16} /> Back
+              </button>
+            )}
+            {step === 2 && (
+              <button className="v-btn-cancel" onClick={() => setStep(1)}>
+                <ChevronLeft size={16} /> Back
+              </button>
+            )}
+            {step === 0 && <Link to="/sares/dashboard" className="v-btn-cancel v-link-btn">Cancel</Link>}
+
+            {step < 6 && step !== 1 && step !== 2 && (
+              <button className="v-btn-submit" onClick={goNext}>
+                Next <ChevronRight size={16} />
+              </button>
+            )}
+            {step === 6 && (
+              <button className="v-btn-submit" onClick={handleSubmit} disabled={submitting}>
+                {submitting ? 'Submitting…' : 'Submit Violation'}
+              </button>
+            )}
           </div>
 
-          <div className="v-actions">
-            <Link to="/sares/dashboard" className="v-btn-cancel v-link-btn">
-              Cancel
-            </Link>
+        </div>
 
-            <button type="submit" className="v-btn-submit">
-              Submit Violation
-            </button>
+        {/* Global Violation History */}
+        <div className="v-directory-card" style={{ marginTop: '24px' }}>
+          <div className="v-directory-header" style={{ marginBottom: '16px' }}>
+            <h2 className="v-directory-title">Recent System Violations</h2>
+            <p className="v-directory-sub">History of all logged violations across the system.</p>
           </div>
-        </form>
+          
+          {existingViolations.length === 0 ? (
+            <p style={{ color: '#64748b', fontSize: '14px' }}>No violations recorded yet.</p>
+          ) : (
+            <>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid #d8e6f7', color: '#0b4f8a' }}>
+                      <th style={{ padding: '12px 16px' }}>Date</th>
+                      <th style={{ padding: '12px 16px' }}>Student</th>
+                      <th style={{ padding: '12px 16px' }}>Offense</th>
+                      <th style={{ padding: '12px 16px' }}>Classification</th>
+                      <th style={{ padding: '12px 16px' }}>Type</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {existingViolations.slice((currentPage - 1) * 10, currentPage * 10).map((v) => (
+                      <tr key={v.id || v.created_at?.seconds || Math.random()} style={{ borderBottom: '1px solid #e6edf7' }}>
+                        <td style={{ padding: '12px 16px', color: '#64748b' }}>{v.incident_date}</td>
+                        <td style={{ padding: '12px 16px', fontWeight: 600, color: '#071f5f' }}>{v.student_name}</td>
+                        <td style={{ padding: '12px 16px' }}>
+                          <div style={{ fontWeight: 600, color: '#365577' }}>{v.category_name}</div>
+                          <div style={{ fontSize: '12px', color: '#64748b' }}>{v.offense_variety}</div>
+                        </td>
+                        <td style={{ padding: '12px 16px' }}>
+                          <span style={{ 
+                            background: v.subcategory_id === 'very_serious' ? '#fff1f2' : v.subcategory_id === 'serious' ? '#fff7ed' : '#f0f9ff',
+                            color: v.subcategory_id === 'very_serious' ? '#be123c' : v.subcategory_id === 'serious' ? '#c2410c' : '#0369a1',
+                            padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 700, textTransform: 'capitalize' 
+                          }}>
+                            {v.subcategory_id?.replace('_', ' ') || 'Minor'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px 16px' }}>
+                          {v.offense_type === 'minor' ? (
+                            <span style={{ background: '#f8fafc', color: '#475569', padding: '4px 8px', border: '1px solid #e2e8f0', borderRadius: '4px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase' }}>Minor</span>
+                          ) : (
+                            <span style={{ background: '#fef2f2', color: '#dc2626', padding: '4px 8px', border: '1px solid #fecaca', borderRadius: '4px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase' }}>Major</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              
+              {/* Pagination */}
+              {existingViolations.length > 10 && (
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '20px' }}>
+                  <button 
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    style={{ padding: '6px 12px', border: '1px solid #d8e6f7', background: currentPage === 1 ? '#f1f5f9' : '#fff', borderRadius: '6px', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', color: '#365577', fontWeight: 600 }}
+                  >
+                    Prev
+                  </button>
+                  <span style={{ display: 'flex', alignItems: 'center', fontSize: '13px', color: '#64748b', fontWeight: 600 }}>
+                    Page {currentPage} of {Math.ceil(existingViolations.length / 10)}
+                  </span>
+                  <button 
+                    onClick={() => setCurrentPage(p => Math.min(Math.ceil(existingViolations.length / 10), p + 1))}
+                    disabled={currentPage === Math.ceil(existingViolations.length / 10)}
+                    style={{ padding: '6px 12px', border: '1px solid #d8e6f7', background: currentPage === Math.ceil(existingViolations.length / 10) ? '#f1f5f9' : '#fff', borderRadius: '6px', cursor: currentPage === Math.ceil(existingViolations.length / 10) ? 'not-allowed' : 'pointer', color: '#365577', fontWeight: 600 }}
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
-
     </div>
-  );
+  )
 }

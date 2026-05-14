@@ -166,7 +166,7 @@
   border: 1px solid #d8e6f7;
   border-radius: 16px;
   padding: 24px;
-  max-width: 1100px;
+  max-width: 100%;
   box-shadow: 0 8px 22px rgba(17, 44, 80, 0.055);
 }
 
@@ -653,10 +653,226 @@
 }
 
 @keyframes v-slideIn {
-  from {
-    transform: translateX(-100%);
-  }
-  to {
-    transform: translateX(0);
-  }
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+/* ── Wizard Step Indicator ─────────────────────────────── */
+.v-wizard-steps {
+  display: flex;
+  align-items: center;
+  margin-bottom: 24px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  flex-wrap: nowrap;
+}
+.v-wizard-step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.v-wizard-step-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid #dce5f2;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #94a3b8;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.v-wizard-step.active .v-wizard-step-circle { border-color: #1198e8; background: #1198e8; color: #fff; }
+.v-wizard-step.done .v-wizard-step-circle { border-color: #22c55e; background: #22c55e; color: #fff; }
+.v-wizard-step-label { font-size: 11px; font-weight: 600; color: #94a3b8; white-space: nowrap; }
+.v-wizard-step.active .v-wizard-step-label { color: #1198e8; }
+.v-wizard-step.done .v-wizard-step-label { color: #22c55e; }
+.v-wizard-step-line { width: 24px; height: 2px; background: #dce5f2; flex-shrink: 0; margin: 0 4px; }
+
+/* ── Step content ─────────────────────────────────────── */
+.v-step-content { padding: 4px 0 8px; }
+
+/* ── Offense Type Cards ───────────────────────────────── */
+.v-offense-type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 20px; }
+.v-offense-type-card {
+  background: #f9fbff;
+  border: 2px solid #dce5f2;
+  border-radius: 14px;
+  padding: 22px 20px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.18s ease;
+  font-family: 'DM Sans', sans-serif;
+}
+.v-offense-type-card:hover { border-color: #1198e8; background: #eaf4ff; transform: translateY(-2px); box-shadow: 0 6px 18px rgba(17,152,232,0.12); }
+.v-offense-type-card--minor.selected { border-color: #1198e8; background: #eaf4ff; }
+.v-offense-type-card--major.selected { border-color: #f59e0b; background: #fffbeb; }
+.v-offense-type-card h3 { font-size: 17px; font-weight: 800; color: #071f5f; margin: 10px 0 6px; }
+.v-offense-type-card p { font-size: 13px; color: #64748b; line-height: 1.5; margin: 0 0 12px; }
+.v-offense-type-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; background: #dbeafe; color: #1d4ed8; }
+.v-offense-type-badge--major { background: #fef3c7; color: #d97706; }
+.v-offense-type-sub-labels { display: flex; gap: 8px; }
+.v-offense-type-sub-labels span { background: #f1f5f9; border-radius: 6px; padding: 3px 9px; font-size: 11px; font-weight: 600; color: #475569; }
+
+/* ── Subcategory Cards ────────────────────────────────── */
+.v-subcategory-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 20px; }
+.v-subcategory-card {
+  background: #f9fbff;
+  border: 2px solid #dce5f2;
+  border-radius: 14px;
+  padding: 20px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.18s;
+  font-family: 'DM Sans', sans-serif;
+}
+.v-subcategory-card:hover { border-color: #1198e8; background: #eaf4ff; transform: translateY(-2px); }
+.v-subcategory-card.selected { border-color: #1198e8; background: #eaf4ff; }
+.v-subcategory-card.major.selected { border-color: #f59e0b; background: #fffbeb; }
+.v-subcategory-card.major:hover { border-color: #f59e0b; background: #fffbeb; }
+.v-subcategory-card h3 { font-size: 16px; font-weight: 800; color: #071f5f; margin: 0 0 8px; }
+.v-subcategory-hint { font-size: 12px; color: #64748b; line-height: 1.5; margin: 0; }
+
+/* ── Offense Groups ───────────────────────────────────── */
+.v-groups-list { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+.v-group-item { border: 1px solid #dce5f2; border-radius: 12px; overflow: hidden; transition: border-color 0.15s; }
+.v-group-item.expanded { border-color: #1198e8; }
+.v-group-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: #f9fbff;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  color: #071f5f;
+  font-family: 'DM Sans', sans-serif;
+  transition: background 0.15s;
+  text-align: left;
+}
+.v-group-header:hover { background: #eaf4ff; }
+.v-group-chevron { transition: transform 0.2s; color: #64748b; flex-shrink: 0; }
+.v-group-chevron.rotated { transform: rotate(90deg); color: #1198e8; }
+.v-offense-options { padding: 8px 12px 12px; display: flex; flex-direction: column; gap: 6px; background: #fff; }
+.v-offense-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f9fbff;
+  cursor: pointer;
+  font-size: 13px;
+  color: #1e293b;
+  font-family: 'DM Sans', sans-serif;
+  text-align: left;
+  transition: all 0.15s;
+}
+.v-offense-option:hover { border-color: #1198e8; background: #eaf4ff; }
+.v-offense-option.selected { border-color: #1198e8; background: #dbeafe; color: #1d4ed8; font-weight: 700; }
+.v-illegal-icon { color: #ef4444; flex-shrink: 0; }
+
+/* ── Offense Number Cards (Minor) ─────────────────────── */
+.v-offense-number-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 16px; }
+.v-offense-number-card {
+  background: #f9fbff;
+  border: 2px solid #dce5f2;
+  border-radius: 12px;
+  padding: 18px 14px;
+  cursor: pointer;
+  text-align: left;
+  font-family: 'DM Sans', sans-serif;
+  transition: all 0.18s;
+}
+.v-offense-number-card:hover { border-color: #1198e8; background: #eaf4ff; }
+.v-offense-number-card.selected { border-color: #1198e8; background: #eaf4ff; }
+.v-offense-number-label { display: block; font-size: 14px; font-weight: 800; color: #071f5f; margin-bottom: 8px; }
+.v-offense-number-sanction { font-size: 12px; color: #64748b; line-height: 1.5; margin: 0; }
+
+/* ── Severity Map + Slider (Major) ───────────────────── */
+.v-severity-map { display: flex; flex-direction: column; gap: 8px; margin: 16px 0; }
+.v-severity-band {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #f9fbff;
+  transition: all 0.15s;
+}
+.v-severity-band.active { border-color: #f59e0b; background: #fffbeb; }
+.v-severity-band-score { font-size: 14px; font-weight: 800; color: #d97706; min-width: 48px; }
+.v-severity-band-sanction { font-size: 13px; color: #475569; }
+.v-severity-band.active .v-severity-band-sanction { color: #92400e; font-weight: 600; }
+.v-severity-slider-wrap { margin-top: 8px; }
+.v-severity-slider { width: 100%; margin: 10px 0 6px; accent-color: #f59e0b; cursor: pointer; }
+.v-severity-slider-ticks { display: flex; justify-content: space-between; font-size: 11px; color: #94a3b8; font-weight: 600; padding: 0 2px; }
+
+/* ── Sanction Result Box ─────────────────────────────── */
+.v-sanction-result {
+  margin-top: 16px;
+  padding: 16px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+  border: 1px solid #bae6fd;
+}
+.v-sanction-result h4 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #0284c7; margin: 0 0 8px; }
+.v-sanction-result p { font-size: 14px; color: #0c4a6e; font-weight: 600; margin: 0; line-height: 1.5; }
+
+/* ── Authority Alert ─────────────────────────────────── */
+.v-authority-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 16px;
+  border-radius: 12px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #7c2d12;
+}
+.v-authority-alert svg { color: #f97316; margin-top: 2px; flex-shrink: 0; }
+.v-authority-alert strong { display: block; font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+.v-authority-alert p { font-size: 13px; margin: 0; color: #9a3412; line-height: 1.5; }
+
+/* ── Review Grid ─────────────────────────────────────── */
+.v-review-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px; }
+.v-review-section { background: #f9fbff; border: 1px solid #dce5f2; border-radius: 12px; padding: 14px 16px; }
+.v-review-section--full { grid-column: 1 / -1; }
+.v-review-section h4 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #1198e8; margin: 0 0 6px; }
+.v-review-section p { font-size: 14px; color: #1e293b; margin: 0; line-height: 1.5; }
+.v-review-meta { font-size: 12px; color: #64748b; margin-top: 2px; }
+.v-review-group { font-size: 12px; color: #64748b; margin-bottom: 2px; }
+.v-review-badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+.v-review-badge.minor { background: #dbeafe; color: #1d4ed8; }
+.v-review-badge.major { background: #fef3c7; color: #d97706; }
+.v-review-sanction { font-weight: 700; color: #0c4a6e; }
+
+/* ── Wizard Nav ──────────────────────────────────────── */
+.v-wizard-nav {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #e8f0fb;
+}
+.v-btn-cancel { display: inline-flex; align-items: center; gap: 6px; }
+.v-btn-submit { display: inline-flex; align-items: center; gap: 6px; }
+.v-btn-submit:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+@media (max-width: 640px) {
+  .v-offense-type-grid, .v-subcategory-grid,
+  .v-offense-number-grid, .v-review-grid { grid-template-columns: 1fr; }
+  .v-wizard-step-label { display: none; }
 }

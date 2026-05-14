@@ -921,11 +921,7 @@
   border: 1px solid #ffd2bd;
 }
 
-.s-status-badge--pending {
-  background: #fff8ec;
-  color: #b66a00;
-  border: 1px solid #f0d8aa;
-}
+
 
 /* Violation Details */
 .s-vd-hero {

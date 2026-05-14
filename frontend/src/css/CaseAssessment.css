@@ -121,14 +121,7 @@
   font-size: 14px;
 }
 
-.ca-badge {
-  background: #fef3c7;
-  color: #92400e;
-  border-radius: 999px;
-  padding: 4px 10px;
-  font-size: 12px;
-  font-weight: 700;
-}
+
 
 .ca-grid {
   display: grid;
@@ -204,3 +197,53 @@
   .ca-grid { grid-template-columns: 1fr; }
 }
 
+/* ── Authority Alert ───────────────────────────────── */
+.ca-authority-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 12px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #7c2d12;
+  margin-bottom: 4px;
+}
+.ca-authority-alert svg { color: #f97316; margin-top: 2px; flex-shrink: 0; }
+.ca-authority-alert strong { display: block; font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+.ca-authority-alert p { font-size: 13px; margin: 0; color: #9a3412; line-height: 1.5; }
+
+/* ── Offense Type Badge ────────────────────────────── */
+.ca-type-badge {
+  display: inline-block;
+  padding: 3px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.ca-type-badge--minor { background: #dbeafe; color: #1d4ed8; }
+.ca-type-badge--major { background: #fef3c7; color: #d97706; }
+
+/* ── Highlight value (offense number / score) ──────── */
+.ca-highlight {
+  font-size: 18px;
+  font-weight: 800;
+  color: #1198e8;
+}
+
+/* ── Sanction text ─────────────────────────────────── */
+.ca-sanction-text {
+  font-weight: 700;
+  color: #0c4a6e;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.school-logo {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  border-radius: 50%;
+}

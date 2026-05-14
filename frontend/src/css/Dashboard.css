@@ -300,13 +300,7 @@
   margin-bottom: 5px;
 }
 
-.stat-value-pending {
-  font-size: 34px;
-  font-weight: 800;
-  color: #f97316;
-  font-family: 'DM Mono', monospace;
-  line-height: 1;
-}
+
 
 .stat-value-month {
   font-size: 34px;
@@ -425,17 +419,12 @@
   color: #006ed0;
 }
 
-.pending-card {
-  max-width: none;
-  min-height: 120px;
-  background: #fff8ef;
-  border-color: #fed7aa;
-}
+
 
 /* charts */
 .charts-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 16px;
 }
 
@@ -739,4 +728,65 @@
   .stats-cards-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* Trend Bar Chart */
+.trend-bar-container {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  height: 180px;
+  padding: 20px 10px 10px;
+  gap: 12px;
+}
+
+.trend-bar-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  height: 100%;
+}
+
+.trend-bar {
+  width: 100%;
+  background: linear-gradient(to top, #1198e8, #60c0ff);
+  border-radius: 6px 6px 0 0;
+  position: relative;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.trend-bar:hover {
+  background: linear-gradient(to top, #006ed0, #1198e8);
+  filter: brightness(1.1);
+}
+
+.trend-tooltip {
+  position: absolute;
+  top: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #071f5f;
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+
+.trend-bar:hover .trend-tooltip {
+  opacity: 1;
+}
+
+.trend-month {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 600;
 }

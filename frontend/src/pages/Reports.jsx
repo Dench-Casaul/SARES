@@ -1,21 +1,28 @@
-import React, { useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
-import '../css/Reports.css'
-import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X } from 'lucide-react'
-import wesleyLogo from '../assets/wesley-logo.png'
-
+import React, { useEffect, useMemo, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { collection, getDocs } from "firebase/firestore";
+import { signOut } from "firebase/auth";
+import {
+  LayoutDashboard,
+  Users,
+  ClipboardList,
+  ShieldCheck,
+  BarChart3,
+  LogOut,
+  Menu,
+  X,
+} from "lucide-react";
+import { auth, db } from "../firebase";
+import "../css/Reports.css";
+import wesleyLogo from "../assets/wesley-logo.png";
 
 function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar }) {
   return (
-    <aside className={`report-sidebar${isOpen ? ' report-sidebar--open' : ''}`}>
+    <aside className={`report-sidebar${isOpen ? " report-sidebar--open" : ""}`}>
       <div className="report-sidebar-header">
         <div className="report-logo">
           <div className="report-logo-icon">
-            <img
-              src={wesleyLogo}
-              alt="Olongapo Wesley School Logo"
-              className="school-logo"
-            />
+            <img src={wesleyLogo} alt="Olongapo Wesley School Logo" className="school-logo" />
           </div>
           <div>
             <h1 className="report-logo-text">SARES</h1>
@@ -25,60 +32,11 @@ function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar }) {
 
       <nav className="report-nav">
         <ul className="report-nav-list">
-          <li>
-            <Link
-              to="/sares/dashboard"
-              onClick={toggleSidebar}
-              className={`report-nav-item${activePage === "/sares/dashboard" ? " report-nav-item--active" : ""}`}
-            >
-              <LayoutDashboard className="report-nav-icon" />
-              <span>Dashboard</span>
-            </Link>
-          </li>
-
-          <li>
-            <Link
-              to="/sares/students"
-              onClick={toggleSidebar}
-              className={`report-nav-item${activePage === "/sares/students" ? " report-nav-item--active" : ""}`}
-            >
-              <Users className="report-nav-icon" />
-              <span>Students</span>
-            </Link>
-          </li>
-
-          <li>
-            <Link
-              to="/sares/violation"
-              onClick={toggleSidebar}
-              className={`report-nav-item${activePage === "/sares/violation" ? " report-nav-item--active" : ""}`}
-            >
-              <ClipboardList className="report-nav-icon" />
-              <span>Log Violation</span>
-            </Link>
-          </li>
-
-          <li>
-            <Link
-              to="/sares/rules"
-              onClick={toggleSidebar}
-              className={`report-nav-item${activePage === "/sares/rules" ? " report-nav-item--active" : ""}`}
-            >
-              <ShieldCheck className="report-nav-icon" />
-              <span>Rule Management</span>
-            </Link>
-          </li>
-
-          <li>
-            <Link
-              to="/sares/reports"
-              onClick={toggleSidebar}
-              className={`report-nav-item${activePage === "/sares/reports" ? " report-nav-item--active" : ""}`}
-            >
-              <BarChart3 className="report-nav-icon" />
-              <span>Reports</span>
-            </Link>
-          </li>
+          <li><Link to="/sares/dashboard" onClick={toggleSidebar} className={`report-nav-item${activePage === "/sares/dashboard" ? " report-nav-item--active" : ""}`}><LayoutDashboard className="report-nav-icon" /><span>Dashboard</span></Link></li>
+          <li><Link to="/sares/students" onClick={toggleSidebar} className={`report-nav-item${activePage === "/sares/students" ? " report-nav-item--active" : ""}`}><Users className="report-nav-icon" /><span>Students</span></Link></li>
+          <li><Link to="/sares/rules" onClick={toggleSidebar} className={`report-nav-item${activePage === "/sares/rules" ? " report-nav-item--active" : ""}`}><ShieldCheck className="report-nav-icon" /><span>Rule Management</span></Link></li>
+          <li><Link to="/sares/reports" onClick={toggleSidebar} className={`report-nav-item${activePage === "/sares/reports" ? " report-nav-item--active" : ""}`}><BarChart3 className="report-nav-icon" /><span>Reports</span></Link></li>
+          <li><Link to="/sares/violation" onClick={toggleSidebar} className={`report-nav-item${activePage === "/sares/violation" ? " report-nav-item--active" : ""}`}><ClipboardList className="report-nav-icon" /><span>Log Violation</span></Link></li>
         </ul>
       </nav>
 
@@ -92,108 +50,180 @@ function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar }) {
   );
 }
 
-const categoryData = [
-  { label: 'Academic Dishonesty', count: 1 },
-  { label: 'Behavioral Misconduct', count: 1 },
-  { label: 'Dress Code Violation', count: 1 },
-  { label: 'Attendance Violation', count: 1 },
-  { label: 'Technology Misuse', count: 1 },
-];
+function toDate(value) {
+  if (!value) return null;
+  if (value?.toDate) return value.toDate();
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
 
-const yearLevelData = [
-  { label: '1st Year', count: 1 },
-  { label: '2nd Year', count: 2 },
-  { label: '3rd Year', count: 1 },
-  { label: '4th Year', count: 1 },
-];
+function pickDate(violation) {
+  return (
+    toDate(violation.incident_date) ||
+    toDate(violation.created_at) ||
+    toDate(violation.updated_at)
+  );
+}
 
-const repeatOffenders = [
-  {
-    name: 'Jose Ramos',
-    id: '2024-00005',
-    year: '3rd Year',
-    section: 'B',
-    violations: 7,
-    records: [
-      {
-        category: 'Dress Code Violation',
-        detail: '2026-04-01 • Warning and parent notification',
-      },
-    ],
-  },
-  {
-    name: 'Maria Santos',
-    id: '2024-00002',
-    year: '2nd Year',
-    section: 'B',
-    violations: 5,
-    records: [
-      {
-        category: 'Academic Dishonesty',
-        detail: '2026-04-05 • Zero grade on assignment and one-week suspension',
-      },
-      {
-        category: 'Attendance Violation',
-        detail: '2026-03-28 • Parent conference and written warning',
-      },
-    ],
-  },
-];
+function toGradeSection(violation) {
+  const year = violation.student_year || violation.year_level || violation.year || "";
+  const section = violation.student_section || violation.section || "";
+  const value = `${year}${year && section ? " - " : ""}${section}`.trim();
+  return value || "Unspecified";
+}
 
-const sanctionLogs = [
-  {
-    student: 'Maria Santos',
-    offense: 'Academic Dishonesty - Plagiarism',
-    recommended: 'Zero grade on assignment and written warning',
-    final: 'Zero grade on assignment and one-week suspension',
-    status: 'Accepted',
-  },
-  {
-    student: 'Juan Dela Cruz',
-    offense: 'Behavioral Misconduct - Disrespect to Faculty',
-    recommended: 'Two-day suspension and parent conference',
-    final: 'Written apology and counseling session',
-    status: 'Overridden',
-  },
-];
+function csvEscape(value) {
+  const raw = String(value ?? "");
+  const escaped = raw.replace(/"/g, '""');
+  return `"${escaped}"`;
+}
 
-const trendData = [
-  { month: 'January', value: 8 },
-  { month: 'February', value: 12 },
-  { month: 'March', value: 10 },
-  { month: 'April', value: 5 },
-];
+function normalizeSeverity(value) {
+  if (value === null || value === undefined || value === "") return "Unspecified";
+  const text = String(value).trim().toLowerCase();
+
+  if (["low", "minor"].includes(text)) return "Low";
+  if (["moderate", "medium"].includes(text)) return "Moderate";
+  if (["high", "major"].includes(text)) return "High";
+  if (["critical", "severe", "very high"].includes(text)) return "Critical";
+
+  const num = Number(value);
+  if (!Number.isNaN(num)) {
+    if (num <= 3) return "Low";
+    if (num <= 6) return "Moderate";
+    if (num <= 8) return "High";
+    return "Critical";
+  }
+
+  return "Unspecified";
+}
 
 export default function Report() {
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [violations, setViolations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const [activeTab, setActiveTab] = useState('frequency');
-  const [yearFilter, setYearFilter] = useState('All Year Level');
-  const [monthFilter, setMonthFilter] = useState('All Months');
-  const [toast, setToast] = useState('');
+  const [dateRange, setDateRange] = useState("all");
+  const [gradeSection, setGradeSection] = useState("all");
+  const [category, setCategory] = useState("all");
 
-  const showToast = (message) => {
-    setToast(message);
-    setTimeout(() => setToast(''), 3000);
+  useEffect(() => {
+    const loadViolations = async () => {
+      try {
+        const snapshot = await getDocs(collection(db, "violations"));
+        const rows = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        setViolations(rows);
+      } catch (fetchError) {
+        console.error(fetchError);
+        setError("Failed to load report data.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadViolations();
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch {
+      // no-op
+    }
+    localStorage.removeItem("user");
+    navigate("/login");
   };
 
-  const handleExportPDF = () => {
-    showToast('Report exported to PDF successfully!');
-  };
+  const gradeSectionOptions = useMemo(() => {
+    const values = new Set(violations.map(toGradeSection));
+    return Array.from(values).sort();
+  }, [violations]);
 
-  const handleExportExcel = () => {
-    showToast('Report exported to Excel successfully!');
+  const categoryOptions = useMemo(() => {
+    const values = new Set(violations.map((v) => v.category_name || "Unspecified"));
+    return Array.from(values).sort();
+  }, [violations]);
+
+  const filteredViolations = useMemo(() => {
+    const now = new Date();
+    return violations.filter((v) => {
+      const recordDate = pickDate(v);
+      if (dateRange !== "all") {
+        if (!recordDate) return false;
+        const days = Number(dateRange);
+        const diffDays = (now.getTime() - recordDate.getTime()) / (1000 * 60 * 60 * 24);
+        if (diffDays > days) return false;
+      }
+
+      if (gradeSection !== "all" && toGradeSection(v) !== gradeSection) return false;
+      if (category !== "all" && (v.category_name || "Unspecified") !== category) return false;
+      return true;
+    });
+  }, [violations, dateRange, gradeSection, category]);
+
+  const summary = useMemo(() => {
+    const totalViolations = filteredViolations.length;
+    const students = new Set(filteredViolations.map((v) => v.student_id || v.student_name || v.id));
+    const pendingCases = filteredViolations.filter((v) => String(v.status || "").toLowerCase() === "pending").length;
+
+    const counts = filteredViolations.reduce((acc, v) => {
+      const key = v.category_name || "Unspecified";
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
+
+    const mostCommonOffense =
+      Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || "N/A";
+
+    return {
+      totalViolations,
+      uniqueStudents: students.size,
+      pendingCases,
+      mostCommonOffense,
+    };
+  }, [filteredViolations]);
+
+  const exportCsv = () => {
+    const headers = [
+      "Date",
+      "Student ID",
+      "Student Name",
+      "Offense Type",
+      "Severity",
+      "Sanction Recommended",
+    ];
+    const rows = filteredViolations.map((v) => {
+      const recordDate = pickDate(v);
+      return [
+        recordDate ? recordDate.toISOString().slice(0, 10) : "N/A",
+        v.student_id || "N/A",
+        v.student_name || "Unknown",
+        v.rule_name || v.offense_type || v.category_name || "Unspecified",
+        normalizeSeverity(v.severity),
+        v.recommended_sanction || "N/A",
+      ];
+    });
+
+    const csv = [headers, ...rows].map((line) => line.map(csvEscape).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "sares-reports.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   return (
     <div className="report-page">
       <div className="report-mobile-menu-bar">
         <div className="report-logo">
-          <div className="report-logo-icon">
-            <img src={wesleyLogo} alt="Logo" className="school-logo" />
-          </div>
+          <div className="report-logo-icon"><img src={wesleyLogo} alt="Logo" className="school-logo" /></div>
           <h1 className="report-logo-text">SARES</h1>
         </div>
         <button onClick={() => setSidebarOpen(!sidebarOpen)} className="report-mobile-menu-btn">
@@ -201,335 +231,89 @@ export default function Report() {
         </button>
       </div>
 
-      <Sidebar activePage={location.pathname} isOpen={sidebarOpen} toggleSidebar={() => setSidebarOpen(false)} />
+      <Sidebar activePage={location.pathname} handleLogout={handleLogout} isOpen={sidebarOpen} toggleSidebar={() => setSidebarOpen(false)} />
 
       <main className="report-main">
-        <h1>Reports & Analytics</h1>
-        <p>Comprehensive violation statistics and trend analysis</p>
-
-        <div className="report-hero-actions">
-          <button onClick={handleExportPDF} className="report-secondary-btn">
-            Export PDF
-          </button>
-
-          <button onClick={handleExportExcel} className="report-secondary-btn">
-            Export Excel
-          </button>
-        </div>
+        <h1>Reports</h1>
+        <p>Quick view of violations and sanction outcomes.</p>
 
         <section className="report-filter-card">
-          <h2>Report Filters</h2>
-
+          <h2>Quick Filters</h2>
           <div className="report-filter-row">
-            <select value={yearFilter} onChange={(e) => setYearFilter(e.target.value)}>
-              <option>All Year Level</option>
-              <option>Kinder</option>
-              <option>Grade 1</option>
-              <option>Grade 2</option>
-              <option>Grade 3</option>
-              <option>Grade 4</option>
-              <option>Grade 5</option>
-              <option>Grade 6</option>
-              <option>Grade 7</option>
-              <option>Grade 8</option>
-              <option>Grade 9</option>
-              <option>Grade 10</option>
+            <select value={dateRange} onChange={(e) => setDateRange(e.target.value)}>
+              <option value="all">All Dates</option>
+              <option value="7">Last 7 Days</option>
+              <option value="30">Last 30 Days</option>
+              <option value="90">Last 90 Days</option>
             </select>
-
-            <select value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)}>
-              <option>All Months</option>
-              <option>January</option>
-              <option>February</option>
-              <option>March</option>
-              <option>April</option>
+            <select value={gradeSection} onChange={(e) => setGradeSection(e.target.value)}>
+              <option value="all">All Grade/Section</option>
+              {gradeSectionOptions.map((item) => (
+                <option key={item} value={item}>{item}</option>
+              ))}
             </select>
+            <select value={category} onChange={(e) => setCategory(e.target.value)}>
+              <option value="all">All Offense Categories</option>
+              {categoryOptions.map((item) => (
+                <option key={item} value={item}>{item}</option>
+              ))}
+            </select>
+            <button type="button" className="report-secondary-btn" onClick={exportCsv}>Export CSV</button>
           </div>
         </section>
 
-        <div className="report-tabs">
-          <button
-            className={activeTab === 'frequency' ? 'active' : ''}
-            onClick={() => setActiveTab('frequency')}
-          >
-            Frequency
-          </button>
+        <section className="report-stat-grid">
+          <article className="report-stat-card"><p>Total Violations</p><h3>{summary.totalViolations}</h3></article>
+          <article className="report-stat-card"><p>Unique Students Involved</p><h3>{summary.uniqueStudents}</h3></article>
+          <article className="report-stat-card"><p>Most Common Offense</p><h3 className="report-stat-label">{summary.mostCommonOffense}</h3></article>
+          <article className="report-stat-card"><p>Pending Cases</p><h3>{summary.pendingCases}</h3></article>
+        </section>
 
-          <button
-            className={activeTab === 'offenders' ? 'active' : ''}
-            onClick={() => setActiveTab('offenders')}
-          >
-            Repeat Offenders
-          </button>
-
-          <button
-            className={activeTab === 'consistency' ? 'active' : ''}
-            onClick={() => setActiveTab('consistency')}>
-            Consistency
-          </button>
-
-          <button
-            className={activeTab === 'trends' ? 'active' : ''}
-            onClick={() => setActiveTab('trends')}
-          >
-            Trends
-          </button>
-        </div>
-
-        {activeTab === 'frequency' && (
-          <div className="report-tab-content">
-            <section className="report-card">
-              <div className="report-card-header">
-                <h2>Violations by Category</h2>
-                <p>Distribution of violation types</p>
-              </div>
-
-              <div className="report-bar-chart">
-                <div className="report-y-axis">
-                  <span>1</span>
-                  <span>0.75</span>
-                  <span>0.5</span>
-                  <span>0.25</span>
-                  <span>0</span>
-                </div>
-
-                <div className="report-bars-area">
-                  {categoryData.map((item) => (
-                    <div className="report-bar-item" key={item.label}>
-                      <div className="report-bar-wrap">
-                        <div
-                          className="report-bar"
-                          style={{ height: `${item.count * 100}%` }} />
-                      </div>
-                      <p className="report-bar-label">{item.label}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </section>
-
-            <section className="report-card">
-              <div className="report-card-header">
-                <h2>Violations by Year Level</h2>
-                <p>Distribution across student year levels</p>
-              </div>
-
-              <div className="report-small-bars">
-                {yearLevelData.map((item) => (
-                  <div className="report-small-bar-row" key={item.label}>
-                    <span>{item.label}</span>
-                    <div>
-                      <strong style={{ width: `${item.count * 25}%` }}></strong>
-                    </div>
-                    <p>{item.count}</p>
-                  </div>
-                ))}
-              </div>
-            </section>
+        <section className="report-card">
+          <div className="report-card-header">
+            <h2>Violation Log</h2>
+            <p>Date, offense, recommendation, and final action.</p>
           </div>
-        )}
 
-        {activeTab === 'offenders' && (
-          <section className="report-card">
-            <div className="report-card-header">
-              <h2>Repeat Offender List</h2>
-              <p>Students with multiple violations requiring attention</p>
+          {loading && <p className="report-empty">Loading report data...</p>}
+          {!loading && error && <p className="report-empty report-empty--error">{error}</p>}
+          {!loading && !error && filteredViolations.length === 0 && (
+            <p className="report-empty">No records found for the selected filters.</p>
+          )}
+
+          {!loading && !error && filteredViolations.length > 0 && (
+            <div className="report-table-wrap">
+              <table className="report-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Student</th>
+                    <th>Offense</th>
+                    <th>Recommended Sanction</th>
+                    <th>Final Action</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredViolations.map((v) => {
+                    const recordDate = pickDate(v);
+                    return (
+                      <tr key={v.id}>
+                        <td>{recordDate ? recordDate.toISOString().slice(0, 10) : "N/A"}</td>
+                        <td>{v.student_name || v.student_id || "Unknown"}</td>
+                        <td>{v.rule_name || v.description || v.category_name || "Unspecified"}</td>
+                        <td>{v.recommended_sanction || "N/A"}</td>
+                        <td>{v.final_sanction || v.status_note || "N/A"}</td>
+                        <td>{v.status || "N/A"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-
-            <div className="report-offender-list">
-              {repeatOffenders.map((student) => (
-                <article className="report-offender-card" key={student.id}>
-                  <div className="report-offender-top">
-                    <div>
-                      <h3>{student.name}</h3>
-                      <p>{student.id} • {student.year} - {student.section}</p>
-                    </div>
-
-                    <span>{student.violations} Violations</span>
-                  </div>
-
-                  <div className="report-offender-records">
-                    {student.records.map((record, index) => (
-                      <div className="report-offender-record" key={index}>
-                        <span>⚠</span>
-                        <div>
-                          <h4>{record.category}</h4>
-                          <p>{record.detail}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </article>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {activeTab === 'consistency' && (
-          <div className="report-tab-content">
-            <div className="report-stat-grid">
-              <div className="report-stat-card">
-                <p>Total Sanctions</p>
-                <h3>5</h3>
-              </div>
-
-              <div className="report-stat-card">
-                <p>Accepted</p>
-                <h3 className="green">4</h3>
-              </div>
-
-              <div className="report-stat-card">
-                <p>Override Rate</p>
-                <h3 className="orange">20.0%</h3>
-              </div>
-            </div>
-
-            <section className="report-card">
-              <div className="report-card-header">
-                <h2>Sanction Decision Log</h2>
-                <p>Comparison of recommended vs. final sanctions</p>
-              </div>
-
-              <div className="report-log-list">
-                {sanctionLogs.map((item, index) => (
-                  <article className="report-log-card" key={index}>
-                    <div className="report-log-top">
-                      <div>
-                        <h3>{item.student}</h3>
-                        <p>{item.offense}</p>
-                      </div>
-
-                      <span className={item.status === 'Overridden' ? 'overridden' : 'accepted'}>
-                        {item.status}
-                      </span>
-                    </div>
-
-                    <div className="report-decision-grid">
-                      <div className="report-decision-box recommended">
-                        <p>Recommended:</p>
-                        <h4>{item.recommended}</h4>
-                      </div>
-
-                      <div className={`report-decision-box ${item.status === 'Overridden' ? 'final-overridden' : 'final-accepted'}`}>
-                        <p>Final Decision:</p>
-                        <h4>{item.final}</h4>
-                      </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </section>
-          </div>
-        )}
-
-        {activeTab === 'trends' && (
-          <div className="report-tab-content">
-            <section className="report-card">
-              <div className="report-card-header">
-                <h2>Monthly Violation Trends</h2>
-                <p>Violation count over the past months</p>
-              </div>
-
-              <div className="report-line-chart">
-                <svg viewBox="0 0 700 260" preserveAspectRatio="none">
-                  <line x1="40" y1="20" x2="40" y2="220" />
-                  <line x1="40" y1="220" x2="670" y2="220" />
-
-                  <line x1="40" y1="20" x2="670" y2="20" className="grid" />
-                  <line x1="40" y1="70" x2="670" y2="70" className="grid" />
-                  <line x1="40" y1="120" x2="670" y2="120" className="grid" />
-                  <line x1="40" y1="170" x2="670" y2="170" className="grid" />
-
-                  <polyline
-                    points="40,86 250,20 460,53 670,136"
-                    fill="none"
-                    stroke="#6d6bff"
-                    strokeWidth="3"
-                  />
-
-                  <circle cx="40" cy="86" r="4" />
-                  <circle cx="250" cy="20" r="4" />
-                  <circle cx="460" cy="53" r="4" />
-                  <circle cx="670" cy="136" r="4" />
-                </svg>
-
-                <div className="report-line-labels">
-                  {trendData.map((item) => (
-                    <span key={item.month}>{item.month}</span>
-                  ))}
-                </div>
-
-                <p className="report-line-legend">• Violations</p>
-              </div>
-            </section>
-
-            <div className="report-bottom-grid">
-              <section className="report-card">
-                <div className="report-card-header">
-                  <h2>Key Insights</h2>
-                </div>
-
-                <div className="report-insight-list">
-                  <div className="report-insight blue">
-                    <span>↗</span>
-                    <div>
-                      <h3>Most Common Violation</h3>
-                      <p>Academic Dishonesty</p>
-                    </div>
-                  </div>
-
-                  <div className="report-insight orange">
-                    <span>⚠</span>
-                    <div>
-                      <h3>Repeat Offenders</h3>
-                      <p>2 students require intervention</p>
-                    </div>
-                  </div>
-
-                  <div className="report-insight green">
-                    <span>▧</span>
-                    <div>
-                      <h3>Recommendation Acceptance</h3>
-                      <p>80.0% of recommendations accepted</p>
-                    </div>
-                  </div>
-                </div>
-              </section>
-
-              <section className="report-card">
-                <div className="report-card-header">
-                  <h2>Summary Statistics</h2>
-                </div>
-
-                <div className="report-summary-list">
-                  <div>
-                    <p>Total Violations This Year</p>
-                    <h3>5</h3>
-                  </div>
-
-                  <div>
-                    <p>Students with Violations</p>
-                    <h3>4</h3>
-                  </div>
-
-                  <div>
-                    <p>Average Violations per Student</p>
-                    <h3>1.3</h3>
-                  </div>
-                </div>
-              </section>
-            </div>
-          </div>
-        )}
+          )}
+        </section>
       </main>
-
-      {toast && (
-        <div className="report-toast">
-          <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-          </svg>
-          {toast}
-        </div>
-      )}
     </div>
   );
 }
