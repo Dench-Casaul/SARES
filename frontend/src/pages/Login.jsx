@@ -17,6 +17,7 @@ function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [acceptedPolicies, setAcceptedPolicies] = useState(false);
+  const [showPolicyHint, setShowPolicyHint] = useState(false);
   const [isPolicyModalOpen, setIsPolicyModalOpen] = useState(false);
   const [activePolicyTab, setActivePolicyTab] = useState("privacy");
 
@@ -45,11 +46,19 @@ function Login() {
   const handleLogin = async (event) => {
     event.preventDefault();
 
+    const hasCredentials = email.trim() && password.trim();
+
     if (!acceptedPolicies) {
-      setError("You must agree to the Privacy Policy and Terms of Use before logging in.");
+      setShowPolicyHint(Boolean(hasCredentials));
+      setError(
+        hasCredentials
+          ? "You must agree to the Privacy Policy and Terms of Use before logging in."
+          : ""
+      );
       return;
     }
 
+    setShowPolicyHint(false);
     setError("");
     setLoading(true);
 
@@ -182,8 +191,13 @@ function Login() {
               <input
                 type="checkbox"
                 checked={acceptedPolicies}
-                onChange={(event) => setAcceptedPolicies(event.target.checked)}
-                required
+                onChange={(event) => {
+                  const checked = event.target.checked;
+                  setAcceptedPolicies(checked);
+                  if (checked) {
+                    setShowPolicyHint(false);
+                  }
+                }}
               />
               <span>
                 I have read and agree to the{" "}
@@ -211,11 +225,11 @@ function Login() {
                 .
               </span>
             </label>
-            {!acceptedPolicies && (
+            {!acceptedPolicies && showPolicyHint && (
               <p className="privacy-hint">Please agree to the policy to continue.</p>
             )}
 
-            <button type="submit" className="login-button" disabled={loading || !acceptedPolicies}>
+            <button type="submit" className="login-button" disabled={loading}>
               {loading ? "Logging in..." : "Login"}
             </button>
           </form>

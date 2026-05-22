@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, onSnapshot } from "firebase/firestore";
 import { signOut } from "firebase/auth";
 import {
   LayoutDashboard,
@@ -111,20 +111,22 @@ export default function Report() {
   const [category, setCategory] = useState("all");
 
   useEffect(() => {
-    const loadViolations = async () => {
-      try {
-        const snapshot = await getDocs(collection(db, "violations"));
+    const unsubscribe = onSnapshot(
+      collection(db, "violations"),
+      (snapshot) => {
         const rows = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
         setViolations(rows);
-      } catch (fetchError) {
+        setError("");
+        setLoading(false);
+      },
+      (fetchError) => {
         console.error(fetchError);
         setError("Failed to load report data.");
-      } finally {
         setLoading(false);
       }
-    };
+    );
 
-    loadViolations();
+    return () => unsubscribe();
   }, []);
 
   const handleLogout = async () => {
@@ -161,6 +163,10 @@ export default function Report() {
       if (gradeSection !== "all" && toGradeSection(v) !== gradeSection) return false;
       if (category !== "all" && (v.category_name || "Unspecified") !== category) return false;
       return true;
+    }).sort((a, b) => {
+      const timeA = pickDate(a)?.getTime() || 0;
+      const timeB = pickDate(b)?.getTime() || 0;
+      return timeB - timeA;
     });
   }, [violations, dateRange, gradeSection, category]);
 
@@ -290,8 +296,6 @@ export default function Report() {
                     <th>Student</th>
                     <th>Offense</th>
                     <th>Recommended Sanction</th>
-                    <th>Final Action</th>
-                    <th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -301,10 +305,8 @@ export default function Report() {
                       <tr key={v.id}>
                         <td>{recordDate ? recordDate.toISOString().slice(0, 10) : "N/A"}</td>
                         <td>{v.student_name || v.student_id || "Unknown"}</td>
-                        <td>{v.rule_name || v.description || v.category_name || "Unspecified"}</td>
+                        <td>{v.offense_variety || v.rule_name || v.category_name || v.offense_type || "Unspecified"}</td>
                         <td>{v.recommended_sanction || "N/A"}</td>
-                        <td>{v.final_sanction || v.status_note || "N/A"}</td>
-                        <td>{v.status || "N/A"}</td>
                       </tr>
                     );
                   })}

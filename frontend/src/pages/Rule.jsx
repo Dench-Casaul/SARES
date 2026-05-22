@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import '../css/Rule.css'
 import wesleyLogo from '../assets/wesley-logo.png'
@@ -82,6 +82,13 @@ const SUBCATEGORY_LABELS = {
   very_serious: 'Very Serious',
 }
 
+const SEVERITY_OPTIONS = [
+  { id: 'light', label: 'Light', category: 'minor' },
+  { id: 'less_serious', label: 'Less Serious', category: 'minor' },
+  { id: 'serious', label: 'Serious', category: 'major' },
+  { id: 'very_serious', label: 'Very Serious', category: 'major' },
+];
+
 export default function Rule() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -92,6 +99,56 @@ export default function Rule() {
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
 
+  // Draft filter states
+  const [tempType, setTempType] = useState('minor');
+  const [tempSubcategory, setTempSubcategory] = useState(null);
+  const [tempCategoryFilter, setTempCategoryFilter] = useState('all');
+  const [tempSearchQuery, setTempSearchQuery] = useState('');
+
+  const handleApplyFilters = () => {
+    setActiveType(tempType);
+    setActiveSubcategory(tempSubcategory);
+    setCategoryFilter(tempCategoryFilter);
+    setSearchQuery(tempSearchQuery);
+  };
+
+  // Reactively auto-reset subcategory and category dropdowns when their available choices change
+  useEffect(() => {
+    // 1. Reset severity if it's no longer valid under tempType
+    if (tempType !== 'all') {
+      const allowedSeverityIds = SEVERITY_OPTIONS.filter(s => s.category === tempType).map(s => s.id);
+      if (tempSubcategory && tempSubcategory !== 'all' && !allowedSeverityIds.includes(tempSubcategory)) {
+        setTempSubcategory('all');
+        return;
+      }
+    }
+
+    // 2. Reset category filter if the currently selected one is no longer in available categories
+    const allowedCategories = [...new Set(
+      handbook.offenseGroups
+        .filter(g => {
+          const matchType = tempType === 'all' || g.categoryId === tempType;
+          const matchSub = !tempSubcategory || tempSubcategory === 'all' || g.subcategoryId === tempSubcategory;
+          return matchType && matchSub;
+        })
+        .map(g => g.groupTitle)
+    )];
+    if (tempCategoryFilter !== 'all' && !allowedCategories.includes(tempCategoryFilter)) {
+      setTempCategoryFilter('all');
+    }
+  }, [tempType, tempSubcategory, tempCategoryFilter]);
+
+  // Dynamic available categories for the dropdown based on selected tempType and tempSubcategory
+  const availableCategories = [...new Set(
+    handbook.offenseGroups
+      .filter(g => {
+        const matchType = tempType === 'all' || g.categoryId === tempType;
+        const matchSub = !tempSubcategory || tempSubcategory === 'all' || g.subcategoryId === tempSubcategory;
+        return matchType && matchSub;
+      })
+      .map(g => g.groupTitle)
+  )].sort();
+
   const handleLogout = () => {
     localStorage.removeItem('user');
     navigate('/login');
@@ -99,10 +156,6 @@ export default function Rule() {
 
   const offenseTypes = handbook.offenseTypes;
   const currentType = offenseTypes.find(t => t.id === activeType);
-  const subcategories = currentType?.subcategories || [];
-
-  // Auto-select first subcategory if none selected
-  const effectiveSubcategory = activeSubcategory || subcategories[0]?.id || null;
 
   const toggleGroup = (num) => {
     setExpandedGroup(expandedGroup === num ? null : num);
@@ -124,14 +177,6 @@ export default function Rule() {
 
     return matchType && matchSub && matchCat && matchSearch;
   });
-
-  // Get sanction info
-  const getSanctions = () => {
-    if (activeType === 'minor') {
-      return currentType?.sanctionSchedule || [];
-    }
-    return currentType?.severitySanctionMap || [];
-  };
 
   return (
     <div className="rule-page">
@@ -167,17 +212,22 @@ export default function Rule() {
             <input 
               type="text" 
               placeholder="Search violations or categories..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={tempSearchQuery}
+              onChange={(e) => setTempSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleApplyFilters();
+                }
+              }}
             />
           </div>
 
           <div className="rm-filters">
             <div className="rm-filter-item">
               <label>Offense Type</label>
-              <select value={activeType} onChange={(e) => {
-                setActiveType(e.target.value);
-                setActiveSubcategory('all');
+              <select value={tempType} onChange={(e) => {
+                setTempType(e.target.value);
+                setTempSubcategory('all');
               }}>
                 <option value="all">All Types</option>
                 <option value="minor">Minor Offenses</option>
@@ -187,98 +237,34 @@ export default function Rule() {
 
             <div className="rm-filter-item">
               <label>Severity</label>
-              <select value={activeSubcategory || 'all'} onChange={(e) => setActiveSubcategory(e.target.value)}>
+              <select value={tempSubcategory || 'all'} onChange={(e) => setTempSubcategory(e.target.value)}>
                 <option value="all">All Severities</option>
-                <option value="light">Light</option>
-                <option value="less_serious">Less Serious</option>
-                <option value="serious">Serious</option>
-                <option value="very_serious">Very Serious</option>
+                {SEVERITY_OPTIONS.filter(s => tempType === 'all' || s.category === tempType).map(s => (
+                  <option key={s.id} value={s.id}>{s.label}</option>
+                ))}
               </select>
             </div>
 
             <div className="rm-filter-item">
               <label>Category</label>
-              <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+              <select value={tempCategoryFilter} onChange={(e) => setTempCategoryFilter(e.target.value)}>
                 <option value="all">All Categories</option>
-                {allCategories.map(cat => (
+                {availableCategories.map(cat => (
                   <option key={cat} value={cat}>{cat}</option>
                 ))}
               </select>
             </div>
-          </div>
-        </div>
 
-        {/* Offense Type Tabs */}
-        <div className="rm-type-tabs">
-          {offenseTypes.map(type => (
-            <button
-              key={type.id}
-              className={`rm-type-tab${activeType === type.id ? ' rm-type-tab--active' : ''}`}
-              onClick={() => {
-                setActiveType(type.id);
-                setActiveSubcategory(null);
-                setExpandedGroup(null);
-              }}
-            >
-              <span className="rm-type-tab-label">{type.label}</span>
-              <span className="rm-type-tab-count">{type.subcategories.length} classifications</span>
-            </button>
-          ))}
-        </div>
-
-        {/* Sanction Schedule Card */}
-        <div className="rm-sanction-card">
-          <h3 className="rm-sanction-title">
-            {activeType === 'minor' ? 'Sanction Schedule (Cumulative)' : 'Severity-Based Sanctions'}
-          </h3>
-          <p className="rm-sanction-note">
-            {activeType === 'minor' ? currentType?.countingNote : currentType?.scoringNote}
-          </p>
-          <div className="rm-sanction-grid">
-            {getSanctions().map((s, i) => (
-              <div className="rm-sanction-item" key={i}>
-                <div className="rm-sanction-number">
-                  {activeType === 'minor' ? s.label : `Score ${s.label}`}
-                </div>
-                <div className="rm-sanction-text">{s.sanction}</div>
-              </div>
-            ))}
-          </div>
-          {activeType === 'major' && currentType?.authorityNote && (
-            <div className="rm-authority-note">
-              <AlertTriangle size={14} />
-              <span>{currentType.authorityNote}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Subcategory Tabs */}
-        <div className="rm-sub-tabs">
-          {subcategories.map(sub => {
-            const colors = SUBCATEGORY_COLORS[sub.id] || {};
-            const groupCount = handbook.offenseGroups.filter(
-              g => g.categoryId === activeType && g.subcategoryId === sub.id
-            ).length;
-            return (
-              <button
-                key={sub.id}
-                className={`rm-sub-tab${effectiveSubcategory === sub.id ? ' rm-sub-tab--active' : ''}`}
-                style={{
-                  '--sub-bg': colors.bg,
-                  '--sub-color': colors.color,
-                  '--sub-border': colors.border,
-                }}
-                onClick={() => {
-                  setActiveSubcategory(sub.id);
-                  setExpandedGroup(null);
-                }}
-              >
-                <span className="rm-sub-tab-label">{sub.label}</span>
-                <span className="rm-sub-tab-count">{groupCount} categories</span>
+            <div className="rm-filter-item">
+              <label>&nbsp;</label>
+              <button className="rm-apply-btn" onClick={handleApplyFilters}>
+                Apply
               </button>
-            );
-          })}
+            </div>
+          </div>
         </div>
+
+
 
         {/* Offense Groups */}
         <div className="rm-groups">

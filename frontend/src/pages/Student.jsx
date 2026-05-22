@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { addDoc, collection, deleteDoc, doc, getDocs, updateDoc } from 'firebase/firestore'
+import { addDoc, arrayUnion, collection, deleteDoc, doc, getDocs, increment, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../firebase'
+import { evaluateSaresRecommendation } from '../engine/ruleEngine'
 import '../css/Student.css'
 import wesleyLogo from '../assets/wesley-logo.png'
 import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X } from 'lucide-react'
+import { getSubcategories, listOffenseGroups, listOffensesByGroup } from '../data/handbookIndex'
 
 const YEARS = ["All Year", "Kindergarten", "1st Grade", "2nd Grade", "3rd Grade", "4th Grade", "5th Grade", "6th Grade", "7th Grade", "8th Grade", "9th Grade", "10th Grade"]
 const YEAR_LEVELS = ["Kindergarten", "1st Grade", "2nd Grade", "3rd Grade", "4th Grade", "5th Grade", "6th Grade", "7th Grade", "8th Grade", "9th Grade", "10th Grade"]
@@ -185,6 +187,345 @@ function AddStudentModal({ onClose, onAdd, initialForm, submitLabel = 'Add Stude
   );
 }
 
+function AddViolationModal({ onClose, onSubmit, initialForm }) {
+  const [form, setForm] = useState({
+    offense_type: initialForm?.offense_type || '',
+    subcategory_id: initialForm?.subcategory_id || '',
+    group_number: initialForm?.group_number ? String(initialForm.group_number) : '',
+    offense_id: initialForm?.offense_id || '',
+    offense_title: initialForm?.offense_title || '',
+    group_title: initialForm?.group_title || '',
+    severity_score: initialForm?.severity_score ?? 5,
+    incident_description: initialForm?.incident_description || '',
+  });
+
+  const subcategories = form.offense_type ? getSubcategories(form.offense_type) : [];
+  const offenseGroups = (form.offense_type && form.subcategory_id)
+    ? listOffenseGroups(form.offense_type, form.subcategory_id)
+    : [];
+
+  const handleOffenseType = (value) => {
+    setForm((prev) => ({
+      ...prev,
+      offense_type: value,
+      subcategory_id: '',
+      group_number: '',
+      offense_id: '',
+      offense_title: '',
+      group_title: '',
+    }));
+  };
+
+  const handleSubcategory = (value) => {
+    setForm((prev) => ({
+      ...prev,
+      subcategory_id: value,
+      group_number: '',
+      offense_id: '',
+      offense_title: '',
+      group_title: '',
+    }));
+  };
+
+  const handleViolation = (value) => {
+    const matchedGroup = offenseGroups.find((group) =>
+      listOffensesByGroup(form.offense_type, form.subcategory_id, group.handbookNumber)
+        .some((offense) => offense.id === value)
+    );
+    const selected = matchedGroup
+      ? listOffensesByGroup(form.offense_type, form.subcategory_id, matchedGroup.handbookNumber)
+          .find((offense) => offense.id === value)
+      : null;
+    setForm((prev) => ({
+      ...prev,
+      offense_id: value,
+      offense_title: selected?.title || '',
+      group_number: matchedGroup ? String(matchedGroup.handbookNumber) : '',
+      group_title: matchedGroup?.groupTitle || '',
+    }));
+  };
+
+  const submit = () => {
+    if (form.offense_type === 'major' && (!form.severity_score || Number(form.severity_score) < 1 || Number(form.severity_score) > 10)) return;
+    if (!form.offense_type || !form.subcategory_id || !form.offense_id || !form.incident_description.trim()) return;
+    onSubmit({
+      ...form,
+      group_number: Number(form.group_number),
+      severity_score: form.offense_type === 'major' ? Number(form.severity_score) : null,
+      incident_description: form.incident_description.trim(),
+    });
+  };
+
+  return (
+    <div className="s-modal-backdrop" onClick={onClose}>
+      <div className="s-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="s-modal-header">
+          <div>
+            <h2 className="s-modal-title">Add Violation</h2>
+            <p className="s-modal-sub">Start logging a violation for this student</p>
+          </div>
+          <button className="s-modal-close" onClick={onClose}>
+            <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="s-modal-body">
+          <div className="s-field">
+            <label className="s-label">Offense Type</label>
+            <select className="s-input s-select" value={form.offense_type} onChange={(e) => handleOffenseType(e.target.value)}>
+              <option value="">Select</option>
+              <option value="minor">Minor</option>
+              <option value="major">Major</option>
+            </select>
+          </div>
+
+          <div className="s-field">
+            <label className="s-label">Subcategory</label>
+            <select
+              className="s-input s-select"
+              value={form.subcategory_id}
+              onChange={(e) => handleSubcategory(e.target.value)}
+              disabled={!form.offense_type}
+            >
+              <option value="">Select</option>
+              {subcategories.map((subcategory) => (
+                <option key={subcategory.id} value={subcategory.id}>{subcategory.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="s-field">
+            <label className="s-label">Violation</label>
+            <select
+              className="s-input s-select"
+              value={form.offense_id}
+              onChange={(e) => handleViolation(e.target.value)}
+              disabled={!form.subcategory_id}
+            >
+              <option value="">Select violation</option>
+              {offenseGroups.map((group) => (
+                <optgroup key={group.handbookNumber} label={group.groupTitle}>
+                  {listOffensesByGroup(form.offense_type, form.subcategory_id, group.handbookNumber).map((offense) => (
+                    <option key={offense.id} value={offense.id}>{offense.title}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+
+          {form.offense_type === 'major' && (
+            <div className="s-field">
+              <label className="s-label">Severity Score (1-10)</label>
+              <input
+                type="range"
+                min="1"
+                max="10"
+                step="1"
+                className="s-input"
+                value={form.severity_score}
+                onChange={(e) => setForm((prev) => ({ ...prev, severity_score: Number(e.target.value) }))}
+              />
+              <div className="s-modal-sub">Selected score: <strong>{form.severity_score}</strong></div>
+            </div>
+          )}
+
+          <div className="s-field">
+            <label className="s-label">Description</label>
+            <textarea
+              className="s-input"
+              rows={4}
+              placeholder="Describe what happened..."
+              value={form.incident_description}
+              onChange={(e) => setForm((prev) => ({ ...prev, incident_description: e.target.value }))}
+            />
+          </div>
+        </div>
+
+        <div className="s-modal-footer">
+          <button className="s-btn-cancel" onClick={onClose}>Cancel</button>
+          <button className="s-btn-submit" onClick={submit}>Continue</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SuspensionDateModal({ initialStart, initialEnd, onClose, onSave, saving }) {
+  const [startDate, setStartDate] = useState(initialStart || '');
+  const [endDate, setEndDate] = useState(initialEnd || '');
+
+  const handleSubmit = () => {
+    if (!startDate || !endDate) return;
+    if (new Date(endDate).getTime() < new Date(startDate).getTime()) return;
+    onSave(startDate, endDate);
+  };
+
+  return (
+    <div className="s-modal-backdrop" onClick={onClose}>
+      <div className="s-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="s-modal-header">
+          <div>
+            <h2 className="s-modal-title">Set Suspension Date</h2>
+            <p className="s-modal-sub">Select the start and end dates of suspension</p>
+          </div>
+          <button className="s-modal-close" onClick={onClose}>
+            <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="s-modal-body">
+          <div className="s-field">
+            <label className="s-label">Suspension Start</label>
+            <input type="date" className="s-input" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+          </div>
+          <div className="s-field">
+            <label className="s-label">Suspension End</label>
+            <input type="date" className="s-input" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+          </div>
+        </div>
+
+        <div className="s-modal-footer">
+          <button className="s-btn-cancel" onClick={onClose}>Back</button>
+          <button className="s-btn-submit" onClick={handleSubmit} disabled={saving}>
+            {saving ? 'Saving...' : 'Save Suspension'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CaseManagementModal({ student, violationDraft, onClose, onSaved }) {
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!student || !violationDraft) return;
+    setSaving(true);
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const violationsSnapshot = await getDocs(collection(db, 'violations'));
+      const existingViolations = violationsSnapshot.docs.map((violationDoc) => ({
+        id: violationDoc.id,
+        ...violationDoc.data(),
+      }));
+
+      const recommendation = evaluateSaresRecommendation({
+        offenseType: violationDraft.offense_type,
+        offenseId: violationDraft.offense_id,
+        studentId: student.docId,
+        incidentDate: today,
+        severityScore: violationDraft.offense_type === 'major' ? Number(violationDraft.severity_score || 5) : 5,
+        existingViolations,
+      });
+
+      const recommendedSanction = recommendation?.recommendedSanction || 'No recommendation available.';
+      const counselorExplanation = `Based on the recorded incident, this case is classified as ${violationDraft?.group_title || 'Unspecified Category'} (${violationDraft?.offense_title || 'Unspecified Violation'}). The recommended sanction is ${recommendedSanction}. This entry is for counselor review and may be refined after due process.`;
+
+      const payload = {
+        student_id: student.docId,
+        student_name: student.name,
+        student_number: student.id || '',
+        year_level: student.year || '',
+        incident_date: today,
+        incident_description: violationDraft.incident_description,
+        offense_type: violationDraft.offense_type,
+        subcategory_id: violationDraft.subcategory_id,
+        group_number: violationDraft.group_number,
+        group_title: violationDraft.group_title,
+        offense_id: violationDraft.offense_id,
+        offense_variety: violationDraft.offense_title,
+        category_name: violationDraft.group_title,
+        severity_score: violationDraft.offense_type === 'major' ? Number(violationDraft.severity_score || 5) : null,
+        recommended_sanction: recommendedSanction,
+        generated_explanation: counselorExplanation,
+        explanation_source: 'manual_template',
+        status: 'recorded',
+        created_at: serverTimestamp(),
+      };
+
+      await addDoc(collection(db, 'violations'), payload);
+
+      const studentViolationEntry = {
+        id: `${Date.now()}`,
+        recorded_at_ms: Date.now(),
+        category: violationDraft.group_title,
+        variety: violationDraft.offense_title,
+        description: violationDraft.incident_description,
+        date: today,
+        severity: violationDraft.offense_type === 'major' ? Number(violationDraft.severity_score || 5) : 3,
+        sanction: recommendedSanction,
+        generated_explanation: counselorExplanation,
+        status: 'recorded',
+      };
+
+      await updateDoc(doc(db, 'students', student.docId), {
+        violations: arrayUnion(studentViolationEntry),
+        violation_count: increment(1),
+      });
+      await onSaved();
+    } catch (error) {
+      console.error('Failed to save case:', error);
+      alert('Failed to save case management record.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="s-modal-backdrop" onClick={onClose}>
+      <div className="s-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="s-modal-header">
+          <div>
+            <h2 className="s-modal-title">Case Management</h2>
+            <p className="s-modal-sub">Review and finalize this violation case</p>
+          </div>
+          <button className="s-modal-close" onClick={onClose}>
+            <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="s-modal-body">
+          <div className="s-field">
+            <label className="s-label">Student</label>
+            <input className="s-input" value={student?.name || ''} readOnly />
+          </div>
+          <div className="s-field-row">
+            <div className="s-field">
+              <label className="s-label">Offense Type</label>
+              <input className="s-input" value={violationDraft?.offense_type || ''} readOnly />
+            </div>
+            <div className="s-field">
+              <label className="s-label">Subcategory</label>
+              <input className="s-input" value={violationDraft?.subcategory_id || ''} readOnly />
+            </div>
+          </div>
+          <div className="s-field">
+            <label className="s-label">Violation</label>
+            <input className="s-input" value={violationDraft?.offense_title || ''} readOnly />
+          </div>
+          <div className="s-field">
+            <label className="s-label">Recommended Sanction</label>
+            <textarea className="s-input" rows={3} value="Will be generated from Rule Management on save." readOnly />
+          </div>
+        </div>
+
+        <div className="s-modal-footer">
+          <button className="s-btn-cancel" onClick={onClose}>Back</button>
+          <button className="s-btn-submit" onClick={handleSave} disabled={saving}>
+            {saving ? 'Saving...' : 'Save Case'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* Student List View */
 function StudentList({ students, onSelect, onAddStudent, onEditStudent, onDeleteStudent, location, sidebarOpen, setSidebarOpen }) {
   const [search, setSearch] = useState('');
@@ -202,6 +543,31 @@ function StudentList({ students, onSelect, onAddStudent, onEditStudent, onDelete
     const matchYear = yearFilter === 'All Year' || s.year === yearFilter;
     return matchSearch && matchYear;
   });
+
+  const getStudentStatus = (student) => {
+    const violations = Array.isArray(student?.violations) ? student.violations : [];
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+    const isSuspended = violations.some((violation) => {
+      if (!violation?.suspension_start || !violation?.suspension_end) return false;
+      const start = new Date(violation.suspension_start);
+      const end = new Date(violation.suspension_end);
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return false;
+      const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate()).getTime();
+      const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate()).getTime();
+      return today >= startDay && today <= endDay;
+    });
+
+    if (isSuspended) return { text: 'In Suspension', tone: 'follow' };
+
+    const pendingCount = violations.filter((violation) => String(violation?.status || '').toLowerCase() === 'pending').length;
+    if (pendingCount > 0) {
+      return { text: `${pendingCount} Pending Sanction${pendingCount > 1 ? 's' : ''}`, tone: 'monitored' };
+    }
+
+    return { text: 'Served', tone: 'good' };
+  };
 
   const handleAdd = async (form) => {
     await onAddStudent(form);
@@ -315,9 +681,10 @@ function StudentList({ students, onSelect, onAddStudent, onEditStudent, onDelete
                     <td>{student.id}</td>
                     <td>{student.year} - {student.section}</td>
                     <td>{student.violationCount}</td>
-                    <td>
-
-                    </td>
+                    <td>{(() => {
+                      const status = getStudentStatus(student);
+                      return <span className={`s-status-pill ${status.tone}`}>{status.text}</span>;
+                    })()}</td>
                     <td>
                       <button
                         type="button"
@@ -443,7 +810,73 @@ function StudentList({ students, onSelect, onAddStudent, onEditStudent, onDelete
 }
 
 /* Student Profile */
-function StudentProfile({ student, onBack, onSelectViolation, onLogViolation, location, sidebarOpen, setSidebarOpen }) {
+function StudentProfile({ student, onBack, onSelectViolation, onUpdateViolationStatus, location, sidebarOpen, setSidebarOpen }) {
+  const [showViolationModal, setShowViolationModal] = useState(false);
+  const [showCaseModal, setShowCaseModal] = useState(false);
+  const [violationDraft, setViolationDraft] = useState(null);
+
+  const handleViolationSubmit = (payload) => {
+    setViolationDraft(payload);
+    setShowViolationModal(false);
+    setShowCaseModal(true);
+  };
+
+  const handleCaseSaved = async () => {
+    setShowCaseModal(false);
+    setViolationDraft(null);
+    window.location.reload();
+  };
+
+  const handleBackToViolationModal = () => {
+    setShowCaseModal(false);
+    setShowViolationModal(true);
+  };
+
+  const sortedViolations = [...(student?.violations || [])].sort((a, b) => {
+    const timeA = a?.created_at?.seconds
+      ? a.created_at.seconds * 1000
+      : (a?.date ? new Date(a.date).getTime() : 0);
+    const timeB = b?.created_at?.seconds
+      ? b.created_at.seconds * 1000
+      : (b?.date ? new Date(b.date).getTime() : 0);
+    return timeB - timeA;
+  });
+
+  useEffect(() => {
+    const today = new Date();
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+
+    sortedViolations.forEach((violation) => {
+      if (!violation?.suspension_end) return;
+      const end = new Date(violation.suspension_end);
+      const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate()).getTime();
+      const currentStatus = String(violation.status || '').toLowerCase();
+
+      if (todayStart > endDay && currentStatus !== 'served') {
+        onUpdateViolationStatus(violation.id, 'served');
+      }
+    });
+  }, [sortedViolations, onUpdateViolationStatus]);
+
+  const getBusinessDaysLeft = (startDate, endDate) => {
+    if (!startDate || !endDate) return null;
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const today = new Date();
+    const current = new Date(Math.max(start.getTime(), new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()));
+    const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+    if (current.getTime() > endDay.getTime()) return 0;
+
+    let count = 0;
+    const cursor = new Date(current);
+    while (cursor.getTime() <= endDay.getTime()) {
+      const day = cursor.getDay();
+      if (day !== 0 && day !== 6) count += 1;
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return count;
+  };
+
   return (
     <div className="s-page">
       <div className="s-mobile-menu-bar">
@@ -479,7 +912,7 @@ function StudentProfile({ student, onBack, onSelectViolation, onLogViolation, lo
               <p className="s-profile-id">{student.id}</p>
             </div>
           </div>
-          <button className="s-log-btn" onClick={onLogViolation}>
+          <button className="s-log-btn" onClick={() => setShowViolationModal(true)}>
             <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
               <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
             </svg>
@@ -533,11 +966,11 @@ function StudentProfile({ student, onBack, onSelectViolation, onLogViolation, lo
             <h2 className="s-card-title">Disciplinary History</h2>
             <p className="s-card-sub">Complete record of violations and sanctions</p>
 
-            {student.violations.length === 0 ? (
+            {sortedViolations.length === 0 ? (
               <div className="s-empty">No violations recorded.</div>
             ) : (
               <div className="s-history-list">
-                {student.violations.map(v => (
+                {sortedViolations.map(v => (
                   <div
                     key={v.id}
                     className="s-history-item"
@@ -545,6 +978,28 @@ function StudentProfile({ student, onBack, onSelectViolation, onLogViolation, lo
                   >
                     <div className="s-history-item-header">
                       <span className="s-history-category">{v.category}</span>
+                      {(() => {
+                        const suspensionStarted = !!v.suspension_start && (new Date(v.suspension_start).getTime() <= new Date().getTime());
+                        if (suspensionStarted) {
+                          const daysLeft = getBusinessDaysLeft(v.suspension_start, v.suspension_end);
+                          return (
+                            <span className="s-suspension-left">
+                              {daysLeft > 0 ? `${daysLeft} school day${daysLeft > 1 ? 's' : ''} left` : 'Suspension Completed'}
+                            </span>
+                          );
+                        }
+                        return (
+                          <select
+                            className={`s-status-dropdown ${(v.status || 'pending').toLowerCase() === 'served' ? 's-status-dropdown--served' : 's-status-dropdown--pending'}`}
+                            value={(v.status || 'pending').toLowerCase() === 'served' ? 'served' : 'pending'}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => onUpdateViolationStatus(v.id, e.target.value)}
+                          >
+                            <option value="pending">Pending</option>
+                            <option value="served">Served</option>
+                          </select>
+                        );
+                      })()}
                     </div>
                     <p className="s-history-variety">{v.variety}</p>
                     <p className="s-history-desc">{v.description}</p>
@@ -555,12 +1010,14 @@ function StudentProfile({ student, onBack, onSelectViolation, onLogViolation, lo
                         </svg>
                         {v.date}
                       </span>
-                      <span>
-                        <svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12" style={{ marginRight: 4, verticalAlign: 'middle' }}>
-                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                        </svg>
-                        Severity: {v.severity}/10
-                      </span>
+                      {String(v.offense_type || '').toLowerCase() === 'major' && (
+                        <span>
+                          <svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12" style={{ marginRight: 4, verticalAlign: 'middle' }}>
+                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                          Severity: {v.severity}/10
+                        </span>
+                      )}
                     </div>
                     <div className="s-history-sanction-label">Final Sanction:</div>
                     <div className="s-history-sanction">{v.finalSanction || v.sanction}</div>
@@ -577,12 +1034,34 @@ function StudentProfile({ student, onBack, onSelectViolation, onLogViolation, lo
           </div>
         </div>
       </div>
+      {showViolationModal && (
+        <AddViolationModal
+          onClose={() => setShowViolationModal(false)}
+          onSubmit={handleViolationSubmit}
+          initialForm={violationDraft}
+        />
+      )}
+      {showCaseModal && (
+        <CaseManagementModal
+          student={student}
+          violationDraft={violationDraft}
+          onClose={handleBackToViolationModal}
+          onSaved={handleCaseSaved}
+        />
+      )}
     </div>
   );
 }
 
 /* Violation Details*/
-function ViolationDetails({ violation, student, onBack, location, sidebarOpen, setSidebarOpen }) {
+function ViolationDetails({ violation, student, onBack, onSetSuspensionDates, suspensionSaving, location, sidebarOpen, setSidebarOpen }) {
+  const [showSuspensionModal, setShowSuspensionModal] = useState(false);
+
+  const handleSaveSuspension = async (startDate, endDate) => {
+    await onSetSuspensionDates(violation.id, startDate, endDate);
+    setShowSuspensionModal(false);
+  };
+
   return (
     <div className="s-page">
       <div className="s-mobile-menu-bar">
@@ -632,7 +1111,22 @@ function ViolationDetails({ violation, student, onBack, location, sidebarOpen, s
                 <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" /></svg>
                 Date of Incident
               </div>
-              <div className="s-vd-field-value">{violation.date}</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                <div className="s-vd-field-value">{violation.date}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span className="s-vd-field-label" style={{ marginBottom: 0 }}>Start:</span>
+                    <span className="s-vd-field-value">{violation.suspension_start || 'Not set'}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span className="s-vd-field-label" style={{ marginBottom: 0 }}>End:</span>
+                    <span className="s-vd-field-value">{violation.suspension_end || 'Not set'}</span>
+                  </div>
+                </div>
+              </div>
+              <button className="s-btn-submit s-btn-submit--sm" style={{ marginTop: '10px' }} onClick={() => setShowSuspensionModal(true)}>
+                Set Suspension Date
+              </button>
             </div>
           </div>
           <div className="s-divider" />
@@ -653,31 +1147,6 @@ function ViolationDetails({ violation, student, onBack, location, sidebarOpen, s
             <div className="s-vd-field-label">Description</div>
             <div className="s-vd-desc-box">{violation.description}</div>
           </div>
-        </div>
-
-        {/* Sanction Recommendation */}
-        <div className="s-vd-card s-vd-card--sanction">
-          <div className="s-vd-sanction-header">
-            <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16" style={{ color: '#ffa830' }}>
-              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-            </svg>
-            <div>
-              <h2 className="s-vd-card-title">Sanction Recommendation</h2>
-              <p className="s-vd-card-sub">AI-generated recommendation based on school handbook</p>
-            </div>
-          </div>
-
-          <div className="s-divider" />
-
-          <div className="s-vd-field s-vd-field--full">
-            <div className="s-vd-field-label">Severity Score</div>
-            <div className="s-severity-row">
-              <span className="s-severity-score">{violation.severity}/10</span>
-              <span className={`s-severity-badge ${violation.severity >= 7 ? 'high' : violation.severity >= 4 ? 'medium' : 'low'}`}>
-                {violation.severity >= 7 ? 'High Severity' : violation.severity >= 4 ? 'Medium Severity' : 'Low Severity'}
-              </span>
-            </div>
-          </div>
           <div className="s-divider" />
 
           <div className="s-vd-field s-vd-field--full">
@@ -687,26 +1156,21 @@ function ViolationDetails({ violation, student, onBack, location, sidebarOpen, s
           <div className="s-divider" />
 
           <div className="s-vd-field s-vd-field--full">
-            <div className="s-vd-field-label">Handbook Provision</div>
-            <div className="s-vd-provision-box">
-              <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14" style={{ flexShrink: 0, color: 'rgba(180,190,240,0.5)' }}>
-                <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
-              </svg>
-              {violation.provision}
+            <div className="s-vd-field-label">Counselor Explanation</div>
+            <div className="s-vd-desc-box">
+              {violation.generated_explanation || violation.explanation || 'No counselor explanation available.'}
             </div>
           </div>
-          <div className="s-divider" />
-
-          <div className="s-vd-field s-vd-field--full">
-            <div className="s-vd-field-label">Override Justification</div>
-            <textarea
-              className="s-vd-override-input"
-              defaultValue={violation.overrideJustification}
-              placeholder="Enter justification for overriding the recommended sanction..."
-              rows={3}
-            />
-          </div>
         </div>
+        {showSuspensionModal && (
+          <SuspensionDateModal
+            initialStart={violation.suspension_start}
+            initialEnd={violation.suspension_end}
+            onClose={() => setShowSuspensionModal(false)}
+            onSave={handleSaveSuspension}
+            saving={suspensionSaving}
+          />
+        )}
       </div>
     </div>
   );
@@ -722,6 +1186,7 @@ export default function Students() {
   const [students, setStudents] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [selectedViolation, setSelectedViolation] = useState(null);
+  const [suspensionSaving, setSuspensionSaving] = useState(false);
 
   const formatStudent = (student) => {
     const name = student.full_name || '';
@@ -735,11 +1200,30 @@ export default function Students() {
 
     const colors = ['#7b9dff', '#d96eff', '#5fe0b0', '#ffc85c', '#ff7864'];
 
-    const violationList = Array.isArray(student.violations)
+    const rawViolationList = Array.isArray(student.violations)
       ? student.violations
       : Array.isArray(student.history)
         ? student.history
         : [];
+
+    const toMs = (value) => {
+      if (!value) return 0;
+      if (typeof value?.toDate === 'function') return value.toDate().getTime();
+      if (typeof value?.seconds === 'number') return value.seconds * 1000;
+      const parsed = new Date(value).getTime();
+      return Number.isNaN(parsed) ? 0 : parsed;
+    };
+
+    const toNumeric = (value) => {
+      const num = Number(value);
+      return Number.isNaN(num) ? 0 : num;
+    };
+
+    const violationList = [...rawViolationList].sort((a, b) => {
+      const timeA = toNumeric(a.recorded_at_ms) || toMs(a.created_at) || toMs(a.recorded_at) || toMs(a.incident_date) || toMs(a.date) || toNumeric(a.id);
+      const timeB = toNumeric(b.recorded_at_ms) || toMs(b.created_at) || toMs(b.recorded_at) || toMs(b.incident_date) || toMs(b.date) || toNumeric(b.id);
+      return timeB - timeA;
+    });
 
     const violationCount =
       typeof student.violation_count === 'number'
@@ -766,12 +1250,53 @@ export default function Students() {
 
   const fetchStudents = async () => {
     try {
-      const snapshot = await getDocs(collection(db, 'students'));
+      const [studentsSnapshot, violationsSnapshot] = await Promise.all([
+        getDocs(collection(db, 'students')),
+        getDocs(collection(db, 'violations')),
+      ]);
+
+      const allViolations = violationsSnapshot.docs.map((violationDoc) => ({
+        id: violationDoc.id,
+        ...violationDoc.data(),
+      }));
+
+      const snapshot = studentsSnapshot;
       const data = snapshot.docs.map((studentDoc) => ({
         ...studentDoc.data(),
         student_id: studentDoc.id,
       }));
-      setStudents(data.map(formatStudent));
+
+      const studentsWithLiveViolations = data.map((student) => {
+        const mappedViolations = allViolations
+          .filter((violation) => String(violation.student_id) === String(student.student_id))
+          .sort((a, b) => {
+            const timeA = a.created_at?.seconds ? a.created_at.seconds * 1000 : new Date(a.incident_date || 0).getTime();
+            const timeB = b.created_at?.seconds ? b.created_at.seconds * 1000 : new Date(b.incident_date || 0).getTime();
+            return timeB - timeA;
+          })
+          .map((violation) => ({
+            id: violation.id,
+            category: violation.category_name || violation.group_title || 'Unspecified',
+            variety: violation.offense_variety || violation.offense_id || 'Unspecified',
+            description: violation.incident_description || violation.description || '',
+            date: violation.incident_date || '',
+            offense_type: violation.offense_type || '',
+            severity: violation.severity_score ?? (violation.offense_type === 'major' ? 8 : 3),
+            sanction: violation.recommended_sanction || 'N/A',
+            generated_explanation: violation.generated_explanation || '',
+            status: violation.status || 'recorded',
+            suspension_start: violation.suspension_start || '',
+            suspension_end: violation.suspension_end || '',
+          }));
+
+        return {
+          ...student,
+          violations: mappedViolations,
+          violation_count: mappedViolations.length,
+        };
+      });
+
+      setStudents(studentsWithLiveViolations.map(formatStudent));
     } catch (error) {
       console.error('Failed to fetch students:', error);
     }
@@ -801,15 +1326,6 @@ export default function Students() {
   const handleSelectViolation = (violation) => {
     setSelectedViolation(violation);
     setView('violation');
-  };
-
-  const handleLogViolationForStudent = () => {
-    if (!selectedStudent) return;
-    navigate('/sares/violation', {
-      state: {
-        prefillStudentId: selectedStudent.docId,
-      },
-    });
   };
 
   const handleAddStudent = async (form) => {
@@ -874,12 +1390,98 @@ export default function Students() {
     setStudents((prev) => prev.filter((student) => student.docId !== docId));
   };
 
+  const handleSetSuspensionDates = async (violationId, startDate, endDate) => {
+    if (!violationId) return;
+    setSuspensionSaving(true);
+    try {
+      await updateDoc(doc(db, 'violations', violationId), {
+        suspension_start: startDate,
+        suspension_end: endDate,
+        updated_at: serverTimestamp(),
+      });
+
+      setStudents((prev) =>
+        prev.map((student) => ({
+          ...student,
+          violations: (student.violations || []).map((violation) =>
+            String(violation.id) === String(violationId)
+              ? { ...violation, suspension_start: startDate, suspension_end: endDate }
+              : violation
+          ),
+        }))
+      );
+
+      setSelectedStudent((prev) =>
+        prev
+          ? {
+              ...prev,
+              violations: (prev.violations || []).map((violation) =>
+                String(violation.id) === String(violationId)
+                  ? { ...violation, suspension_start: startDate, suspension_end: endDate }
+                  : violation
+              ),
+            }
+          : prev
+      );
+
+      setSelectedViolation((prev) =>
+        prev && String(prev.id) === String(violationId)
+          ? { ...prev, suspension_start: startDate, suspension_end: endDate }
+          : prev
+      );
+    } catch (error) {
+      console.error('Failed to set suspension dates:', error);
+      alert('Failed to save suspension dates.');
+    } finally {
+      setSuspensionSaving(false);
+    }
+  };
+
+  const handleUpdateViolationStatus = async (violationId, nextStatus) => {
+    if (!violationId) return;
+    const applyStatus = (list) =>
+      list.map((student) => ({
+        ...student,
+        violations: (student.violations || []).map((violation) =>
+          String(violation.id) === String(violationId)
+            ? { ...violation, status: nextStatus }
+            : violation
+        ),
+      }));
+
+    setStudents((prev) => applyStatus(prev));
+    setSelectedStudent((prev) =>
+      prev
+        ? {
+            ...prev,
+            violations: (prev.violations || []).map((violation) =>
+              String(violation.id) === String(violationId)
+                ? { ...violation, status: nextStatus }
+                : violation
+            ),
+          }
+        : prev
+    );
+
+    try {
+      await updateDoc(doc(db, 'violations', violationId), {
+        status: nextStatus,
+        updated_at: serverTimestamp(),
+      });
+    } catch (error) {
+      console.error('Failed to update violation status:', error);
+      await fetchStudents();
+    }
+  };
+
   if (view === 'violation' && selectedViolation && selectedStudent) {
     return (
       <ViolationDetails
         violation={selectedViolation}
         student={selectedStudent}
         onBack={() => setView('profile')}
+        onSetSuspensionDates={handleSetSuspensionDates}
+        suspensionSaving={suspensionSaving}
         location={location}
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
@@ -893,7 +1495,7 @@ export default function Students() {
         student={selectedStudent}
         onBack={() => setView('list')}
         onSelectViolation={handleSelectViolation}
-        onLogViolation={handleLogViolationForStudent}
+        onUpdateViolationStatus={handleUpdateViolationStatus}
         location={location}
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}

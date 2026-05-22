@@ -27,6 +27,33 @@ const Dashboard = () => {
     loadDashboard();
   }, []);
 
+  const toPercentDistribution = (entries, total) => {
+    if (!entries.length || total <= 0) {
+      return entries.map((entry) => ({ ...entry, percent: 0 }));
+    }
+
+    const withBase = entries.map((entry, index) => {
+      const raw = (entry.count / total) * 100;
+      const base = Math.floor(raw);
+      return { ...entry, raw, base, fraction: raw - base, __index: index };
+    });
+
+    let remainder = 100 - withBase.reduce((sum, entry) => sum + entry.base, 0);
+    withBase.sort((a, b) => b.fraction - a.fraction);
+
+    for (let i = 0; i < withBase.length && remainder > 0; i += 1) {
+      withBase[i].base += 1;
+      remainder -= 1;
+    }
+
+    return withBase
+      .sort((a, b) => a.__index - b.__index)
+      .map(({ raw, fraction, __index, ...entry }) => ({
+      ...entry,
+      percent: entry.base,
+      }));
+  };
+
   const loadDashboard = async () => {
     try {
       const [studentsSnapshot, violationsSnapshot] = await Promise.all([
@@ -143,13 +170,13 @@ const Dashboard = () => {
       }
     });
 
-    const total = violations.length || 1;
-
-    return Object.entries(grouped).map(([id, count]) => ({
+    const baseStats = Object.entries(grouped).map(([id, count]) => ({
       category: labels[id],
       count,
-      percent: Math.round((count / total) * 100),
-    }));
+    })).filter((item) => item.count > 0);
+
+    const totalCategorized = baseStats.reduce((sum, item) => sum + item.count, 0);
+    return toPercentDistribution(baseStats, totalCategorized);
   };
 
   const getViolationTrends = (violations) => {
@@ -158,15 +185,16 @@ const Dashboard = () => {
       const variety = v.offense_variety || v.category_name || 'Unspecified';
       grouped[variety] = (grouped[variety] || 0) + 1;
     });
-    const total = violations.length || 1;
-    return Object.entries(grouped)
+    const ranked = Object.entries(grouped)
       .map(([variety, count]) => ({
         variety,
         count,
-        percent: Math.round((count / total) * 100),
       }))
       .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
+      .slice(0, 5);
+
+    const totalTop = ranked.reduce((sum, item) => sum + item.count, 0);
+    return toPercentDistribution(ranked, totalTop);
   };
 
   const getInitials = (name) => {

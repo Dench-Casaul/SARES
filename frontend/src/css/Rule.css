@@ -1186,7 +1186,7 @@
 
 .rm-filters {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, 1fr) auto;
   gap: 12px;
 }
 
@@ -1224,9 +1224,42 @@
   background: #ffffff;
 }
 
+.rm-apply-btn {
+  background: linear-gradient(135deg, #1198e8 0%, #006ed0 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 22px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(17, 152, 232, 0.15);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 38px;
+  white-space: nowrap;
+}
+
+.rm-apply-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(17, 152, 232, 0.25);
+  background: linear-gradient(135deg, #15a1f4 0%, #007ceb 100%);
+}
+
+.rm-apply-btn:active {
+  transform: translateY(1px);
+  box-shadow: 0 2px 6px rgba(17, 152, 232, 0.15);
+}
+
 @media (max-width: 768px) {
   .rm-filters {
     grid-template-columns: 1fr;
+  }
+  .rm-apply-btn {
+    width: 100%;
   }
 }
 

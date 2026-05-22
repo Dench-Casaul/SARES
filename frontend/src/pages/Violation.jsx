@@ -57,7 +57,7 @@ function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar }) {
   )
 }
 
-const STEPS = ['Student & Date', 'Offense Type', 'Subcategory', 'Violation', 'Sanction', 'Description', 'Review']
+const STEPS = ['Student & Date', 'Offense Type', 'Subcategory', 'Violation', 'Description', 'Review']
 const MINOR_SANCTIONS = getMinorSanctionSchedule()
 const MAJOR_SANCTIONS = getMajorSanctionMap()
 
@@ -116,12 +116,23 @@ export default function Violation() {
 
   useEffect(() => {
     const prefill = location.state?.prefillStudentId
+    const prefillViolation = location.state?.prefillViolation
     if (!prefill || students.length === 0) return
     const matched = students.find(s => String(s.student_id) === String(prefill))
     if (!matched) return
-    setForm(f => ({ ...f, student_id: String(matched.student_id) }))
+    setForm(f => ({
+      ...f,
+      student_id: String(matched.student_id),
+      offense_type: prefillViolation?.offense_type || f.offense_type,
+      subcategory_id: prefillViolation?.subcategory_id || f.subcategory_id,
+      group_number: prefillViolation?.group_number ?? f.group_number,
+      group_title: prefillViolation?.group_title || f.group_title,
+      offense_id: prefillViolation?.offense_id || f.offense_id,
+      offense_title: prefillViolation?.offense_title || f.offense_title,
+      incident_description: prefillViolation?.incident_description || f.incident_description,
+    }))
     setStudentQuery(matched.full_name || '')
-    setStep(1) // Auto-advance to Offense Type
+    setStep(prefillViolation ? 4 : 1)
     fetchViolations() // Pre-fetch existing violations
     navigate(location.pathname, { replace: true, state: {} })
   }, [location.state, students])
@@ -161,7 +172,7 @@ export default function Violation() {
 
   // Compute recommendation when we reach the sanction step
   useEffect(() => {
-    if (step !== 4 || !form.offense_id || !form.student_id) return
+    if (!form.offense_id || !form.student_id) return
     const rec = evaluateSaresRecommendation({
       offenseType: form.offense_type,
       offenseId: form.offense_id,
@@ -176,7 +187,7 @@ export default function Violation() {
     if (form.offense_type === 'minor' && rec.offenseNumber && form.offense_number !== rec.offenseNumber) {
       setForm(f => ({ ...f, offense_number: rec.offenseNumber }))
     }
-  }, [step, form.offense_id, form.offense_type, form.incident_date, form.student_id, form.severity_score])
+  }, [form.offense_id, form.offense_type, form.incident_date, form.student_id, form.severity_score, existingViolations])
 
   const goNext = async () => {
     if (step === 0) {
@@ -185,7 +196,7 @@ export default function Violation() {
       await fetchViolations()
     }
     if (step === 3 && !form.offense_id) { alert('Please select a violation.'); return }
-    if (step === 5 && !form.incident_description.trim()) { alert('Please provide an incident description.'); return }
+    if (step === 4 && !form.incident_description.trim()) { alert('Please provide an incident description.'); return }
     setStep(s => s + 1)
   }
 
@@ -482,7 +493,7 @@ export default function Violation() {
           )}
 
           {/* STEP 4: Sanction */}
-          {step === 4 && (
+          {step === 999 && (
             <div className="v-step-content">
               <h2 className="v-directory-title">Step 5: Sanction</h2>
 
@@ -544,10 +555,29 @@ export default function Violation() {
           )}
 
           {/* STEP 5: Description */}
-          {step === 5 && (
+          {step === 4 && (
             <div className="v-step-content">
-              <h2 className="v-directory-title">Step 6: Incident Description</h2>
+              <h2 className="v-directory-title">Step 5: Incident Description</h2>
               <p className="v-directory-sub">Provide a detailed account of the incident</p>
+
+              {form.offense_type === 'major' && (
+                <div className="v-field" style={{ marginTop: '1.2rem' }}>
+                  <label className="v-label">Severity Score: <strong>{form.severity_score}</strong> / 10</label>
+                  <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    step="1"
+                    value={form.severity_score}
+                    onChange={e => setForm(f => ({ ...f, severity_score: Number(e.target.value) }))}
+                    className="v-severity-slider"
+                  />
+                  <div className="v-severity-slider-ticks">
+                    {[1,2,3,4,5,6,7,8,9,10].map(n => <span key={n}>{n}</span>)}
+                  </div>
+                </div>
+              )}
+
               <div className="v-field" style={{ marginTop: '1.5rem' }}>
                 <label className="v-label">Incident Description *</label>
                 <textarea className="v-input v-textarea" rows="5"
@@ -559,9 +589,9 @@ export default function Violation() {
           )}
 
           {/* STEP 6: Review */}
-          {step === 6 && recommendation && (
+          {step === 5 && recommendation && (
             <div className="v-step-content">
-              <h2 className="v-directory-title">Step 7: Review & Submit</h2>
+              <h2 className="v-directory-title">Step 6: Review & Submit</h2>
               <p className="v-directory-sub">Confirm all details before submitting</p>
 
               <div className="v-review-grid">
@@ -640,12 +670,12 @@ export default function Violation() {
             )}
             {step === 0 && <Link to="/sares/dashboard" className="v-btn-cancel v-link-btn">Cancel</Link>}
 
-            {step < 6 && step !== 1 && step !== 2 && (
+            {step < 5 && step !== 1 && step !== 2 && (
               <button className="v-btn-submit" onClick={goNext}>
                 Next <ChevronRight size={16} />
               </button>
             )}
-            {step === 6 && (
+            {step === 5 && (
               <button className="v-btn-submit" onClick={handleSubmit} disabled={submitting}>
                 {submitting ? 'Submitting…' : 'Submit Violation'}
               </button>
