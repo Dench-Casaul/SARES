@@ -107,6 +107,12 @@ npm run preview
 5. Review generated recommendation in `/sares/case-assessment`.
 6. View rule controls in `/sares/rules` and summaries in `/sares/reports`.
 
+## Security and Roadmap
+
+SARES is an admin-only web application for authorized school personnel. It supports RA 10173 (Data Privacy Act of 2012) compliance by limiting access through authenticated admin accounts, processing student disciplinary records only for official school purposes, and requiring proper handling, retention, and protection of personal data.
+
+Future scaling may include stronger role-based permissions, audit logs, backup and retention controls, improved reporting, multi-campus support, and performance tuning as student and violation records grow.
+
 ## Available Scripts
 
 From `frontend`:
