@@ -1067,6 +1067,22 @@
   font-size: 13px;
 }
 
+.rm-offense-table th:first-child,
+.rm-offense-table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: #ffffff;
+}
+
+.rm-offense-table th:nth-child(2),
+.rm-offense-table td:nth-child(2) {
+  position: sticky;
+  left: 50px;
+  z-index: 2;
+  background: #ffffff;
+}
+
 .rm-offense-table thead tr {
   border-bottom: 2px solid #e7edf6;
 }
@@ -1089,6 +1105,11 @@
 }
 
 .rm-offense-table tbody tr:hover {
+  background: #f9fbff;
+}
+
+.rm-offense-table tbody tr:hover td:first-child,
+.rm-offense-table tbody tr:hover td:nth-child(2) {
   background: #f9fbff;
 }
 

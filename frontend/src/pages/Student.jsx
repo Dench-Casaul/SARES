@@ -1,12 +1,21 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { addDoc, arrayUnion, collection, deleteDoc, doc, getDocs, increment, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { addDoc, arrayUnion, collection, doc, getDocs, increment, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../firebase'
 import { evaluateSaresRecommendation } from '../engine/ruleEngine'
 import '../css/Student.css'
 import wesleyLogo from '../assets/wesley-logo.png'
-import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X } from 'lucide-react'
+import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X, Calendar } from 'lucide-react'
 import { getSubcategories, listOffenseGroups, listOffensesByGroup } from '../data/handbookIndex'
+
+const normalizeViolationStatus = (status) => {
+  const normalized = String(status || '').toLowerCase().trim();
+  if (normalized === 'no-readmission') return 'no-readmission';
+  return normalized === 'served' ? 'served' : 'pending';
+};
+
+const isNoReadmissionSanction = (sanctionText) =>
+  String(sanctionText || '').toLowerCase().includes('no-readmission');
 
 const YEARS = ["All Year", "Kindergarten", "1st Grade", "2nd Grade", "3rd Grade", "4th Grade", "5th Grade", "6th Grade", "7th Grade", "8th Grade", "9th Grade", "10th Grade"]
 const YEAR_LEVELS = ["Kindergarten", "1st Grade", "2nd Grade", "3rd Grade", "4th Grade", "5th Grade", "6th Grade", "7th Grade", "8th Grade", "9th Grade", "10th Grade"]
@@ -355,6 +364,16 @@ function AddViolationModal({ onClose, onSubmit, initialForm }) {
 function SuspensionDateModal({ initialStart, initialEnd, onClose, onSave, saving }) {
   const [startDate, setStartDate] = useState(initialStart || '');
   const [endDate, setEndDate] = useState(initialEnd || '');
+  const startInputRef = useRef(null);
+  const endInputRef = useRef(null);
+
+  const openDatePicker = (inputRef) => {
+    if (!inputRef?.current) return;
+    inputRef.current.focus();
+    if (typeof inputRef.current.showPicker === 'function') {
+      inputRef.current.showPicker();
+    }
+  };
 
   const handleSubmit = () => {
     if (!startDate || !endDate) return;
@@ -380,11 +399,21 @@ function SuspensionDateModal({ initialStart, initialEnd, onClose, onSave, saving
         <div className="s-modal-body">
           <div className="s-field">
             <label className="s-label">Suspension Start</label>
-            <input type="date" className="s-input" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            <div className="s-date-input-wrap">
+              <input ref={startInputRef} type="date" className="s-input s-input--date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+              <button type="button" className="s-date-icon-btn" onClick={() => openDatePicker(startInputRef)} aria-label="Open suspension start date picker">
+                <Calendar size={16} />
+              </button>
+            </div>
           </div>
           <div className="s-field">
             <label className="s-label">Suspension End</label>
-            <input type="date" className="s-input" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+            <div className="s-date-input-wrap">
+              <input ref={endInputRef} type="date" className="s-input s-input--date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+              <button type="button" className="s-date-icon-btn" onClick={() => openDatePicker(endInputRef)} aria-label="Open suspension end date picker">
+                <Calendar size={16} />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -439,11 +468,15 @@ function CaseManagementModal({ student, violationDraft, onClose, onSaved }) {
         offense_id: violationDraft.offense_id,
         offense_variety: violationDraft.offense_title,
         category_name: violationDraft.group_title,
+        offense_number: violationDraft.offense_type === 'minor' ? recommendation?.cumulativeOffenseNumber || recommendation?.offenseNumber || 1 : null,
+        cumulative_offense_number: violationDraft.offense_type === 'minor' ? recommendation?.cumulativeOffenseNumber || recommendation?.offenseNumber || 1 : null,
+        suspension_eligible: violationDraft.offense_type === 'minor' ? Boolean(recommendation?.suspensionEligible) : false,
         severity_score: violationDraft.offense_type === 'major' ? Number(violationDraft.severity_score || 5) : null,
         recommended_sanction: recommendedSanction,
         generated_explanation: counselorExplanation,
         explanation_source: 'manual_template',
-        status: 'recorded',
+        school_year_key: recommendation?.schoolYearKey || '',
+        status: isNoReadmissionSanction(recommendedSanction) ? 'no-readmission' : 'pending',
         created_at: serverTimestamp(),
       };
 
@@ -456,10 +489,13 @@ function CaseManagementModal({ student, violationDraft, onClose, onSaved }) {
         variety: violationDraft.offense_title,
         description: violationDraft.incident_description,
         date: today,
+        offense_number: violationDraft.offense_type === 'minor' ? recommendation?.cumulativeOffenseNumber || recommendation?.offenseNumber || 1 : null,
+        cumulative_offense_number: violationDraft.offense_type === 'minor' ? recommendation?.cumulativeOffenseNumber || recommendation?.offenseNumber || 1 : null,
+        suspension_eligible: violationDraft.offense_type === 'minor' ? Boolean(recommendation?.suspensionEligible) : false,
         severity: violationDraft.offense_type === 'major' ? Number(violationDraft.severity_score || 5) : 3,
         sanction: recommendedSanction,
         generated_explanation: counselorExplanation,
-        status: 'recorded',
+        status: isNoReadmissionSanction(recommendedSanction) ? 'no-readmission' : 'pending',
       };
 
       await updateDoc(doc(db, 'students', student.docId), {
@@ -527,7 +563,7 @@ function CaseManagementModal({ student, violationDraft, onClose, onSaved }) {
 }
 
 /* Student List View */
-function StudentList({ students, onSelect, onAddStudent, onEditStudent, onDeleteStudent, location, sidebarOpen, setSidebarOpen }) {
+function StudentList({ students, onSelect, onAddStudent, onEditStudent, location, sidebarOpen, setSidebarOpen }) {
   const [search, setSearch] = useState('');
   const [yearFilter, setYearFilter] = useState('All Year');
   const [showModal, setShowModal] = useState(false);
@@ -546,6 +582,8 @@ function StudentList({ students, onSelect, onAddStudent, onEditStudent, onDelete
 
   const getStudentStatus = (student) => {
     const violations = Array.isArray(student?.violations) ? student.violations : [];
+    if (violations.length === 0) return null;
+
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
 
@@ -561,7 +599,7 @@ function StudentList({ students, onSelect, onAddStudent, onEditStudent, onDelete
 
     if (isSuspended) return { text: 'In Suspension', tone: 'follow' };
 
-    const pendingCount = violations.filter((violation) => String(violation?.status || '').toLowerCase() === 'pending').length;
+    const pendingCount = violations.filter((violation) => normalizeViolationStatus(violation?.status) === 'pending').length;
     if (pendingCount > 0) {
       return { text: `${pendingCount} Pending Sanction${pendingCount > 1 ? 's' : ''}`, tone: 'monitored' };
     }
@@ -587,13 +625,6 @@ function StudentList({ students, onSelect, onAddStudent, onEditStudent, onDelete
     await onEditStudent(editingStudent.docId, form);
     setShowEditModal(false);
     setEditingStudent(null);
-  };
-
-  const handleDelete = async (student) => {
-    const confirmed = window.confirm(`Delete ${student.name}? This cannot be undone.`);
-    if (!confirmed) return;
-    await onDeleteStudent(student.docId);
-    setOpenActionId(null);
   };
 
   return (
@@ -683,6 +714,7 @@ function StudentList({ students, onSelect, onAddStudent, onEditStudent, onDelete
                     <td>{student.violationCount}</td>
                     <td>{(() => {
                       const status = getStudentStatus(student);
+                      if (!status) return null;
                       return <span className={`s-status-pill ${status.tone}`}>{status.text}</span>;
                     })()}</td>
                     <td>
@@ -728,25 +760,6 @@ function StudentList({ students, onSelect, onAddStudent, onEditStudent, onDelete
                             onClick={() => openEdit(student)}
                           >
                             Edit
-                          </button>
-                          <button
-                            type="button"
-                            style={{
-                              display: 'block',
-                              width: '100%',
-                              textAlign: 'left',
-                              padding: '8px 12px',
-                              background: '#ffffff',
-                              border: 'none',
-                              color: '#c92020',
-                              cursor: 'pointer',
-                              fontSize: '14px',
-                              fontWeight: 600,
-                              whiteSpace: 'nowrap',
-                            }}
-                            onClick={() => handleDelete(student)}
-                          >
-                            Delete
                           </button>
                         </div>
                       )}
@@ -912,12 +925,6 @@ function StudentProfile({ student, onBack, onSelectViolation, onUpdateViolationS
               <p className="s-profile-id">{student.id}</p>
             </div>
           </div>
-          <button className="s-log-btn" onClick={() => setShowViolationModal(true)}>
-            <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
-              <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
-            </svg>
-            Add Violation
-          </button>
         </div>
 
         <div className="s-profile-grid">
@@ -973,7 +980,7 @@ function StudentProfile({ student, onBack, onSelectViolation, onUpdateViolationS
                 {sortedViolations.map(v => (
                   <div
                     key={v.id}
-                    className="s-history-item"
+                    className={`s-history-item ${String(v.offense_type || '').toLowerCase() === 'major' ? 's-history-item--major' : ''}`}
                     onClick={() => onSelectViolation(v)}
                   >
                     <div className="s-history-item-header">
@@ -985,6 +992,13 @@ function StudentProfile({ student, onBack, onSelectViolation, onUpdateViolationS
                           return (
                             <span className="s-suspension-left">
                               {daysLeft > 0 ? `${daysLeft} school day${daysLeft > 1 ? 's' : ''} left` : 'Suspension Completed'}
+                            </span>
+                          );
+                        }
+                        if (String(v.status || '').toLowerCase() === 'no-readmission') {
+                          return (
+                            <span className="s-suspension-left" style={{ background: '#fee2e2', borderColor: '#fecaca', color: '#b91c1c' }}>
+                              No-readmission
                             </span>
                           );
                         }
@@ -1056,6 +1070,9 @@ function StudentProfile({ student, onBack, onSelectViolation, onUpdateViolationS
 /* Violation Details*/
 function ViolationDetails({ violation, student, onBack, onSetSuspensionDates, suspensionSaving, location, sidebarOpen, setSidebarOpen }) {
   const [showSuspensionModal, setShowSuspensionModal] = useState(false);
+  const canSetSuspension = String(violation?.offense_type || '').toLowerCase() === 'major'
+    || Boolean(violation?.suspension_eligible)
+    || Number(violation?.cumulative_offense_number || 0) > 3;
 
   const handleSaveSuspension = async (startDate, endDate) => {
     await onSetSuspensionDates(violation.id, startDate, endDate);
@@ -1124,9 +1141,11 @@ function ViolationDetails({ violation, student, onBack, onSetSuspensionDates, su
                   </div>
                 </div>
               </div>
-              <button className="s-btn-submit s-btn-submit--sm" style={{ marginTop: '10px' }} onClick={() => setShowSuspensionModal(true)}>
-                Set Suspension Date
-              </button>
+              {canSetSuspension && (
+                <button className="s-btn-submit s-btn-submit--sm" style={{ marginTop: '10px' }} onClick={() => setShowSuspensionModal(true)}>
+                  Set Suspension Date
+                </button>
+              )}
             </div>
           </div>
           <div className="s-divider" />
@@ -1284,7 +1303,12 @@ export default function Students() {
             severity: violation.severity_score ?? (violation.offense_type === 'major' ? 8 : 3),
             sanction: violation.recommended_sanction || 'N/A',
             generated_explanation: violation.generated_explanation || '',
-            status: violation.status || 'recorded',
+            status: isNoReadmissionSanction(violation.recommended_sanction)
+              ? 'no-readmission'
+              : normalizeViolationStatus(violation.status),
+            offense_number: violation.offense_number ?? null,
+            cumulative_offense_number: violation.cumulative_offense_number ?? violation.offense_number ?? null,
+            suspension_eligible: Boolean(violation.suspension_eligible),
             suspension_start: violation.suspension_start || '',
             suspension_end: violation.suspension_end || '',
           }));
@@ -1382,12 +1406,6 @@ export default function Students() {
           : student
       )
     );
-  };
-
-  const handleDeleteStudent = async (docId) => {
-    if (!docId) return;
-    await deleteDoc(doc(db, 'students', docId));
-    setStudents((prev) => prev.filter((student) => student.docId !== docId));
   };
 
   const handleSetSuspensionDates = async (violationId, startDate, endDate) => {
@@ -1509,7 +1527,6 @@ export default function Students() {
       onSelect={handleSelectStudent}
       onAddStudent={handleAddStudent}
       onEditStudent={handleEditStudent}
-      onDeleteStudent={handleDeleteStudent}
       location={location}
       sidebarOpen={sidebarOpen}
       setSidebarOpen={setSidebarOpen}

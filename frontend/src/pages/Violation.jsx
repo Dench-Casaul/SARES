@@ -274,7 +274,9 @@ export default function Violation() {
         offense_id: form.offense_id,
         offense_variety: form.offense_title,
         category_name: form.group_title,
-        offense_number: form.offense_type === 'minor' ? recommendation.offenseNumber : null,
+        offense_number: form.offense_type === 'minor' ? recommendation.cumulativeOffenseNumber || recommendation.offenseNumber : null,
+        cumulative_offense_number: form.offense_type === 'minor' ? recommendation.cumulativeOffenseNumber || recommendation.offenseNumber : null,
+        suspension_eligible: form.offense_type === 'minor' ? Boolean(recommendation.suspensionEligible) : false,
         severity_score: form.offense_type === 'major' ? form.severity_score : null,
         recommended_sanction: recommendation.recommendedSanction,
         generated_explanation: generatedExplanation,
@@ -708,7 +710,13 @@ export default function Violation() {
                   </thead>
                   <tbody>
                     {existingViolations.slice((currentPage - 1) * 10, currentPage * 10).map((v) => (
-                      <tr key={v.id || v.created_at?.seconds || Math.random()} style={{ borderBottom: '1px solid #e6edf7' }}>
+                      <tr
+                        key={v.id || v.created_at?.seconds || Math.random()}
+                        style={{
+                          borderBottom: '1px solid #e6edf7',
+                          background: v.offense_type === 'major' ? '#fff1f2' : '#ffffff',
+                        }}
+                      >
                         <td style={{ padding: '12px 16px', color: '#64748b' }}>{v.incident_date}</td>
                         <td style={{ padding: '12px 16px', fontWeight: 600, color: '#071f5f' }}>{v.student_name}</td>
                         <td style={{ padding: '12px 16px' }}>

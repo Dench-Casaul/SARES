@@ -121,8 +121,7 @@ export default function CaseAssessment() {
           {isMinor && (
             <article className="ca-card">
               <h2>Offense Count</h2>
-              <div className="ca-row"><span>This is offense</span><strong className="ca-highlight">{caseData.offense_number ? `#${caseData.offense_number}` : "—"}</strong></div>
-              <p className="ca-sub" style={{ marginTop: "8px" }}>Counted cumulatively across all minor violations for this school year.</p>
+              <div className="ca-row"><span>This is offense</span><strong className="ca-highlight">{caseData.cumulative_offense_number || caseData.offense_number ? `#${caseData.cumulative_offense_number || caseData.offense_number}` : "—"}</strong></div>
             </article>
           )}
           {isMajor && (
@@ -151,10 +150,6 @@ export default function CaseAssessment() {
         <section className="ca-card" style={{ marginTop: "16px" }}>
           <h2>Counselor Explanation</h2>
           <p className="ca-paragraph">{caseData.generated_explanation || "No generated explanation available."}</p>
-          <div className="ca-row" style={{ marginTop: "10px" }}>
-            <span>Explanation Source</span>
-            <strong>{caseData.explanation_source || "N/A"}</strong>
-          </div>
         </section>
 
         <div className="ca-actions">

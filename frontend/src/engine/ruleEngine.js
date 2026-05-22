@@ -65,7 +65,9 @@ export function countPriorMinorOffenses(studentId, schoolYearKey, existingViolat
 export function evaluateMinorOffense({ studentId, incidentDate, offenseId, existingViolations = [] }) {
   const schoolYearKey = getSchoolYearKey(incidentDate);
   const priorCount = countPriorMinorOffenses(studentId, schoolYearKey, existingViolations);
-  const offenseNumber = clamp(priorCount + 1, 1, 3);
+  const cumulativeOffenseNumber = priorCount + 1;
+  const offenseNumber = clamp(cumulativeOffenseNumber, 1, 3);
+  const suspensionEligible = cumulativeOffenseNumber > 3;
 
   const tier = getMinorSanctionByOffenseNumber(offenseNumber);
   const offenseData = getOffenseById(offenseId);
@@ -74,6 +76,8 @@ export function evaluateMinorOffense({ studentId, incidentDate, offenseId, exist
   return {
     offenseType: 'minor',
     offenseNumber,
+    cumulativeOffenseNumber,
+    suspensionEligible,
     offenseLabel: tier?.label ?? `${offenseNumber} Offense`,
     recommendedSanction: tier?.sanction ?? '— (sanction not found)',
     suggestAuthorities,
@@ -82,7 +86,10 @@ export function evaluateMinorOffense({ studentId, incidentDate, offenseId, exist
     offenseTitle: offenseData?.title ?? offenseId,
     handbookSection: 'Minor Offense Sanction Schedule',
     notes: [
-      `Cumulative minor offense count for school year ${schoolYearKey}: ${priorCount} prior, this is #${offenseNumber}.`,
+      `Cumulative minor offense count for school year ${schoolYearKey}: ${priorCount} prior, this is #${cumulativeOffenseNumber}.`,
+      ...(suspensionEligible
+        ? ['Eligible for counselor suspension action (beyond 3rd minor offense).']
+        : []),
       ...(suggestAuthorities
         ? ['⚠ This violation may involve illegal activity. Consider referral to proper authorities.']
         : []),

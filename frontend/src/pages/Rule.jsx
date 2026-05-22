@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import '../css/Rule.css'
 import wesleyLogo from '../assets/wesley-logo.png'
-import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react'
+import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X, ChevronDown, ChevronRight } from 'lucide-react'
 import handbook from '../data/generalizedHandbook.json'
 
 function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar }) {
@@ -301,7 +301,6 @@ export default function Rule() {
                           <tr>
                             <th style={{ width: '50px' }}>#</th>
                             <th>Violation</th>
-                            <th style={{ width: '80px' }}>Illegal</th>
                             {activeType === 'minor' && (
                               <>
                                 <th>1st Offense</th>
@@ -324,15 +323,6 @@ export default function Rule() {
                             <tr key={offense.id}>
                               <td className="rm-offense-idx">{idx + 1}</td>
                               <td className="rm-offense-title">{offense.title}</td>
-                              <td>
-                                {offense.isIllegal ? (
-                                  <span className="rm-illegal-badge">
-                                    <AlertTriangle size={10} /> Yes
-                                  </span>
-                                ) : (
-                                  <span className="rm-legal-badge">No</span>
-                                )}
-                              </td>
                               {activeType === 'minor' && currentType?.sanctionSchedule?.map((s) => (
                                 <td key={s.offenseNumber} className="rm-sanction-cell">{s.sanction}</td>
                               ))}
