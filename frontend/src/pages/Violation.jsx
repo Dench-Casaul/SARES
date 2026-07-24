@@ -61,6 +61,14 @@ const STEPS = ['Student & Date', 'Offense Type', 'Subcategory', 'Violation', 'De
 const MINOR_SANCTIONS = getMinorSanctionSchedule()
 const MAJOR_SANCTIONS = getMajorSanctionMap()
 
+const splitStudentName = (fullName = '') => {
+  const parts = String(fullName || '').trim().split(/\s+/).filter(Boolean)
+  return {
+    first_name: parts[0] || '',
+    last_name: parts.slice(1).join(' ') || '',
+  }
+}
+
 function deterministicTemplateExplanation({
   offenseCategory,
   offenseType,
@@ -140,11 +148,17 @@ export default function Violation() {
   const fetchStudents = async () => {
     try {
       const snap = await getDocs(collection(db, 'students'))
-      setStudents(snap.docs.map(d => ({
-        ...d.data(),
-        __docId: d.id,
-        student_id: d.data().student_id || d.id,
-      })))
+      setStudents(snap.docs.map(d => {
+        const data = d.data()
+        const { first_name, last_name } = splitStudentName(data.full_name || data.name || '')
+        return {
+          ...data,
+          __docId: d.id,
+          student_id: data.student_id || d.id,
+          first_name,
+          last_name,
+        }
+      }))
     } catch { alert('Failed to load students.') }
   }
 
@@ -165,6 +179,8 @@ export default function Violation() {
     const q = studentQuery.trim().toLowerCase()
     if (!q) return true
     return (s.full_name || '').toLowerCase().includes(q) ||
+      (s.first_name || '').toLowerCase().includes(q) ||
+      (s.last_name || '').toLowerCase().includes(q) ||
       String(s.student_number || '').toLowerCase().includes(q)
   })
 
@@ -388,8 +404,8 @@ export default function Violation() {
                         : filteredStudents.map(s => (
                           <li key={s.student_id} className="v-student-option"
                             onMouseDown={e => e.preventDefault()}
-                            onClick={() => { setForm(f => ({ ...f, student_id: String(s.student_id) })); setStudentQuery(s.full_name); setStudentMenuOpen(false) }}>
-                            <span className="v-student-option-name">{s.full_name}</span>
+                            onClick={() => { setForm(f => ({ ...f, student_id: String(s.student_id) })); setStudentQuery(`${s.first_name || ''} ${s.last_name || ''}`.trim() || s.full_name || ''); setStudentMenuOpen(false) }}>
+                            <span className="v-student-option-name">{`${s.first_name || ''} ${s.last_name || ''}`.trim() || s.full_name || ''}</span>
                             {s.student_number && <span className="v-student-option-meta">{s.student_number}</span>}
                           </li>
                         ))}

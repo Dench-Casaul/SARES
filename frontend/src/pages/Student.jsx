@@ -10,6 +10,14 @@ import { getSubcategories, listOffenseGroups, listOffensesByGroup } from '../dat
 
 const YEARS = ["All Year", "Kindergarten", "1st Grade", "2nd Grade", "3rd Grade", "4th Grade", "5th Grade", "6th Grade", "7th Grade", "8th Grade", "9th Grade", "10th Grade"]
 const YEAR_LEVELS = ["Kindergarten", "1st Grade", "2nd Grade", "3rd Grade", "4th Grade", "5th Grade", "6th Grade", "7th Grade", "8th Grade", "9th Grade", "10th Grade"]
+
+const splitStudentName = (fullName = '') => {
+  const parts = String(fullName || '').trim().split(/\s+/).filter(Boolean)
+  return {
+    first_name: parts[0] || '',
+    last_name: parts.slice(1).join(' ') || '',
+  }
+}
 /* sidebar */
 function Sidebar({ activePage, isOpen, toggleSidebar }) {
   const navigate = useNavigate();
@@ -105,9 +113,12 @@ function Sidebar({ activePage, isOpen, toggleSidebar }) {
 
 /* Add Student Modal */
 function AddStudentModal({ onClose, onAdd, initialForm, submitLabel = 'Add Student', title = 'Add New Student', subtitle = "Enter the student's information to create a new profile" }) {
+  const initialNameParts = (initialForm?.name || '').trim().split(/\s+/).filter(Boolean);
+
   const [form, setForm] = useState({
     id: initialForm?.id || '',
-    name: initialForm?.name || '',
+    first_name: initialForm?.first_name || initialNameParts[0] || '',
+    last_name: initialForm?.last_name || initialNameParts.slice(1).join(' ') || '',
     year: initialForm?.year || '',
     section: initialForm?.section || '',
     email: initialForm?.email || '',
@@ -117,8 +128,9 @@ function AddStudentModal({ onClose, onAdd, initialForm, submitLabel = 'Add Stude
   const handle = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   const submit = async () => {
-    if (!form.name || !form.year || !form.section || !form.email) return;
-    await onAdd(form);
+    const fullName = `${form.first_name || ''} ${form.last_name || ''}`.trim();
+    if (!form.first_name || !form.last_name || !form.year || !form.section || !form.email) return;
+    await onAdd({ ...form, name: fullName });
   };
 
   return (
@@ -148,9 +160,15 @@ function AddStudentModal({ onClose, onAdd, initialForm, submitLabel = 'Add Stude
             />
           </div>
 
-          <div className="s-field">
-            <label className="s-label">Full Name</label>
-            <input className="s-input" name="name" value={form.name} onChange={handle} placeholder="Juan Dela Cruz" />
+          <div className="s-field-row">
+            <div className="s-field">
+              <label className="s-label">First Name</label>
+              <input className="s-input" name="first_name" value={form.first_name} onChange={handle} placeholder="Juan" />
+            </div>
+            <div className="s-field">
+              <label className="s-label">Last Name</label>
+              <input className="s-input" name="last_name" value={form.last_name} onChange={handle} placeholder="Dela Cruz" />
+            </div>
           </div>
 
           <div className="s-field-row">
@@ -536,10 +554,13 @@ function StudentList({ students, onSelect, onAddStudent, onEditStudent, onDelete
   const [openActionId, setOpenActionId] = useState(null);
   const [toast, setToast] = useState(false);
 
-  const filtered = students.filter(s => {
+  const filtered = students.filter((s) => {
+    const studentName = String(s?.name || '').toLowerCase();
+    const studentId = String(s?.id || '');
+
     const matchSearch =
-      s.name.toLowerCase().includes(search.toLowerCase()) ||
-      s.id.includes(search);
+      studentName.includes(search.toLowerCase()) ||
+      studentId.includes(search);
     const matchYear = yearFilter === 'All Year' || s.year === yearFilter;
     return matchSearch && matchYear;
   });
@@ -592,7 +613,7 @@ function StudentList({ students, onSelect, onAddStudent, onEditStudent, onDelete
   const handleDelete = async (student) => {
     const confirmed = window.confirm(`Delete ${student.name}? This cannot be undone.`);
     if (!confirmed) return;
-    await onDeleteStudent(student.docId);
+    await onDeleteStudent(student.docId || student.student_id || student.id);
     setOpenActionId(null);
   };
 
@@ -666,6 +687,8 @@ function StudentList({ students, onSelect, onAddStudent, onEditStudent, onDelete
               <thead>
                 <tr>
                   <th>Student</th>
+                  <th>First Name</th>
+                  <th>Last Name</th>
                   <th>Student ID</th>
                   <th>Year Level & Section</th>
                   <th>Total Violations</th>
@@ -678,6 +701,8 @@ function StudentList({ students, onSelect, onAddStudent, onEditStudent, onDelete
                 {filtered.map((student) => (
                   <tr key={student.docId || student.id} onClick={() => onSelect(student)}>
                     <td className="s-student-name">{student.name}</td>
+                    <td>{student.first_name || ''}</td>
+                    <td>{student.last_name || ''}</td>
                     <td>{student.id}</td>
                     <td>{student.year} - {student.section}</td>
                     <td>{student.violationCount}</td>
@@ -924,6 +949,18 @@ function StudentProfile({ student, onBack, onSelectViolation, onUpdateViolationS
           {/* Student Info */}
           <div className="s-info-card">
             <h2 className="s-card-title">Student Information</h2>
+
+            <div className="s-info-field">
+              <span className="s-info-label">First Name</span>
+              <span className="s-info-value">{student.first_name || ''}</span>
+            </div>
+            <div className="s-divider" />
+
+            <div className="s-info-field">
+              <span className="s-info-label">Last Name</span>
+              <span className="s-info-value">{student.last_name || ''}</span>
+            </div>
+            <div className="s-divider" />
 
             <div className="s-info-field">
               <span className="s-info-label">Year Level</span>
@@ -1189,7 +1226,8 @@ export default function Students() {
   const [suspensionSaving, setSuspensionSaving] = useState(false);
 
   const formatStudent = (student) => {
-    const name = student.full_name || '';
+    const name = student.full_name || student.name || '';
+    const { first_name, last_name } = splitStudentName(name);
 
     const initials = name
       .split(' ')
@@ -1234,14 +1272,16 @@ export default function Students() {
 
     return {
       docId: student.student_id || '',
-      id: student.student_number,
-      name: student.full_name,
+      id: student.student_number || student.id || '',
+      name: name,
+      first_name,
+      last_name,
       initials: initials || 'S',
       color: colors[(student.student_id || 0) % colors.length],
-      year: student.year_level,
-      section: student.section,
+      year: student.year_level || student.year || '',
+      section: student.section || '',
       email: student.email || '',
-      phone: student.phone_number || '',
+      phone: student.phone_number || student.phone || '',
       violationCount,
       repeatOffender: student.repeat_offender || false,
       violations: violationList,
@@ -1332,7 +1372,7 @@ export default function Students() {
     const studentData = {
       student_id: '',
       student_number: form.id,
-      full_name: form.name,
+      full_name: `${form.first_name || ''} ${form.last_name || ''}`.trim(),
       year_level: form.year,
       section: form.section,
       email: form.email,
@@ -1360,7 +1400,7 @@ export default function Students() {
     if (!docId) return;
     const payload = {
       student_number: form.id,
-      full_name: form.name,
+      full_name: `${form.first_name || ''} ${form.last_name || ''}`.trim(),
       year_level: form.year,
       section: form.section,
       email: form.email,
@@ -1386,8 +1426,39 @@ export default function Students() {
 
   const handleDeleteStudent = async (docId) => {
     if (!docId) return;
-    await deleteDoc(doc(db, 'students', docId));
-    setStudents((prev) => prev.filter((student) => student.docId !== docId));
+
+    try {
+      const [studentsSnapshot, violationsSnapshot] = await Promise.all([
+        getDocs(collection(db, 'students')),
+        getDocs(collection(db, 'violations')),
+      ]);
+
+      const targetStudent = studentsSnapshot.docs.find((studentDoc) => studentDoc.id === docId);
+      const targetStudentNumber = targetStudent?.data()?.student_number || '';
+
+      const relatedViolationIds = violationsSnapshot.docs
+        .filter((violationDoc) => {
+          const violationData = violationDoc.data();
+          return String(violationData.student_id || '') === String(docId)
+            || String(violationData.student_id || '') === String(targetStudentNumber)
+            || String(violationData.student_number || '') === String(targetStudentNumber);
+        })
+        .map((violationDoc) => violationDoc.id);
+
+      await Promise.all([
+        deleteDoc(doc(db, 'students', docId)),
+        ...relatedViolationIds.map((violationId) => deleteDoc(doc(db, 'violations', violationId))),
+      ]);
+
+      setStudents((prev) => prev.filter((student) => student.docId !== docId));
+      if (selectedStudent?.docId === docId) {
+        setSelectedStudent(null);
+        setView('list');
+      }
+    } catch (error) {
+      console.error('Failed to delete student:', error);
+      window.alert('Failed to delete student. Check your Firebase permissions and connection.');
+    }
   };
 
   const handleSetSuspensionDates = async (violationId, startDate, endDate) => {

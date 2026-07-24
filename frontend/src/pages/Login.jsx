@@ -161,7 +161,7 @@ function Login() {
                   type="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
-                  placeholder={ADMIN_LOGIN_EMAIL}
+                  placeholder="Email"
                   className="input-field"
                   required
                 />
