@@ -4,6 +4,7 @@ import { Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "../firebase";
+import { ADMIN_LOGIN_EMAIL, isAllowedLoginEmail, normalizeLoginEmail } from "../authPolicy";
 import heroImg from "../assets/hero.png";
 import wesleyLogo from "../assets/wesley-logo.png";
 import saresLogo from "../assets/sares-logo.png";
@@ -62,14 +63,29 @@ function Login() {
     setError("");
     setLoading(true);
 
+    const normalizedEmail = normalizeLoginEmail(email);
+
+    if (!isAllowedLoginEmail(normalizedEmail)) {
+      setError("Invalid email or password.");
+      setLoading(false);
+      return;
+    }
+
     try {
-      const credential = await signInWithEmailAndPassword(auth, email, password);
+      const credential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
       const firebaseUser = credential.user;
+      const authEmail = normalizeLoginEmail(firebaseUser.email || normalizedEmail);
+
+      if (!isAllowedLoginEmail(authEmail)) {
+        await signOut(auth);
+        setError("Invalid email or password.");
+        return;
+      }
 
       let userPayload = {
         user_id: firebaseUser.uid,
         full_name: firebaseUser.displayName || "Firebase User",
-        email: firebaseUser.email || email,
+        email: firebaseUser.email || normalizedEmail,
         role: "admin",
       };
 
@@ -81,7 +97,7 @@ function Login() {
         userPayload = {
           user_id: userData.user_id || firebaseUser.uid,
           full_name: userData.full_name || firebaseUser.displayName || "Firebase User",
-          email: userData.email || firebaseUser.email || email,
+          email: userData.email || firebaseUser.email || normalizedEmail,
           role: userData.role || "admin",
         };
       }
@@ -145,7 +161,7 @@ function Login() {
                   type="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
-                  placeholder="email@domain.com"
+                  placeholder={ADMIN_LOGIN_EMAIL}
                   className="input-field"
                   required
                 />
@@ -378,8 +394,8 @@ function Login() {
                   <h5>11. Contact for Privacy Concerns</h5>
                   <p>
                     For privacy inquiries or requests, contact:<br />
-                    <strong>Registrar's Office</strong><br />
-                    <strong>Email:</strong> admin@ows.edu.ph<br />
+                    <strong>Guidance Office</strong><br />
+                    <strong>Email:</strong> Guidance@ows.edu.ph<br />
                     <strong>Phone:</strong> (047) 222 2701
                   </p>
                 </>

@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged, signOut } from "firebase/auth";
 import Dashboard from "./pages/Dashboard";
 import Student from "./pages/Student";
 import Violation from "./pages/Violation";
@@ -10,6 +10,7 @@ import CaseAssessment from "./pages/CaseAssessment";
 import Landing from "./pages/Landing";
 import React, { useEffect, useState } from "react";
 import { auth } from "./firebase";
+import { isAllowedLoginEmail } from "./authPolicy";
 
 class AppErrorBoundary extends React.Component {
   constructor(props) {
@@ -50,6 +51,14 @@ function App() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user && !isAllowedLoginEmail(user.email || "")) {
+        signOut(auth).catch(() => {});
+        localStorage.removeItem("user");
+        setIsAuthenticated(false);
+        setAuthReady(true);
+        return;
+      }
+
       const signedIn = Boolean(user);
       setIsAuthenticated(signedIn);
       setAuthReady(true);
