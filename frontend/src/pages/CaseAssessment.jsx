@@ -143,16 +143,18 @@ export default function CaseAssessment() {
             </article>
           )}
 
-          <article className="ca-card">
-            <h2>{isMediation && isPending ? "Escalation Sanction" : "Recommended Sanction"}</h2>
-            <p className="ca-paragraph ca-multiline ca-sanction-text">
-              {caseData.recommended_sanction || "—"}
-            </p>
-            <div className="ca-row" style={{ marginTop: "10px" }}>
-              <span>Handbook Section</span>
-              <strong>Student Discipline Handbook — {isMinor ? "Minor Offense Schedule" : "Major Offense Severity Map"}</strong>
-            </div>
-          </article>
+          {!(isMediation && (caseData.status === 'resolved' || caseData.mediation_status === 'resolved')) && (
+            <article className="ca-card">
+              <h2>{isMediation && isPending ? "Escalation Sanction" : "Recommended Sanction"}</h2>
+              <p className="ca-paragraph ca-multiline ca-sanction-text">
+                {caseData.recommended_sanction || "—"}
+              </p>
+              <div className="ca-row" style={{ marginTop: "10px" }}>
+                <span>Handbook Section</span>
+                <strong>Student Discipline Handbook — {isMinor ? "Minor Offense Schedule" : "Major Offense Severity Map"}</strong>
+              </div>
+            </article>
+          )}
         </section>
 
         <section className="ca-card" style={{ marginTop: "16px" }}>
@@ -160,14 +162,23 @@ export default function CaseAssessment() {
           <p className="ca-paragraph">{caseData.incident_description || "—"}</p>
         </section>
 
-        <section className="ca-card" style={{ marginTop: "16px" }}>
-          <h2>Counselor Explanation</h2>
-          <p className="ca-paragraph">{caseData.generated_explanation || "No generated explanation available."}</p>
-          <div className="ca-row" style={{ marginTop: "10px" }}>
-            <span>Explanation Source</span>
-            <strong>{caseData.explanation_source || "N/A"}</strong>
-          </div>
-        </section>
+        {caseData.witnesses && (
+          <section className="ca-card" style={{ marginTop: "16px" }}>
+            <h2>Witnesses</h2>
+            <p className="ca-paragraph">{caseData.witnesses}</p>
+          </section>
+        )}
+
+        {!(isMediation && (caseData.status === 'resolved' || caseData.mediation_status === 'resolved')) && (
+          <section className="ca-card" style={{ marginTop: "16px" }}>
+            <h2>Counselor Explanation</h2>
+            <p className="ca-paragraph">{caseData.generated_explanation || "No generated explanation available."}</p>
+            <div className="ca-row" style={{ marginTop: "10px" }}>
+              <span>Explanation Source</span>
+              <strong>{caseData.explanation_source || "N/A"}</strong>
+            </div>
+          </section>
+        )}
 
         <div className="ca-actions">
           <Link to="/sares/violation" className="ca-btn-secondary">Log Another Violation</Link>

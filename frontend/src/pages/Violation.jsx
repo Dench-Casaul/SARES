@@ -107,6 +107,7 @@ export default function Violation() {
     severity_score: 5,      // major: 1-10
     handling_path: 'sanction',
     incident_description: '',
+    witnesses: '',
   })
 
   const [recommendation, setRecommendation] = useState(null)
@@ -281,6 +282,7 @@ export default function Violation() {
       const baseIncidentData = {
         incident_date: form.incident_date,
         incident_description: form.incident_description,
+        witnesses: form.witnesses,
         offense_type: form.offense_type,
         intervention_type: isMediation ? 'mediation' : 'sanction',
         mediation_status: isMediation ? 'pending' : null,
@@ -652,9 +654,17 @@ export default function Violation() {
               <div className="v-field" style={{ marginTop: '1.5rem' }}>
                 <label className="v-label">Incident Description *</label>
                 <textarea className="v-input v-textarea" rows="5"
-                  placeholder="Include relevant details such as witnesses, location, and circumstances..."
+                  placeholder="Include relevant details such as location and circumstances..."
                   value={form.incident_description}
                   onChange={e => setForm(f => ({ ...f, incident_description: e.target.value }))} />
+              </div>
+
+              <div className="v-field" style={{ marginTop: '1.5rem' }}>
+                <label className="v-label">Witnesses (Optional)</label>
+                <textarea className="v-input v-textarea" rows="2"
+                  placeholder="List any witnesses to the incident..."
+                  value={form.witnesses}
+                  onChange={e => setForm(f => ({ ...f, witnesses: e.target.value }))} />
               </div>
             </div>
           )}
@@ -714,6 +724,12 @@ export default function Violation() {
                   <h4>Incident Description</h4>
                   <p>{form.incident_description}</p>
                 </div>
+                {form.witnesses && (
+                  <div className="v-review-section v-review-section--full">
+                    <h4>Witnesses</h4>
+                    <p>{form.witnesses}</p>
+                  </div>
+                )}
               </div>
 
               {recommendation.suggestAuthorities && (

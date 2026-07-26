@@ -1111,8 +1111,12 @@ function StudentProfile({ student, onBack, onSelectViolation, onUpdateViolationS
                         </span>
                       )}
                     </div>
-                    <div className="s-history-sanction-label">Final Sanction:</div>
-                    <div className="s-history-sanction">{v.finalSanction || v.sanction}</div>
+                    {!(v.intervention_type === 'mediation' && (v.status === 'resolved' || v.mediation_status === 'resolved')) && (
+                      <>
+                        <div className="s-history-sanction-label">Final Sanction:</div>
+                        <div className="s-history-sanction">{v.finalSanction || v.sanction}</div>
+                      </>
+                    )}
                     {v.status === 'overridden' && (
                       <div className="s-override-box">
                         <span className="s-override-label">Override Justification:</span>
@@ -1241,18 +1245,32 @@ function ViolationDetails({ violation, student, onBack, onSetSuspensionDates, su
           </div>
           <div className="s-divider" />
 
-          <div className="s-vd-field s-vd-field--full">
-            <div className="s-vd-field-label">Recommended Sanction</div>
-            <div className="s-vd-sanction-box">{violation.sanction}</div>
-          </div>
-          <div className="s-divider" />
+          {violation.witnesses && (
+            <>
+              <div className="s-vd-field s-vd-field--full">
+                <div className="s-vd-field-label">Witnesses</div>
+                <div className="s-vd-desc-box">{violation.witnesses}</div>
+              </div>
+              <div className="s-divider" />
+            </>
+          )}
 
-          <div className="s-vd-field s-vd-field--full">
-            <div className="s-vd-field-label">Counselor Explanation</div>
-            <div className="s-vd-desc-box">
-              {violation.generated_explanation || violation.explanation || 'No counselor explanation available.'}
-            </div>
-          </div>
+          {!(violation.intervention_type === 'mediation' && (violation.status === 'resolved' || violation.mediation_status === 'resolved')) && (
+            <>
+              <div className="s-vd-field s-vd-field--full">
+                <div className="s-vd-field-label">Recommended Sanction</div>
+                <div className="s-vd-sanction-box">{violation.sanction}</div>
+              </div>
+              <div className="s-divider" />
+
+              <div className="s-vd-field s-vd-field--full">
+                <div className="s-vd-field-label">Counselor Explanation</div>
+                <div className="s-vd-desc-box">
+                  {violation.generated_explanation || violation.explanation || 'No counselor explanation available.'}
+                </div>
+              </div>
+            </>
+          )}
         </div>
         {showSuspensionModal && (
           <SuspensionDateModal
@@ -1375,6 +1393,7 @@ export default function Students() {
             category: violation.category_name || violation.group_title || 'Unspecified',
             variety: violation.offense_variety || violation.offense_id || 'Unspecified',
             description: violation.incident_description || violation.description || '',
+            witnesses: violation.witnesses || '',
             date: violation.incident_date || '',
             offense_type: violation.offense_type || '',
             severity: violation.severity_score ?? (violation.offense_type === 'major' ? 8 : 3),

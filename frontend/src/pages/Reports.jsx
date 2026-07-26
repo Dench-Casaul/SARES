@@ -308,7 +308,7 @@ export default function Report() {
                         <td>{recordDate ? recordDate.toISOString().slice(0, 10) : "N/A"}</td>
                         <td>{v.student_name || v.student_id || "Unknown"}</td>
                         <td>{v.offense_variety || v.rule_name || v.category_name || v.offense_type || "Unspecified"}</td>
-                        <td>{v.recommended_sanction || "N/A"}</td>
+                        <td>{!(v.intervention_type === 'mediation' && (v.status === 'resolved' || v.mediation_status === 'resolved')) ? (v.recommended_sanction || "N/A") : "—"}</td>
                       </tr>
                     );
                   })}
