@@ -2,11 +2,15 @@ import React, { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { collection, getDocs } from 'firebase/firestore'
 import { db } from '../firebase'
-import { doesViolationCount } from '../engine/ruleEngine'
 import '../css/Dashboard.css'
 import heroImg from '../assets/hero.png'
 import wesleyLogo from '../assets/wesley-logo.png'
 import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X } from 'lucide-react'
+
+const normalizeViolationStatus = (status) => {
+  const normalized = String(status || '').toLowerCase().trim();
+  return normalized === 'served' ? 'served' : 'pending';
+};
 
 const Dashboard = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -15,11 +19,11 @@ const Dashboard = () => {
   const [summary, setSummary] = useState({
     total_students: 0,
     total_violations: 0,
-    repeat_offenders: 0,
+    students_with_pending_cases: 0,
   });
 
   const [recentViolations, setRecentViolations] = useState([]);
-  const [repeatOffenders, setRepeatOffenders] = useState([]);
+  const [studentsWithPendingCases, setStudentsWithPendingCases] = useState([]);
   const [categoryStats, setCategoryStats] = useState([]);
   const [violationTrends, setViolationTrends] = useState([]);
   const [monthlyTrends, setMonthlyTrends] = useState([]);
@@ -66,19 +70,13 @@ const Dashboard = () => {
         violation_id: violationDoc.id,
         ...violationDoc.data(),
       }));
-      const countedViolations = violationsData.filter(doesViolationCount);
 
-      const repeatOffendersCount = new Set(
-        countedViolations
-          .map((violation) => String(violation.student_id || ''))
-          .filter(Boolean)
-          .filter((studentId, _, all) => all.filter((id) => id === studentId).length >= 2)
-      ).size;
+      const pendingStudents = getStudentsWithPendingCases(violationsData);
 
       setSummary({
         total_students: studentsData.length,
-        total_violations: countedViolations.length,
-        repeat_offenders: repeatOffendersCount,
+        total_violations: violationsData.length,
+        students_with_pending_cases: pendingStudents.length,
       });
       setRecentViolations(
         [...violationsData]
@@ -89,35 +87,37 @@ const Dashboard = () => {
           })
           .slice(0, 5)
       );
-      setRepeatOffenders(getRepeatOffenders(countedViolations));
-      setCategoryStats(getCategoryStats(countedViolations));
-      setViolationTrends(getViolationTrends(countedViolations));
-      setMonthlyTrends(getMonthlyTrends(countedViolations));
+      setStudentsWithPendingCases(pendingStudents);
+      setCategoryStats(getCategoryStats(violationsData));
+      setViolationTrends(getViolationTrends(violationsData));
+      setMonthlyTrends(getMonthlyTrends(violationsData));
     } catch (error) {
       console.error('Dashboard load error:', error);
     }
   };
 
-  const getRepeatOffenders = (violations) => {
+  const getStudentsWithPendingCases = (violations) => {
     const grouped = {};
 
     violations.forEach((v) => {
+      const status = normalizeViolationStatus(v.status);
+      if (status !== 'pending') return;
+
       if (!grouped[v.student_id]) {
         grouped[v.student_id] = {
           student_id: v.student_id,
           student_name: v.student_name,
           student_number: v.student_number,
           year_level: v.year_level,
-          count: 0,
+          pendingCount: 0,
         };
       }
 
-      grouped[v.student_id].count += 1;
+      grouped[v.student_id].pendingCount += 1;
     });
 
     return Object.values(grouped)
-      .filter((student) => student.count >= 2)
-      .sort((a, b) => b.count - a.count)
+      .sort((a, b) => b.pendingCount - a.pendingCount)
       .slice(0, 5);
   };
 
@@ -153,7 +153,6 @@ const Dashboard = () => {
     // Navigate to the login page
     navigate('/login');
   };
-
 
   const getCategoryStats = (violations) => {
     const labels = {
@@ -325,9 +324,9 @@ const Dashboard = () => {
 
             <div className="stat-card special-card">
               <div className="card-header">
-                <h3 className="card-title special-card-title">Repeat Offenders</h3>
+                <h3 className="card-title special-card-title">Students with Pending Cases</h3>
               </div>
-              <p className="card-value special-card-value">{summary.repeat_offenders}</p>
+              <p className="card-value special-card-value">{summary.students_with_pending_cases}</p>
               <p className="card-subtitle special-card-subtitle">Require attention</p>
             </div>
 
@@ -465,16 +464,16 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Repeat Offender Alerts */}
+            {/* Students with Pending Cases */}
             <div className="bottom-card">
-              <h3 className="bottom-card-title">Repeat Offender Alerts</h3>
-              <p className="bottom-card-subtitle">Students with multiple violations</p>
+              <h3 className="bottom-card-title">Students with Pending Cases</h3>
+              <p className="bottom-card-subtitle">Students with pending sanction/case records</p>
 
               <div className="offender-list">
-                {repeatOffenders.length === 0 ? (
-                  <p className="card-subtitle">No repeat offenders yet.</p>
+                {studentsWithPendingCases.length === 0 ? (
+                  <p className="card-subtitle">No students with pending cases yet.</p>
                 ) : (
-                  repeatOffenders.map((student) => (
+                  studentsWithPendingCases.map((student) => (
                     <div className="offender-card offender-card--amber" key={student.student_id}>
                       <div className="avatar avatar--lg" style={{ background: '#d96eff22', color: '#d96eff' }}>
                         {getInitials(student.student_name)}
@@ -488,7 +487,7 @@ const Dashboard = () => {
                       </div>
 
                       <span className="offense-tag offense-tag--amber">
-                        {student.count} violations
+                        {student.pendingCount} pending
                       </span>
                     </div>
                   ))
