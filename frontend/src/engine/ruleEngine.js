@@ -14,13 +14,20 @@ import {
   getMajorSanctionByScore,
   isIllegalActivityOffense,
   getOffenseById,
-} from '../data/handbookIndex';
+} from '../data/handbookIndex.js';
 
 /** Month (1–12) when the school year label rolls over. Default 6 = June (PH). */
 export const SCHOOL_YEAR_START_MONTH = 6;
 
 function clamp(n, lo, hi) {
   return Math.min(hi, Math.max(lo, n));
+}
+
+export function doesViolationCount(violation) {
+  const interventionType = String(violation?.intervention_type || '').toLowerCase();
+  const mediationStatus = String(violation?.mediation_status || '').toLowerCase();
+  const status = String(violation?.status || '').toLowerCase();
+  return !(interventionType === 'mediation' && (mediationStatus === 'resolved' || status === 'resolved'));
 }
 
 /**
@@ -48,7 +55,8 @@ export function countPriorMinorOffenses(studentId, schoolYearKey, existingViolat
     (v) =>
       String(v?.student_id) === String(studentId) &&
       String(v?.school_year_key) === String(schoolYearKey) &&
-      String(v?.offense_type).toLowerCase() === 'minor'
+      String(v?.offense_type).toLowerCase() === 'minor' &&
+      doesViolationCount(v)
   ).length;
 }
 
@@ -148,4 +156,49 @@ export function evaluateSaresRecommendation({
     return evaluateMinorOffense({ studentId, incidentDate, offenseId, existingViolations });
   }
   return evaluateMajorOffense({ offenseId, severityScore, incidentDate });
+}
+
+export function buildViolationRecordsForStudents({
+  incidentData,
+  selectedStudents = [],
+  recommendation,
+  existingViolations = [],
+}) {
+  const groupIncidentId = `group-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const offenseNumber = incidentData.offense_type === 'minor' ? (recommendation?.offenseNumber ?? 1) : null;
+
+  return selectedStudents.map((student, index) => {
+    const studentRec = evaluateSaresRecommendation({
+      offenseType: incidentData.offense_type,
+      offenseId: incidentData.offense_id,
+      studentId: student.student_id,
+      incidentDate: incidentData.incident_date,
+      severityScore: incidentData.severity_score,
+      existingViolations,
+    });
+
+    return {
+      ...incidentData,
+      student_id: student.student_id,
+      student_name: student.full_name || '',
+      student_number: student.student_number || '',
+      year_level: student.year_level || '',
+      offense_number: incidentData.offense_type === 'minor' ? studentRec.offenseNumber : null,
+      severity_score: incidentData.offense_type === 'major' ? incidentData.severity_score : null,
+      recommended_sanction: studentRec.recommendedSanction || recommendation?.recommendedSanction || incidentData.recommended_sanction,
+      generated_explanation: incidentData.generated_explanation,
+      explanation_source: incidentData.explanation_source,
+      suggest_authorities: studentRec.suggestAuthorities || incidentData.suggest_authorities,
+      status: incidentData.status || 'recorded',
+      created_by: incidentData.created_by || 'system',
+      school_year_key: studentRec.schoolYearKey || incidentData.school_year_key,
+      engine_mode: incidentData.engine_mode || 'handbook_v2',
+      created_at: incidentData.created_at,
+      group_incident_id: groupIncidentId,
+      group_size: selectedStudents.length,
+      group_index: index + 1,
+      group_role: selectedStudents.length > 1 ? 'group-member' : 'single',
+      offense_number_for_display: offenseNumber,
+    };
+  });
 }

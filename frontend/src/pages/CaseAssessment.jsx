@@ -72,6 +72,8 @@ export default function CaseAssessment() {
   const isMinor = String(caseData.offense_type).toLowerCase() === "minor";
   const isMajor = String(caseData.offense_type).toLowerCase() === "major";
   const subcategoryLabel = SUBCATEGORY_LABELS[caseData.subcategory_id] || caseData.subcategory_id || "—";
+  const isMediation = String(caseData.intervention_type || "").toLowerCase() === "mediation";
+  const isPending = String(caseData.status || "").toLowerCase() === "pending";
 
   return (
     <div className="ca-page">
@@ -81,6 +83,13 @@ export default function CaseAssessment() {
           <h1 className="ca-title">Case Assessment</h1>
         </header>
         <p className="ca-sub">Violation recorded and assessed based on the Student Discipline Handbook.</p>
+
+        {isMediation && isPending && (
+          <div className="ca-mediation-alert">
+            <strong>Pending Mediation</strong>
+            <p>This case has been routed to the counselor for mediation. The handbook sanction is kept as the escalation option if mediation is not resolved.</p>
+          </div>
+        )}
 
         {caseData.suggest_authorities && (
           <div className="ca-authority-alert">
@@ -114,6 +123,7 @@ export default function CaseAssessment() {
             <div className="ca-row"><span>Subcategory</span><strong>{subcategoryLabel}</strong></div>
             <div className="ca-row"><span>Violation Group</span><strong>{caseData.group_title || caseData.category_name || "—"}</strong></div>
             <div className="ca-row"><span>Specific Violation</span><strong>{caseData.offense_variety || "—"}</strong></div>
+            <div className="ca-row"><span>Status</span><strong>{isMediation && isPending ? "Pending Mediation" : caseData.status || "Recorded"}</strong></div>
           </article>
         </section>
 
@@ -134,8 +144,10 @@ export default function CaseAssessment() {
           )}
 
           <article className="ca-card">
-            <h2>Recommended Sanction</h2>
-            <p className="ca-paragraph ca-multiline ca-sanction-text">{caseData.recommended_sanction || "—"}</p>
+            <h2>{isMediation && isPending ? "Escalation Sanction" : "Recommended Sanction"}</h2>
+            <p className="ca-paragraph ca-multiline ca-sanction-text">
+              {caseData.recommended_sanction || "—"}
+            </p>
             <div className="ca-row" style={{ marginTop: "10px" }}>
               <span>Handbook Section</span>
               <strong>Student Discipline Handbook — {isMinor ? "Minor Offense Schedule" : "Major Offense Severity Map"}</strong>

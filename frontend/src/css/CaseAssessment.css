@@ -213,6 +213,17 @@
 .ca-authority-alert strong { display: block; font-size: 14px; font-weight: 700; margin-bottom: 4px; }
 .ca-authority-alert p { font-size: 13px; margin: 0; color: #9a3412; line-height: 1.5; }
 
+.ca-mediation-alert {
+  padding: 16px;
+  border-radius: 12px;
+  background: #eefdf7;
+  border: 1px solid #bbf7d0;
+  color: #14532d;
+  margin-bottom: 4px;
+}
+.ca-mediation-alert strong { display: block; font-size: 14px; font-weight: 800; margin-bottom: 4px; }
+.ca-mediation-alert p { font-size: 13px; margin: 0; color: #166534; line-height: 1.5; }
+
 /* ── Offense Type Badge ────────────────────────────── */
 .ca-type-badge {
   display: inline-block;

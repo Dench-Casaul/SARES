@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { auth, db } from "../firebase";
+import { doesViolationCount } from "../engine/ruleEngine";
 import "../css/Reports.css";
 import wesleyLogo from "../assets/wesley-logo.png";
 
@@ -171,11 +172,12 @@ export default function Report() {
   }, [violations, dateRange, gradeSection, category]);
 
   const summary = useMemo(() => {
-    const totalViolations = filteredViolations.length;
-    const students = new Set(filteredViolations.map((v) => v.student_id || v.student_name || v.id));
+    const countedViolations = filteredViolations.filter(doesViolationCount);
+    const totalViolations = countedViolations.length;
+    const students = new Set(countedViolations.map((v) => v.student_id || v.student_name || v.id));
     const pendingCases = filteredViolations.filter((v) => String(v.status || "").toLowerCase() === "pending").length;
 
-    const counts = filteredViolations.reduce((acc, v) => {
+    const counts = countedViolations.reduce((acc, v) => {
       const key = v.category_name || "Unspecified";
       acc[key] = (acc[key] || 0) + 1;
       return acc;

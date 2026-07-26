@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { addDoc, arrayUnion, collection, deleteDoc, doc, getDocs, increment, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../firebase'
-import { evaluateSaresRecommendation } from '../engine/ruleEngine'
+import { doesViolationCount, evaluateSaresRecommendation } from '../engine/ruleEngine'
 import '../css/Student.css'
 import wesleyLogo from '../assets/wesley-logo.png'
 import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X } from 'lucide-react'
@@ -214,6 +214,7 @@ function AddViolationModal({ onClose, onSubmit, initialForm }) {
     offense_title: initialForm?.offense_title || '',
     group_title: initialForm?.group_title || '',
     severity_score: initialForm?.severity_score ?? 5,
+    handling_path: initialForm?.handling_path || 'sanction',
     incident_description: initialForm?.incident_description || '',
   });
 
@@ -350,6 +351,21 @@ function AddViolationModal({ onClose, onSubmit, initialForm }) {
           )}
 
           <div className="s-field">
+            <label className="s-label">Handling Path</label>
+            <select
+              className="s-input s-select"
+              value={form.handling_path}
+              onChange={(e) => setForm((prev) => ({ ...prev, handling_path: e.target.value }))}
+            >
+              <option value="sanction">Proceed with sanction recommendation</option>
+              <option value="mediation">Route to mediation first</option>
+            </select>
+            {form.handling_path === 'mediation' && (
+              <p className="s-modal-sub">This case will be saved as pending mediation.</p>
+            )}
+          </div>
+
+          <div className="s-field">
             <label className="s-label">Description</label>
             <textarea
               className="s-input"
@@ -442,6 +458,7 @@ function CaseManagementModal({ student, violationDraft, onClose, onSaved }) {
 
       const recommendedSanction = recommendation?.recommendedSanction || 'No recommendation available.';
       const counselorExplanation = `Based on the recorded incident, this case is classified as ${violationDraft?.group_title || 'Unspecified Category'} (${violationDraft?.offense_title || 'Unspecified Violation'}). The recommended sanction is ${recommendedSanction}. This entry is for counselor review and may be refined after due process.`;
+      const isMediation = violationDraft.handling_path === 'mediation';
 
       const payload = {
         student_id: student.docId,
@@ -451,6 +468,8 @@ function CaseManagementModal({ student, violationDraft, onClose, onSaved }) {
         incident_date: today,
         incident_description: violationDraft.incident_description,
         offense_type: violationDraft.offense_type,
+        intervention_type: isMediation ? 'mediation' : 'sanction',
+        mediation_status: isMediation ? 'pending' : null,
         subcategory_id: violationDraft.subcategory_id,
         group_number: violationDraft.group_number,
         group_title: violationDraft.group_title,
@@ -461,7 +480,7 @@ function CaseManagementModal({ student, violationDraft, onClose, onSaved }) {
         recommended_sanction: recommendedSanction,
         generated_explanation: counselorExplanation,
         explanation_source: 'manual_template',
-        status: 'recorded',
+        status: isMediation ? 'pending' : 'recorded',
         created_at: serverTimestamp(),
       };
 
@@ -477,7 +496,9 @@ function CaseManagementModal({ student, violationDraft, onClose, onSaved }) {
         severity: violationDraft.offense_type === 'major' ? Number(violationDraft.severity_score || 5) : 3,
         sanction: recommendedSanction,
         generated_explanation: counselorExplanation,
-        status: 'recorded',
+        intervention_type: isMediation ? 'mediation' : 'sanction',
+        mediation_status: isMediation ? 'pending' : null,
+        status: isMediation ? 'pending' : 'recorded',
       };
 
       await updateDoc(doc(db, 'students', student.docId), {
@@ -581,6 +602,14 @@ function StudentList({ students, onSelect, onAddStudent, onEditStudent, onDelete
     });
 
     if (isSuspended) return { text: 'In Suspension', tone: 'follow' };
+
+    const pendingMediationCount = violations.filter((violation) =>
+      String(violation?.status || '').toLowerCase() === 'pending' &&
+      String(violation?.intervention_type || '').toLowerCase() === 'mediation'
+    ).length;
+    if (pendingMediationCount > 0) {
+      return { text: `${pendingMediationCount} Pending Mediation${pendingMediationCount > 1 ? 's' : ''}`, tone: 'monitored' };
+    }
 
     const pendingCount = violations.filter((violation) => String(violation?.status || '').toLowerCase() === 'pending').length;
     if (pendingCount > 0) {
@@ -1025,6 +1054,32 @@ function StudentProfile({ student, onBack, onSelectViolation, onUpdateViolationS
                             </span>
                           );
                         }
+                        const isMediation = String(v.intervention_type || '').toLowerCase() === 'mediation';
+                        const currentStatus = String(v.status || 'pending').toLowerCase();
+                        if (isMediation) {
+                          const mediationValue = currentStatus === 'resolved'
+                            ? 'resolved'
+                            : currentStatus === 'recorded' || String(v.mediation_status || '').toLowerCase() === 'proceeded_to_sanction'
+                              ? 'recorded'
+                              : 'pending';
+                          return (
+                            <select
+                              className={`s-status-dropdown ${mediationValue === 'resolved' ? 's-status-dropdown--served' : 's-status-dropdown--pending'}`}
+                              value={mediationValue}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                onUpdateViolationStatus(v.id, value, {
+                                  mediation_status: value === 'resolved' ? 'resolved' : value === 'recorded' ? 'proceeded_to_sanction' : 'pending',
+                                });
+                              }}
+                            >
+                              <option value="pending">Pending Mediation</option>
+                              <option value="recorded">Proceed to Sanction</option>
+                              <option value="resolved">Resolved Through Mediation</option>
+                            </select>
+                          );
+                        }
                         return (
                           <select
                             className={`s-status-dropdown ${(v.status || 'pending').toLowerCase() === 'served' ? 's-status-dropdown--served' : 's-status-dropdown--pending'}`}
@@ -1263,12 +1318,13 @@ export default function Students() {
       return timeB - timeA;
     });
 
-    const violationCount =
-      typeof student.violation_count === 'number'
+    const violationCount = violationList.length > 0
+      ? violationList.filter(doesViolationCount).length
+      : typeof student.violation_count === 'number'
         ? student.violation_count
         : typeof student.violations === 'number'
           ? student.violations
-          : violationList.length;
+          : 0;
 
     return {
       docId: student.student_id || '',
@@ -1325,6 +1381,8 @@ export default function Students() {
             sanction: violation.recommended_sanction || 'N/A',
             generated_explanation: violation.generated_explanation || '',
             status: violation.status || 'recorded',
+            intervention_type: violation.intervention_type || '',
+            mediation_status: violation.mediation_status || '',
             suspension_start: violation.suspension_start || '',
             suspension_end: violation.suspension_end || '',
           }));
@@ -1332,7 +1390,7 @@ export default function Students() {
         return {
           ...student,
           violations: mappedViolations,
-          violation_count: mappedViolations.length,
+          violation_count: mappedViolations.filter(doesViolationCount).length,
         };
       });
 
@@ -1508,14 +1566,15 @@ export default function Students() {
     }
   };
 
-  const handleUpdateViolationStatus = async (violationId, nextStatus) => {
+  const handleUpdateViolationStatus = async (violationId, nextStatus, extraFields = {}) => {
     if (!violationId) return;
+    const nextPatch = { status: nextStatus, ...extraFields };
     const applyStatus = (list) =>
       list.map((student) => ({
         ...student,
         violations: (student.violations || []).map((violation) =>
           String(violation.id) === String(violationId)
-            ? { ...violation, status: nextStatus }
+            ? { ...violation, ...nextPatch }
             : violation
         ),
       }));
@@ -1527,7 +1586,7 @@ export default function Students() {
             ...prev,
             violations: (prev.violations || []).map((violation) =>
               String(violation.id) === String(violationId)
-                ? { ...violation, status: nextStatus }
+                ? { ...violation, ...nextPatch }
                 : violation
             ),
           }
@@ -1536,7 +1595,7 @@ export default function Students() {
 
     try {
       await updateDoc(doc(db, 'violations', violationId), {
-        status: nextStatus,
+        ...nextPatch,
         updated_at: serverTimestamp(),
       });
     } catch (error) {

@@ -3,11 +3,10 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { addDoc, collection, getDocs, serverTimestamp } from 'firebase/firestore'
 import { db } from '../firebase'
 import {
+  buildViolationRecordsForStudents,
   evaluateSaresRecommendation,
-  getSchoolYearKey,
 } from '../engine/ruleEngine'
 import {
-  listOffenseTypes,
   getSubcategories,
   listOffenseGroups,
   listOffensesByGroup,
@@ -90,6 +89,7 @@ export default function Violation() {
   const [students, setStudents] = useState([])
   const [studentQuery, setStudentQuery] = useState('')
   const [studentMenuOpen, setStudentMenuOpen] = useState(false)
+  const [selectedStudents, setSelectedStudents] = useState([])
   const [submitting, setSubmitting] = useState(false)
 
   const today = new Date().toISOString().split('T')[0]
@@ -105,6 +105,7 @@ export default function Violation() {
     offense_title: '',
     offense_number: 1,      // minor: 1/2/3
     severity_score: 5,      // major: 1-10
+    handling_path: 'sanction',
     incident_description: '',
   })
 
@@ -207,7 +208,7 @@ export default function Violation() {
 
   const goNext = async () => {
     if (step === 0) {
-      if (!form.student_id) { alert('Please select a student.'); return }
+      if (selectedStudents.length === 0 && !form.student_id) { alert('Please select at least one student.'); return }
       if (!form.incident_date) { alert('Please select a date.'); return }
       await fetchViolations()
     }
@@ -243,6 +244,7 @@ export default function Violation() {
       const user = JSON.parse(localStorage.getItem('user'))
       const offenseCount = form.offense_type === 'minor' ? recommendation.offenseNumber : 1
       const severityScore = form.offense_type === 'major' ? form.severity_score : null
+      const isMediation = form.handling_path === 'mediation'
 
       let generatedExplanation = deterministicTemplateExplanation({
         offenseCategory: form.group_title,
@@ -276,14 +278,12 @@ export default function Violation() {
         // Fallback template remains active.
       }
 
-      const payload = {
-        student_id: form.student_id,
-        student_name: selectedStudent?.full_name || '',
-        student_number: selectedStudent?.student_number || '',
-        year_level: selectedStudent?.year_level || '',
+      const baseIncidentData = {
         incident_date: form.incident_date,
         incident_description: form.incident_description,
         offense_type: form.offense_type,
+        intervention_type: isMediation ? 'mediation' : 'sanction',
+        mediation_status: isMediation ? 'pending' : null,
         subcategory_id: form.subcategory_id,
         group_number: form.group_number,
         group_title: form.group_title,
@@ -296,19 +296,35 @@ export default function Violation() {
         generated_explanation: generatedExplanation,
         explanation_source: explanationSource,
         suggest_authorities: recommendation.suggestAuthorities,
-        status: 'recorded',
+        status: isMediation ? 'pending' : 'recorded',
         created_by: user?.user_id || 'system',
         school_year_key: recommendation.schoolYearKey,
         engine_mode: 'handbook_v2',
         created_at: serverTimestamp(),
       }
-      const saved = await addDoc(collection(db, 'violations'), payload)
+
+      const studentsToRecord = selectedStudents.length > 0
+        ? selectedStudents
+        : (selectedStudent ? [selectedStudent] : [])
+
+      const payloads = buildViolationRecordsForStudents({
+        incidentData: baseIncidentData,
+        selectedStudents: studentsToRecord,
+        recommendation,
+        existingViolations,
+      })
+
+      const savedDocs = []
+      for (const payload of payloads) {
+        const saved = await addDoc(collection(db, 'violations'), payload)
+        savedDocs.push({ ...payload, id: saved.id })
+      }
+
+      const primaryCase = savedDocs[0]
       navigate('/sares/case-assessment', {
         state: {
-          caseData: {
-            ...payload,
-            id: saved.id,
-          },
+          caseData: primaryCase,
+          groupCaseData: savedDocs,
         },
       })
     } catch (err) {
@@ -323,12 +339,7 @@ export default function Violation() {
   const offenseGroups = (form.offense_type && form.subcategory_id)
     ? listOffenseGroups(form.offense_type, form.subcategory_id)
     : []
-  const groupOffenses = (form.offense_type && form.subcategory_id && form.group_number !== null)
-    ? listOffensesByGroup(form.offense_type, form.subcategory_id, form.group_number)
-    : []
-
   const isMajor = form.offense_type === 'major'
-  const sanctionForDisplay = recommendation?.recommendedSanction || ''
   const suggestAuthorities = recommendation?.suggestAuthorities || false
 
   return (
@@ -376,14 +387,14 @@ export default function Violation() {
               <p className="v-directory-sub">Select the student and incident date</p>
 
               <div className="v-field" style={{ marginTop: '1.5rem' }}>
-                <label className="v-label">Student *</label>
+                <label className="v-label">Students involved *</label>
                 <div className="v-student-combobox">
                   <div className="v-student-combobox-inner">
                     <input
                       type="text"
                       className="v-input v-student-input"
                       autoComplete="off"
-                      placeholder="Search or select a student"
+                      placeholder="Search or select students"
                       value={studentQuery}
                       onChange={e => {
                         setStudentQuery(e.target.value)
@@ -401,17 +412,44 @@ export default function Violation() {
                     <ul className="v-student-dropdown">
                       {filteredStudents.length === 0
                         ? <li className="v-student-option v-student-option--empty">No matching students.</li>
-                        : filteredStudents.map(s => (
-                          <li key={s.student_id} className="v-student-option"
-                            onMouseDown={e => e.preventDefault()}
-                            onClick={() => { setForm(f => ({ ...f, student_id: String(s.student_id) })); setStudentQuery(`${s.first_name || ''} ${s.last_name || ''}`.trim() || s.full_name || ''); setStudentMenuOpen(false) }}>
-                            <span className="v-student-option-name">{`${s.first_name || ''} ${s.last_name || ''}`.trim() || s.full_name || ''}</span>
-                            {s.student_number && <span className="v-student-option-meta">{s.student_number}</span>}
-                          </li>
-                        ))}
+                        : filteredStudents.map(s => {
+                            const isSelected = selectedStudents.some(student => String(student.student_id) === String(s.student_id))
+                            return (
+                              <li key={s.student_id} className={`v-student-option ${isSelected ? 'selected' : ''}`}
+                                onMouseDown={e => e.preventDefault()}
+                                onClick={() => {
+                                  setStudentQuery('')
+                                  setStudentMenuOpen(false)
+                                  setSelectedStudents(prev => {
+                                    const exists = prev.some(student => String(student.student_id) === String(s.student_id))
+                                    if (exists) {
+                                      return prev.filter(student => String(student.student_id) !== String(s.student_id))
+                                    }
+                                    return [...prev, {
+                                      student_id: String(s.student_id),
+                                      full_name: `${s.first_name || ''} ${s.last_name || ''}`.trim() || s.full_name || '',
+                                      student_number: s.student_number || '',
+                                      year_level: s.year_level || '',
+                                    }]
+                                  })
+                                  setForm(f => ({ ...f, student_id: String(s.student_id) }))
+                                }}>
+                                <span className="v-student-option-name">{`${s.first_name || ''} ${s.last_name || ''}`.trim() || s.full_name || ''}</span>
+                                {s.student_number && <span className="v-student-option-meta">{s.student_number}</span>}
+                              </li>
+                            )
+                          })}
                     </ul>
                   )}
                 </div>
+                {selectedStudents.length > 0 && (
+                  <div className="v-field" style={{ marginTop: '0.75rem' }}>
+                    <div className="v-review-section" style={{ padding: '12px 14px', border: '1px solid #d8e6f7', borderRadius: '10px', background: '#f8fbff' }}>
+                      <strong>Selected students</strong>
+                      <p style={{ margin: '6px 0 0' }}>{selectedStudents.map(s => s.full_name || s.student_id).join(', ')}</p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="v-field" style={{ marginTop: '1rem' }}>
@@ -594,6 +632,23 @@ export default function Violation() {
                 </div>
               )}
 
+              <div className="v-field" style={{ marginTop: '1.2rem' }}>
+                <label className="v-label">Handling Path</label>
+                <select
+                  className="v-input"
+                  value={form.handling_path}
+                  onChange={(e) => setForm(f => ({ ...f, handling_path: e.target.value }))}
+                >
+                  <option value="sanction">Proceed with sanction recommendation</option>
+                  <option value="mediation">Route to mediation first</option>
+                </select>
+                {form.handling_path === 'mediation' && (
+                  <p className="v-directory-sub" style={{ marginTop: '8px' }}>
+                    This case will be saved as pending mediation. The handbook sanction remains available if mediation fails or needs escalation.
+                  </p>
+                )}
+              </div>
+
               <div className="v-field" style={{ marginTop: '1.5rem' }}>
                 <label className="v-label">Incident Description *</label>
                 <textarea className="v-input v-textarea" rows="5"
@@ -646,6 +701,12 @@ export default function Violation() {
                   </div>
                 )}
                 <div className="v-review-section v-review-section--full">
+                  <h4>Handling Path</h4>
+                  <p className="v-review-sanction">
+                    {form.handling_path === 'mediation' ? 'Pending mediation' : 'Proceed with sanction recommendation'}
+                  </p>
+                </div>
+                <div className="v-review-section v-review-section--full">
                   <h4>Recommended Sanction</h4>
                   <p className="v-review-sanction">{recommendation.recommendedSanction}</p>
                 </div>
@@ -693,7 +754,7 @@ export default function Violation() {
             )}
             {step === 5 && (
               <button className="v-btn-submit" onClick={handleSubmit} disabled={submitting}>
-                {submitting ? 'Submitting…' : 'Submit Violation'}
+                {submitting ? 'Submitting...' : form.handling_path === 'mediation' ? 'Submit for Mediation' : 'Submit Violation'}
               </button>
             )}
           </div>

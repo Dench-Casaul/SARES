@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { collection, getDocs } from 'firebase/firestore'
 import { db } from '../firebase'
+import { doesViolationCount } from '../engine/ruleEngine'
 import '../css/Dashboard.css'
 import heroImg from '../assets/hero.png'
 import wesleyLogo from '../assets/wesley-logo.png'
@@ -65,9 +66,10 @@ const Dashboard = () => {
         violation_id: violationDoc.id,
         ...violationDoc.data(),
       }));
+      const countedViolations = violationsData.filter(doesViolationCount);
 
       const repeatOffendersCount = new Set(
-        violationsData
+        countedViolations
           .map((violation) => String(violation.student_id || ''))
           .filter(Boolean)
           .filter((studentId, _, all) => all.filter((id) => id === studentId).length >= 2)
@@ -75,7 +77,7 @@ const Dashboard = () => {
 
       setSummary({
         total_students: studentsData.length,
-        total_violations: violationsData.length,
+        total_violations: countedViolations.length,
         repeat_offenders: repeatOffendersCount,
       });
       setRecentViolations(
@@ -87,10 +89,10 @@ const Dashboard = () => {
           })
           .slice(0, 5)
       );
-      setRepeatOffenders(getRepeatOffenders(violationsData));
-      setCategoryStats(getCategoryStats(violationsData));
-      setViolationTrends(getViolationTrends(violationsData));
-      setMonthlyTrends(getMonthlyTrends(violationsData));
+      setRepeatOffenders(getRepeatOffenders(countedViolations));
+      setCategoryStats(getCategoryStats(countedViolations));
+      setViolationTrends(getViolationTrends(countedViolations));
+      setMonthlyTrends(getMonthlyTrends(countedViolations));
     } catch (error) {
       console.error('Dashboard load error:', error);
     }
