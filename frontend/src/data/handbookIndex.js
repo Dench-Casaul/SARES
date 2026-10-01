@@ -24,6 +24,29 @@ handbook.offenseGroups.forEach((group) => {
 const typeIndex = Object.fromEntries(
   handbook.offenseTypes.map((t) => [t.id, t])
 );
+const defaultMinorSchedule = typeIndex.minor.sanctionSchedule.map((rule) => ({ ...rule }));
+const defaultMajorMap = typeIndex.major.severitySanctionMap.map((rule) => ({ ...rule }));
+
+export function getSanctionOverrides() {
+  return {
+    minorSanctionSchedule: typeIndex.minor.sanctionSchedule.map((rule) => ({ ...rule })),
+    majorSeveritySanctionMap: typeIndex.major.severitySanctionMap.map((rule) => ({ ...rule })),
+  };
+}
+
+export function applySanctionOverrides(overrides = {}) {
+  typeIndex.minor.sanctionSchedule = defaultMinorSchedule.map((rule, index) => ({
+    ...rule,
+    ...(overrides.minorSanctionSchedule?.[index] || {}),
+    offenseNumber: rule.offenseNumber,
+  }));
+  typeIndex.major.severitySanctionMap = defaultMajorMap.map((rule, index) => ({
+    ...rule,
+    ...(overrides.majorSeveritySanctionMap?.[index] || {}),
+    min: rule.min,
+    max: rule.max,
+  }));
+}
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 

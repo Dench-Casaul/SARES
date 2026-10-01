@@ -74,17 +74,12 @@ function toGradeSection(violation) {
   return value || "Unspecified";
 }
 
-function csvEscape(value) {
-  const raw = String(value ?? "");
-  const escaped = raw.replace(/"/g, '""');
-  return `"${escaped}"`;
-}
-
 export default function Report() {
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [violations, setViolations] = useState([]);
+  const [studentNumbers, setStudentNumbers] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -108,7 +103,22 @@ export default function Report() {
       }
     );
 
-    return () => unsubscribe();
+    const unsubscribeStudents = onSnapshot(
+      collection(db, "students"),
+      (snapshot) => {
+        const numbers = Object.fromEntries(snapshot.docs.map((studentDoc) => {
+          const student = studentDoc.data();
+          return [studentDoc.id, student.student_number || student.id || ""];
+        }));
+        setStudentNumbers(numbers);
+      },
+      (fetchError) => console.error("Failed to load student numbers for reports:", fetchError)
+    );
+
+    return () => {
+      unsubscribe();
+      unsubscribeStudents();
+    };
   }, []);
 
   const handleLogout = async () => {
@@ -175,10 +185,11 @@ export default function Report() {
     };
   }, [filteredViolations]);
 
-  const exportCsv = () => {
+  const exportExcel = async () => {
+    const { createReportsXlsx } = await import("../engine/reportsXlsx");
     const headers = [
       "Date",
-      "Student ID",
+      "Student Number",
       "Student Name",
       "Offense Classification",
       "Specific Violation",
@@ -200,7 +211,7 @@ export default function Report() {
         : "";
       return [
         recordDate ? recordDate.toISOString().slice(0, 10) : "N/A",
-        v.student_id || "N/A",
+        v.student_number || studentNumbers[String(v.student_id)] || "N/A",
         v.student_name || "Unknown",
         [v.offense_type, v.subcategory_id || v.category_name].filter(Boolean).join(" - ") || "Unspecified",
         v.offense_variety || v.rule_name || "Unspecified",
@@ -217,12 +228,13 @@ export default function Report() {
       ];
     });
 
-    const csv = [headers, ...rows].map((line) => line.map(csvEscape).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const columnWidths = [14, 20, 26, 24, 36, 16, 16, 24, 18, 26, 48, 48, 48, 16, 48];
+    const workbookBytes = createReportsXlsx(headers, rows, columnWidths);
+    const blob = new Blob([workbookBytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", "sares-reports.csv");
+    link.download = "sares-reports.xlsx";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -268,7 +280,7 @@ export default function Report() {
                 <option key={item} value={item}>{item}</option>
               ))}
             </select>
-            <button type="button" className="report-secondary-btn" onClick={exportCsv}>Export CSV</button>
+            <button type="button" className="report-secondary-btn" onClick={exportExcel}>Export Excel</button>
           </div>
         </section>
 
@@ -297,6 +309,7 @@ export default function Report() {
                 <thead>
                   <tr>
                     <th>Date</th>
+                    <th>Student Number</th>
                     <th>Student</th>
                     <th>Offense</th>
                     <th>Reported By</th>
@@ -310,6 +323,7 @@ export default function Report() {
                     return (
                       <tr key={v.id}>
                         <td>{recordDate ? recordDate.toISOString().slice(0, 10) : "N/A"}</td>
+                        <td>{v.student_number || studentNumbers[String(v.student_id)] || "N/A"}</td>
                         <td>{v.student_name || v.student_id || "Unknown"}</td>
                         <td>{v.offense_variety || v.rule_name || v.category_name || v.offense_type || "Unspecified"}</td>
                         <td>{v.reported_by || "N/A"}</td>

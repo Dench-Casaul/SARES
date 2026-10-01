@@ -170,6 +170,17 @@
   gap: 10px;
 }
 
+.ca-print-button {
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ca-print-report { display: none; }
+
 .ca-btn-primary,
 .ca-btn-secondary {
   text-decoration: none;
@@ -257,4 +268,55 @@
   height: 48px;
   object-fit: contain;
   border-radius: 50%;
+}
+
+@media print {
+  @page { size: letter; margin: 0.55in; }
+
+  html, body, #root, .ca-page, .ca-main {
+    width: auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  body * { visibility: hidden !important; }
+  .ca-print-report, .ca-print-report * { visibility: visible !important; }
+  .ca-print-report {
+    display: block !important;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    color: #222;
+    background: #fff;
+    font: 10pt/1.35 Arial, sans-serif;
+  }
+
+  .ca-print-heading { text-align: center; margin-bottom: 14px; }
+  .ca-print-heading h1 { margin: 0; font-size: 18pt; }
+  .ca-print-heading p { margin: 2px 0 10px; font-style: italic; }
+  .ca-print-meta { display: grid; grid-template-columns: 1fr 1fr; text-align: left; border: 1px solid #777; }
+  .ca-print-meta strong { padding: 8px; }
+  .ca-print-meta strong + strong { border-left: 1px solid #777; }
+  .ca-print-section { margin: 12px 0; break-inside: avoid; }
+  .ca-print-section h2 { margin: 0 0 6px; padding-bottom: 3px; border-bottom: 1px solid #333; font-size: 13pt; }
+  .ca-print-section h3 { margin: 9px 0 4px; font-size: 10pt; }
+  .ca-print-grid { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #888; border-left: 1px solid #888; }
+  .ca-print-grid > div { min-height: 38px; padding: 7px; border-right: 1px solid #888; border-bottom: 1px solid #888; }
+  .ca-print-grid > .ca-print-tall { min-height: 58px; }
+  .ca-print-check { display: inline-block; margin: 6px 8px 0 0; }
+  .ca-print-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .ca-print-table th, .ca-print-table td { height: 29px; padding: 5px; border: 1px solid #888; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+  .ca-print-table th { background: #eee !important; }
+  .ca-print-note { margin: 4px 0; color: #555; font-size: 9pt; font-style: italic; }
+  .ca-print-natures { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+  .ca-print-narrative { min-height: 80px; margin: 0; padding: 6px 0; border-bottom: 1px solid #999; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .ca-print-action-text { min-height: 48px; padding: 7px; border: 1px solid #888; white-space: pre-wrap; }
+  .ca-print-certification { margin: 18px 0 26px; }
+  .ca-print-signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 34px; }
+  .ca-print-signatures > div { display: flex; flex-direction: column; gap: 4px; font-size: 9pt; }
+  .ca-print-signatures span { height: 28px; border-bottom: 1px solid #333; }
+  .ca-print-signatures small { margin-top: 3px; }
+  .ca-print-footer { position: fixed; bottom: 0; width: 100%; padding-top: 5px; border-top: 1px solid #aaa; color: #555; font: 8pt Georgia, serif; }
 }

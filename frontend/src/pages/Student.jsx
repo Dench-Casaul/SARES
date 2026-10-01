@@ -5,7 +5,7 @@ import { db } from '../firebase'
 import { doesViolationCount, evaluateSaresRecommendation, isViolationServed } from '../engine/ruleEngine'
 import '../css/Student.css'
 import wesleyLogo from '../assets/wesley-logo.png'
-import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X, Calendar } from 'lucide-react'
+import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X, Calendar, Download } from 'lucide-react'
 import { getSubcategories, listOffenseGroups, listOffensesByGroup } from '../data/handbookIndex'
 
 const normalizeViolationStatus = (status) => {
@@ -1184,6 +1184,22 @@ function ViolationDetails({ violation, student, onBack, onSetSuspensionDates, su
     setShowSuspensionModal(false);
   };
 
+  const handleDownloadIncidentReport = async () => {
+    const { generateIncidentReportPdf } = await import('../engine/incidentReportPdf');
+    const reportCase = {
+      ...violation,
+      student_name: violation.student_name || student.name,
+      student_number: violation.student_number || student.id,
+      year_level: violation.year_level || student.year,
+      student_contact: violation.student_contact || student.phone,
+    };
+    const groupMembers = (violation.group_members || [reportCase]).map((member) => ({
+      ...member,
+      student_contact: member.student_contact || (String(member.student_id) === String(student.docId) ? student.phone : ''),
+    }));
+    generateIncidentReportPdf(reportCase, groupMembers);
+  };
+
   return (
     <div className="s-page">
       <div className="s-mobile-menu-bar">
@@ -1214,6 +1230,9 @@ function ViolationDetails({ violation, student, onBack, onSetSuspensionDates, su
             <h1 className="s-vd-title">Violation Details</h1>
             <p className="s-vd-sub">Review violation and sanction recommendation</p>
           </div>
+          <button type="button" className="s-btn-submit s-btn-submit--sm s-report-download-btn" onClick={handleDownloadIncidentReport}>
+            <Download size={16} /> Download Incident Report PDF
+          </button>
         </div>
 
         {/* Violation Information */}
@@ -1416,12 +1435,33 @@ export default function Students() {
             const timeB = b.created_at?.seconds ? b.created_at.seconds * 1000 : new Date(b.incident_date || 0).getTime();
             return timeB - timeA;
           })
-          .map((violation) => ({
+          .map((violation) => {
+            const groupRecords = violation.group_incident_id
+              ? allViolations.filter((record) => record.group_incident_id === violation.group_incident_id)
+              : [violation];
+            const groupMembers = groupRecords.map((record) => {
+              const recordStudent = data.find((item) => String(item.student_id) === String(record.student_id));
+              return {
+                ...record,
+                student_name: record.student_name || recordStudent?.full_name || recordStudent?.name || '',
+                student_number: record.student_number || recordStudent?.student_number || '',
+                year_level: record.year_level || recordStudent?.year_level || recordStudent?.year || '',
+                student_contact: recordStudent?.phone_number || recordStudent?.phone || '',
+              };
+            });
+            const currentStudent = data.find((item) => String(item.student_id) === String(violation.student_id));
+            return {
+            ...violation,
             id: violation.id,
             category: violation.category_name || violation.group_title || 'Unspecified',
             variety: violation.offense_variety || violation.offense_id || 'Unspecified',
             description: violation.incident_description || violation.description || '',
             witnesses: violation.witnesses || '',
+            student_name: violation.student_name || currentStudent?.full_name || currentStudent?.name || '',
+            student_number: violation.student_number || currentStudent?.student_number || '',
+            year_level: violation.year_level || currentStudent?.year_level || currentStudent?.year || '',
+            student_contact: currentStudent?.phone_number || currentStudent?.phone || '',
+            group_members: groupMembers,
             date: violation.incident_date || '',
             offense_type: violation.offense_type || '',
             severity: violation.severity_score ?? (violation.offense_type === 'major' ? 8 : 3),
@@ -1437,7 +1477,8 @@ export default function Students() {
             suspension_eligible: Boolean(violation.suspension_eligible),
             suspension_start: violation.suspension_start || '',
             suspension_end: violation.suspension_end || '',
-          }));
+          };
+          });
 
         return {
           ...student,

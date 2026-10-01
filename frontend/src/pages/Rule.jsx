@@ -1,9 +1,13 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { collection, doc, onSnapshot, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore'
 import '../css/Rule.css'
 import wesleyLogo from '../assets/wesley-logo.png'
-import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X, ChevronDown, ChevronRight } from 'lucide-react'
+import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X, ChevronDown, ChevronRight, Save, Pencil } from 'lucide-react'
 import handbook from '../data/generalizedHandbook.json'
+import { applySanctionOverrides, getSanctionOverrides } from '../data/handbookIndex'
+import { db } from '../firebase'
+import { formatIdentifiedSanction } from '../engine/sanctionLabel'
 
 function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar }) {
   return (
@@ -104,6 +108,103 @@ export default function Rule() {
   const [tempSubcategory, setTempSubcategory] = useState(null);
   const [tempCategoryFilter, setTempCategoryFilter] = useState('all');
   const [tempSearchQuery, setTempSearchQuery] = useState('');
+  const [activePanel, setActivePanel] = useState('browse');
+  const [sanctionDraft, setSanctionDraft] = useState(getSanctionOverrides);
+  const [violationRows, setViolationRows] = useState([]);
+  const [violationQuery, setViolationQuery] = useState('');
+  const [editingViolation, setEditingViolation] = useState(null);
+  const [panelMessage, setPanelMessage] = useState('');
+  const [panelError, setPanelError] = useState('');
+  const [savingPanel, setSavingPanel] = useState(false);
+
+  useEffect(() => {
+    const unsubscribeRules = onSnapshot(doc(db, 'rules', 'handbook_sanctions'), (snapshot) => {
+      const overrides = snapshot.exists() ? snapshot.data() : {};
+      applySanctionOverrides(overrides);
+      setSanctionDraft(getSanctionOverrides());
+    }, (error) => {
+      console.error('Failed to load sanction rules:', error);
+      setPanelError('Unable to load saved sanction overrides.');
+    });
+    const unsubscribeViolations = onSnapshot(collection(db, 'violations'), (snapshot) => {
+      setViolationRows(snapshot.docs.map((record) => ({ id: record.id, ...record.data() }))
+        .sort((left, right) => String(right.incident_date || '').localeCompare(String(left.incident_date || ''))));
+    }, (error) => {
+      console.error('Failed to load violations for editing:', error);
+      setPanelError('Unable to load violation records.');
+    });
+    return () => {
+      unsubscribeRules();
+      unsubscribeViolations();
+    };
+  }, []);
+
+  const saveSanctionRules = async (event) => {
+    event.preventDefault();
+    setSavingPanel(true);
+    setPanelError('');
+    setPanelMessage('');
+    try {
+      await setDoc(doc(db, 'rules', 'handbook_sanctions'), {
+        ...sanctionDraft,
+        updated_at: serverTimestamp(),
+      });
+      applySanctionOverrides(sanctionDraft);
+      setPanelMessage('Sanction rules saved. New recommendations will use these values.');
+    } catch (error) {
+      console.error('Failed to save sanction rules:', error);
+      setPanelError('Could not save sanction rules. Check your access and try again.');
+    } finally {
+      setSavingPanel(false);
+    }
+  };
+
+  const saveViolation = async (event) => {
+    event.preventDefault();
+    if (!editingViolation) return;
+    setSavingPanel(true);
+    setPanelError('');
+    setPanelMessage('');
+    const isMediation = String(editingViolation.intervention_type || '').toLowerCase() === 'mediation';
+    const mediationStatus = !isMediation
+      ? editingViolation.mediation_status || null
+      : editingViolation.status === 'resolved'
+        ? 'resolved'
+        : editingViolation.status === 'recorded'
+          ? 'proceeded_to_sanction'
+          : 'pending';
+    const payload = {
+      incident_date: editingViolation.incident_date || '',
+      group_title: editingViolation.group_title || '',
+      category_name: editingViolation.group_title || editingViolation.category_name || '',
+      offense_variety: editingViolation.offense_variety || '',
+      incident_description: editingViolation.incident_description || '',
+      witnesses: editingViolation.witnesses || '',
+      reported_by: editingViolation.reported_by || '',
+      reporter_role: editingViolation.reporter_role || '',
+      reporter_contact: editingViolation.reporter_contact || '',
+      recommended_sanction: editingViolation.recommended_sanction || '',
+      status: editingViolation.status || 'recorded',
+      mediation_status: mediationStatus,
+      identified_sanction: formatIdentifiedSanction({
+        ...editingViolation,
+        recommended_sanction: editingViolation.recommended_sanction,
+        status: editingViolation.status,
+        mediation_status: mediationStatus,
+      }),
+      updated_at: serverTimestamp(),
+    };
+    try {
+      await updateDoc(doc(db, 'violations', editingViolation.id), payload);
+      setEditingViolation(null);
+      setPanelMessage('Violation record updated.');
+    } catch (error) {
+      console.error('Failed to update violation record:', error);
+      setPanelError('Could not update this violation. Check your access and try again.');
+    } finally {
+      setSavingPanel(false);
+    }
+  };
 
   const handleApplyFilters = () => {
     setActiveType(tempType);
@@ -111,32 +212,6 @@ export default function Rule() {
     setCategoryFilter(tempCategoryFilter);
     setSearchQuery(tempSearchQuery);
   };
-
-  // Reactively auto-reset subcategory and category dropdowns when their available choices change
-  useEffect(() => {
-    // 1. Reset severity if it's no longer valid under tempType
-    if (tempType !== 'all') {
-      const allowedSeverityIds = SEVERITY_OPTIONS.filter(s => s.category === tempType).map(s => s.id);
-      if (tempSubcategory && tempSubcategory !== 'all' && !allowedSeverityIds.includes(tempSubcategory)) {
-        setTempSubcategory('all');
-        return;
-      }
-    }
-
-    // 2. Reset category filter if the currently selected one is no longer in available categories
-    const allowedCategories = [...new Set(
-      handbook.offenseGroups
-        .filter(g => {
-          const matchType = tempType === 'all' || g.categoryId === tempType;
-          const matchSub = !tempSubcategory || tempSubcategory === 'all' || g.subcategoryId === tempSubcategory;
-          return matchType && matchSub;
-        })
-        .map(g => g.groupTitle)
-    )];
-    if (tempCategoryFilter !== 'all' && !allowedCategories.includes(tempCategoryFilter)) {
-      setTempCategoryFilter('all');
-    }
-  }, [tempType, tempSubcategory, tempCategoryFilter]);
 
   // Dynamic available categories for the dropdown based on selected tempType and tempSubcategory
   const availableCategories = [...new Set(
@@ -161,9 +236,6 @@ export default function Rule() {
     setExpandedGroup(expandedGroup === num ? null : num);
   };
 
-  // Get all unique categories for dropdown
-  const allCategories = [...new Set(handbook.offenseGroups.map(g => g.groupTitle))].sort();
-
   // Unified filtering logic
   const filteredGroups = handbook.offenseGroups.filter(g => {
     const matchType = activeType === 'all' || g.categoryId === activeType;
@@ -177,6 +249,21 @@ export default function Rule() {
 
     return matchType && matchSub && matchCat && matchSearch;
   });
+  const filteredViolationRows = violationRows.filter((record) => {
+    const query = violationQuery.trim().toLowerCase();
+    if (!query) return true;
+    return [record.student_name, record.student_number, record.group_title, record.offense_variety, record.incident_description]
+      .some((value) => String(value || '').toLowerCase().includes(query));
+  });
+
+  const updateSanctionDraft = (key, index, value) => {
+    setSanctionDraft((previous) => ({
+      ...previous,
+      [key]: previous[key].map((rule, ruleIndex) =>
+        ruleIndex === index ? { ...rule, sanction: value } : rule
+      ),
+    }));
+  };
 
   return (
     <div className="rule-page">
@@ -201,8 +288,18 @@ export default function Rule() {
 
       <main className="rule-main">
         <h1>Rule Management</h1>
-        <p>Browse the complete handbook of offenses, classifications, and sanctions</p>
+        <p>Review handbook rules, update sanctions, and maintain incident records</p>
 
+        <div className="rm-tabs" role="tablist" aria-label="Rule and violation management">
+          <button type="button" role="tab" aria-selected={activePanel === 'browse'} className={activePanel === 'browse' ? 'active' : ''} onClick={() => setActivePanel('browse')}>Handbook</button>
+          <button type="button" role="tab" aria-selected={activePanel === 'rules'} className={activePanel === 'rules' ? 'active' : ''} onClick={() => setActivePanel('rules')}>Update Rules</button>
+          <button type="button" role="tab" aria-selected={activePanel === 'violations'} className={activePanel === 'violations' ? 'active' : ''} onClick={() => setActivePanel('violations')}>Update Violations</button>
+        </div>
+
+        {panelMessage && <p className="rm-panel-message" role="status">{panelMessage}</p>}
+        {panelError && <p className="rm-panel-error" role="alert">{panelError}</p>}
+
+        {activePanel === 'browse' && <>
         {/* Search and Filters Bar */}
         <div className="rm-filter-bar">
           <div className="rm-search-wrap">
@@ -228,6 +325,7 @@ export default function Rule() {
               <select value={tempType} onChange={(e) => {
                 setTempType(e.target.value);
                 setTempSubcategory('all');
+                setTempCategoryFilter('all');
               }}>
                 <option value="all">All Types</option>
                 <option value="minor">Minor Offenses</option>
@@ -237,7 +335,10 @@ export default function Rule() {
 
             <div className="rm-filter-item">
               <label>Severity</label>
-              <select value={tempSubcategory || 'all'} onChange={(e) => setTempSubcategory(e.target.value)}>
+              <select value={tempSubcategory || 'all'} onChange={(e) => {
+                setTempSubcategory(e.target.value);
+                setTempCategoryFilter('all');
+              }}>
                 <option value="all">All Severities</option>
                 {SEVERITY_OPTIONS.filter(s => tempType === 'all' || s.category === tempType).map(s => (
                   <option key={s.id} value={s.id}>{s.label}</option>
@@ -340,6 +441,79 @@ export default function Rule() {
             })
           )}
         </div>
+        </>}
+
+        {activePanel === 'rules' && (
+          <form className="rm-editor-panel" onSubmit={saveSanctionRules}>
+            <div className="rm-editor-heading">
+              <div><h2>Sanction Rules</h2><p>Saved values apply to new recommendations. Existing case records are not rewritten.</p></div>
+              <button className="rm-apply-btn rm-save-btn" type="submit" disabled={savingPanel}><Save size={16} /> {savingPanel ? 'Saving...' : 'Save Rules'}</button>
+            </div>
+            <h3>Minor offense schedule</h3>
+            <div className="rm-sanction-edit-grid">
+              {sanctionDraft.minorSanctionSchedule.map((rule, index) => (
+                <label key={rule.offenseNumber}>
+                  <span>{rule.label}</span>
+                  <textarea rows="3" required value={rule.sanction} onChange={(event) => updateSanctionDraft('minorSanctionSchedule', index, event.target.value)} />
+                </label>
+              ))}
+            </div>
+            <h3>Major offense severity map</h3>
+            <div className="rm-sanction-edit-grid rm-major-edit-grid">
+              {sanctionDraft.majorSeveritySanctionMap.map((rule, index) => (
+                <label key={rule.min}>
+                  <span>Severity {rule.min}–{rule.max}</span>
+                  <textarea rows="3" required value={rule.sanction} onChange={(event) => updateSanctionDraft('majorSeveritySanctionMap', index, event.target.value)} />
+                </label>
+              ))}
+            </div>
+          </form>
+        )}
+
+        {activePanel === 'violations' && (
+          <section className="rm-editor-panel">
+            <div className="rm-editor-heading">
+              <div><h2>Incident Records</h2><p>Edit report details or the saved sanction/status. Each student record is updated separately.</p></div>
+              <input className="rm-violation-search" type="search" placeholder="Search student or incident" value={violationQuery} onChange={(event) => setViolationQuery(event.target.value)} />
+            </div>
+            <div className="rm-violation-table-wrap">
+              <table className="rm-violation-table">
+                <thead><tr><th>Date</th><th>Student</th><th>Incident</th><th>Status</th><th aria-label="Actions"></th></tr></thead>
+                <tbody>{filteredViolationRows.map((record) => (
+                  <tr key={record.id}>
+                    <td>{record.incident_date || '—'}</td>
+                    <td>{record.student_name || record.student_number || 'Unknown'}</td>
+                    <td>{record.offense_variety || record.group_title || 'Unspecified'}</td>
+                    <td>{record.status || 'recorded'}</td>
+                    <td><button type="button" className="rm-edit-btn" onClick={() => { setEditingViolation({ ...record }); setPanelError(''); }}><Pencil size={14} /> Edit</button></td>
+                  </tr>
+                ))}</tbody>
+              </table>
+              {filteredViolationRows.length === 0 && <p className="rm-empty">No incident records match this search.</p>}
+            </div>
+          </section>
+        )}
+
+        {editingViolation && (
+          <div className="rm-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditingViolation(null); }}>
+            <form className="rm-edit-modal" onSubmit={saveViolation}>
+              <div className="rm-editor-heading"><div><h2>Edit Incident Record</h2><p>{editingViolation.student_name || 'Unknown student'} · {editingViolation.id}</p></div><button type="button" className="rm-modal-close" aria-label="Close" onClick={() => setEditingViolation(null)}>×</button></div>
+              <div className="rm-edit-fields">
+                <label>Date of incident<input type="date" value={editingViolation.incident_date || ''} onChange={(event) => setEditingViolation({ ...editingViolation, incident_date: event.target.value })} /></label>
+                <label>Offense group<input value={editingViolation.group_title || editingViolation.category_name || ''} onChange={(event) => setEditingViolation({ ...editingViolation, group_title: event.target.value })} /></label>
+                <label className="rm-edit-field-full">Specific violation<input value={editingViolation.offense_variety || ''} onChange={(event) => setEditingViolation({ ...editingViolation, offense_variety: event.target.value })} /></label>
+                <label>Reported by<input value={editingViolation.reported_by || ''} onChange={(event) => setEditingViolation({ ...editingViolation, reported_by: event.target.value })} /></label>
+                <label>Reporter role<select value={editingViolation.reporter_role || ''} onChange={(event) => setEditingViolation({ ...editingViolation, reporter_role: event.target.value })}><option value="">Unspecified</option><option value="staff">Staff</option><option value="teacher">Teacher</option><option value="student">Student</option><option value="parent">Parent / Guardian</option><option value="other">Other</option></select></label>
+                <label>Reporter contact<input value={editingViolation.reporter_contact || ''} onChange={(event) => setEditingViolation({ ...editingViolation, reporter_contact: event.target.value })} /></label>
+                <label>Status<select value={editingViolation.status || 'recorded'} onChange={(event) => setEditingViolation({ ...editingViolation, status: event.target.value })}><option value="recorded">Recorded</option><option value="pending">Pending</option><option value="served">Served</option><option value="resolved">Resolved through mediation</option><option value="no-readmission">No-readmission</option></select></label>
+                <label className="rm-edit-field-full">Incident description<textarea rows="4" value={editingViolation.incident_description || ''} onChange={(event) => setEditingViolation({ ...editingViolation, incident_description: event.target.value })} /></label>
+                <label className="rm-edit-field-full">Witnesses<textarea rows="3" value={editingViolation.witnesses || ''} onChange={(event) => setEditingViolation({ ...editingViolation, witnesses: event.target.value })} /></label>
+                <label className="rm-edit-field-full">Recommended sanction<textarea rows="3" value={editingViolation.recommended_sanction || ''} onChange={(event) => setEditingViolation({ ...editingViolation, recommended_sanction: event.target.value })} /></label>
+              </div>
+              <div className="rm-modal-actions"><button type="button" className="rm-modal-cancel" onClick={() => setEditingViolation(null)}>Cancel</button><button className="rm-apply-btn" type="submit" disabled={savingPanel}><Save size={16} /> {savingPanel ? 'Saving...' : 'Save Changes'}</button></div>
+            </form>
+          </div>
+        )}
       </main>
     </div>
   );
