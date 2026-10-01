@@ -87,12 +87,14 @@ function App() {
         <Route path="/sares/dashboard" element={<RequireAuth isAuthenticated={isAuthenticated} authReady={authReady}><Dashboard /></RequireAuth>} />
         <Route path="/sares/students" element={<RequireAuth isAuthenticated={isAuthenticated} authReady={authReady}><Student /></RequireAuth>} />
         <Route path="/sares/violation" element={<RequireAuth isAuthenticated={isAuthenticated} authReady={authReady}><Violation /></RequireAuth>} />
+        <Route path="/sares/case-assessment/:violationId" element={<RequireAuth isAuthenticated={isAuthenticated} authReady={authReady}><CaseAssessment /></RequireAuth>} />
         <Route path="/sares/case-assessment" element={<RequireAuth isAuthenticated={isAuthenticated} authReady={authReady}><CaseAssessment /></RequireAuth>} />
         <Route path="/sares/rules" element={<RequireAuth isAuthenticated={isAuthenticated} authReady={authReady}><Rule /></RequireAuth>} />
         <Route path="/sares/reports" element={<RequireAuth isAuthenticated={isAuthenticated} authReady={authReady}><Report /></RequireAuth>} />
         <Route path="/dashboard" element={<RequireAuth isAuthenticated={isAuthenticated} authReady={authReady}><Dashboard /></RequireAuth>} />
         <Route path="/students" element={<RequireAuth isAuthenticated={isAuthenticated} authReady={authReady}><Student /></RequireAuth>} />
         <Route path="/violation" element={<RequireAuth isAuthenticated={isAuthenticated} authReady={authReady}><Violation /></RequireAuth>} />
+        <Route path="/case-assessment/:violationId" element={<RequireAuth isAuthenticated={isAuthenticated} authReady={authReady}><CaseAssessment /></RequireAuth>} />
         <Route path="/case-assessment" element={<RequireAuth isAuthenticated={isAuthenticated} authReady={authReady}><CaseAssessment /></RequireAuth>} />
         <Route path="/rules" element={<RequireAuth isAuthenticated={isAuthenticated} authReady={authReady}><Rule /></RequireAuth>} />
         <Route path="/reports" element={<RequireAuth isAuthenticated={isAuthenticated} authReady={authReady}><Report /></RequireAuth>} />

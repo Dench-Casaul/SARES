@@ -1,4 +1,3 @@
-import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import "../css/CaseAssessment.css";
 import wesleyLogo from "../assets/wesley-logo.png";
@@ -11,6 +10,7 @@ import {
   LogOut,
   AlertTriangle,
 } from "lucide-react";
+import { formatIdentifiedSanction } from "../engine/sanctionLabel";
 
 function Sidebar({ activePage, onLogout }) {
   return (
@@ -74,6 +74,8 @@ export default function CaseAssessment() {
   const subcategoryLabel = SUBCATEGORY_LABELS[caseData.subcategory_id] || caseData.subcategory_id || "—";
   const isMediation = String(caseData.intervention_type || "").toLowerCase() === "mediation";
   const isPending = String(caseData.status || "").toLowerCase() === "pending";
+  const identifiedSanction = caseData.identified_sanction || formatIdentifiedSanction(caseData);
+  const evidenceFiles = Array.isArray(caseData.evidence_urls) ? caseData.evidence_urls : [];
 
   return (
     <div className="ca-page">
@@ -123,6 +125,9 @@ export default function CaseAssessment() {
             <div className="ca-row"><span>Subcategory</span><strong>{subcategoryLabel}</strong></div>
             <div className="ca-row"><span>Violation Group</span><strong>{caseData.group_title || caseData.category_name || "—"}</strong></div>
             <div className="ca-row"><span>Specific Violation</span><strong>{caseData.offense_variety || "—"}</strong></div>
+            <div className="ca-row"><span>Reported By</span><strong>{caseData.reported_by || "—"}</strong></div>
+            <div className="ca-row"><span>Reporter Role</span><strong>{caseData.reporter_role || "—"}</strong></div>
+            <div className="ca-row"><span>Reporter Contact</span><strong>{caseData.reporter_contact || "—"}</strong></div>
             <div className="ca-row"><span>Status</span><strong>{isMediation && isPending ? "Pending Mediation" : caseData.status || "Recorded"}</strong></div>
           </article>
         </section>
@@ -150,6 +155,10 @@ export default function CaseAssessment() {
                 {caseData.recommended_sanction || "—"}
               </p>
               <div className="ca-row" style={{ marginTop: "10px" }}>
+                <span>Identified Sanction</span>
+                <strong>{identifiedSanction}</strong>
+              </div>
+              <div className="ca-row" style={{ marginTop: "10px" }}>
                 <span>Handbook Section</span>
                 <strong>Student Discipline Handbook — {isMinor ? "Minor Offense Schedule" : "Major Offense Severity Map"}</strong>
               </div>
@@ -166,6 +175,19 @@ export default function CaseAssessment() {
           <section className="ca-card" style={{ marginTop: "16px" }}>
             <h2>Witnesses</h2>
             <p className="ca-paragraph">{caseData.witnesses}</p>
+          </section>
+        )}
+
+        {evidenceFiles.length > 0 && (
+          <section className="ca-card" style={{ marginTop: "16px" }}>
+            <h2>Supporting Evidence</h2>
+            <ul>
+              {evidenceFiles.map((file, index) => (
+                <li key={file.path || file.url || index}>
+                  <a href={file.url} target="_blank" rel="noreferrer">{file.name || `Evidence ${index + 1}`}</a>
+                </li>
+              ))}
+            </ul>
           </section>
         )}
 

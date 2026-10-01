@@ -2,14 +2,14 @@ import React, { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { collection, getDocs } from 'firebase/firestore'
 import { db } from '../firebase'
+import { isViolationServed } from '../engine/ruleEngine'
 import '../css/Dashboard.css'
 import heroImg from '../assets/hero.png'
 import wesleyLogo from '../assets/wesley-logo.png'
 import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X } from 'lucide-react'
 
-const normalizeViolationStatus = (status) => {
-  const normalized = String(status || '').toLowerCase().trim();
-  return normalized === 'served' ? 'served' : 'pending';
+const normalizeViolationStatus = (violation) => {
+  return isViolationServed(violation) ? 'served' : 'pending';
 };
 
 const Dashboard = () => {
@@ -100,7 +100,7 @@ const Dashboard = () => {
     const grouped = {};
 
     violations.forEach((v) => {
-      const status = normalizeViolationStatus(v.status);
+      const status = normalizeViolationStatus(v);
       if (status !== 'pending') return;
 
       if (!grouped[v.student_id]) {

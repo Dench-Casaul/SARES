@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { collection, onSnapshot } from "firebase/firestore";
 import { signOut } from "firebase/auth";
@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { auth, db } from "../firebase";
 import { doesViolationCount } from "../engine/ruleEngine";
+import { formatIdentifiedSanction } from "../engine/sanctionLabel";
 import "../css/Reports.css";
 import wesleyLogo from "../assets/wesley-logo.png";
 
@@ -77,26 +78,6 @@ function csvEscape(value) {
   const raw = String(value ?? "");
   const escaped = raw.replace(/"/g, '""');
   return `"${escaped}"`;
-}
-
-function normalizeSeverity(value) {
-  if (value === null || value === undefined || value === "") return "Unspecified";
-  const text = String(value).trim().toLowerCase();
-
-  if (["low", "minor"].includes(text)) return "Low";
-  if (["moderate", "medium"].includes(text)) return "Moderate";
-  if (["high", "major"].includes(text)) return "High";
-  if (["critical", "severe", "very high"].includes(text)) return "Critical";
-
-  const num = Number(value);
-  if (!Number.isNaN(num)) {
-    if (num <= 3) return "Low";
-    if (num <= 6) return "Moderate";
-    if (num <= 8) return "High";
-    return "Critical";
-  }
-
-  return "Unspecified";
 }
 
 export default function Report() {
@@ -199,19 +180,40 @@ export default function Report() {
       "Date",
       "Student ID",
       "Student Name",
-      "Offense Type",
-      "Severity",
+      "Offense Classification",
+      "Specific Violation",
+      "Offense Number",
+      "Severity Score",
+      "Reported By",
+      "Reporter Role",
+      "Reporter Contact",
+      "Incident Description",
+      "Identified Sanction",
       "Sanction Recommended",
+      "Status",
+      "Evidence",
     ];
     const rows = filteredViolations.map((v) => {
       const recordDate = pickDate(v);
+      const evidence = Array.isArray(v.evidence_urls)
+        ? v.evidence_urls.map((file) => `${file.name || "Evidence"}: ${file.url || ""}`).join("; ")
+        : "";
       return [
         recordDate ? recordDate.toISOString().slice(0, 10) : "N/A",
         v.student_id || "N/A",
         v.student_name || "Unknown",
-        v.rule_name || v.offense_type || v.category_name || "Unspecified",
-        normalizeSeverity(v.severity),
+        [v.offense_type, v.subcategory_id || v.category_name].filter(Boolean).join(" - ") || "Unspecified",
+        v.offense_variety || v.rule_name || "Unspecified",
+        v.cumulative_offense_number || v.offense_number || "N/A",
+        v.severity_score ?? v.severity ?? "N/A",
+        v.reported_by || "N/A",
+        v.reporter_role || "N/A",
+        v.reporter_contact || "N/A",
+        v.incident_description || "",
+        v.identified_sanction || formatIdentifiedSanction(v),
         v.recommended_sanction || "N/A",
+        v.status || "N/A",
+        evidence,
       ];
     });
 
@@ -297,7 +299,9 @@ export default function Report() {
                     <th>Date</th>
                     <th>Student</th>
                     <th>Offense</th>
-                    <th>Recommended Sanction</th>
+                    <th>Reported By</th>
+                    <th>Identified Sanction</th>
+                    <th>Evidence</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -308,7 +312,9 @@ export default function Report() {
                         <td>{recordDate ? recordDate.toISOString().slice(0, 10) : "N/A"}</td>
                         <td>{v.student_name || v.student_id || "Unknown"}</td>
                         <td>{v.offense_variety || v.rule_name || v.category_name || v.offense_type || "Unspecified"}</td>
-                        <td>{!(v.intervention_type === 'mediation' && (v.status === 'resolved' || v.mediation_status === 'resolved')) ? (v.recommended_sanction || "N/A") : "—"}</td>
+                        <td>{v.reported_by || "N/A"}</td>
+                        <td>{!(v.intervention_type === 'mediation' && (v.status === 'resolved' || v.mediation_status === 'resolved')) ? (v.identified_sanction || formatIdentifiedSanction(v)) : "—"}</td>
+                        <td>{Array.isArray(v.evidence_urls) ? v.evidence_urls.length : 0}</td>
                       </tr>
                     );
                   })}

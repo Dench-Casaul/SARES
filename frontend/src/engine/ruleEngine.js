@@ -15,6 +15,7 @@ import {
   isIllegalActivityOffense,
   getOffenseById,
 } from '../data/handbookIndex.js';
+import { formatIdentifiedSanction } from './sanctionLabel.js';
 
 /** Month (1–12) when the school year label rolls over. Default 6 = June (PH). */
 export const SCHOOL_YEAR_START_MONTH = 6;
@@ -28,6 +29,16 @@ export function doesViolationCount(violation) {
   const mediationStatus = String(violation?.mediation_status || '').toLowerCase();
   const status = String(violation?.status || '').toLowerCase();
   return !(interventionType === 'mediation' && (mediationStatus === 'resolved' || status === 'resolved'));
+}
+
+export function isViolationServed(violation) {
+  const status = String(violation?.status || '').toLowerCase();
+  const interventionType = String(violation?.intervention_type || '').toLowerCase();
+  const mediationStatus = String(violation?.mediation_status || '').toLowerCase();
+  const isResolved = (value) => ['resolved', 'resolved through mediation'].includes(value);
+  return status === 'served' || (
+    interventionType === 'mediation' && (isResolved(status) || isResolved(mediationStatus))
+  );
 }
 
 /**
@@ -50,13 +61,54 @@ export function getSchoolYearKey(isoDate) {
  * @param {string} schoolYearKey
  * @param {object[]} existingViolations — raw Firestore violation payloads
  */
-export function countPriorMinorOffenses(studentId, schoolYearKey, existingViolations = []) {
+export function getRecordTimeMs(record, { treatMissingAsLatest = false } = {}) {
+  const created = record?.created_at;
+  if (created?.seconds) return created.seconds * 1000;
+  if (typeof created?.toMillis === 'function') return created.toMillis();
+  if (typeof created?.toDate === 'function') return created.toDate().getTime();
+  if (typeof created === 'number') return created;
+  if (typeof created === 'string') {
+    const parsed = Date.parse(created);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  return treatMissingAsLatest ? Number.MAX_SAFE_INTEGER : 0;
+}
+
+function incidentDateKey(record) {
+  return String(record?.incident_date || '').slice(0, 10);
+}
+
+/** True when `prior` happened before `current` (incident date, then created_at, then id). */
+export function isViolationEarlierThan(prior, current = {}) {
+  const priorDate = incidentDateKey(prior);
+  const currentDate = incidentDateKey(current);
+  if (priorDate && currentDate && priorDate !== currentDate) {
+    return priorDate < currentDate;
+  }
+
+  const priorCreated = getRecordTimeMs(prior);
+  const currentCreated = getRecordTimeMs(current, { treatMissingAsLatest: true });
+  if (priorCreated !== currentCreated) return priorCreated < currentCreated;
+
+  const priorId = String(prior?.id || prior?.violation_id || '');
+  const currentId = String(current?.id || current?.violation_id || '');
+  if (priorId && currentId) return priorId < currentId;
+  return Boolean(priorId);
+}
+
+export function countPriorMinorOffenses(
+  studentId,
+  schoolYearKey,
+  existingViolations = [],
+  currentIncident = {}
+) {
   return existingViolations.filter(
     (v) =>
       String(v?.student_id) === String(studentId) &&
       String(v?.school_year_key) === String(schoolYearKey) &&
       String(v?.offense_type).toLowerCase() === 'minor' &&
-      doesViolationCount(v)
+      doesViolationCount(v) &&
+      isViolationEarlierThan(v, currentIncident)
   ).length;
 }
 
@@ -70,9 +122,19 @@ export function countPriorMinorOffenses(studentId, schoolYearKey, existingViolat
  * @param {object[]} params.existingViolations
  * @returns {object} recommendation payload
  */
-export function evaluateMinorOffense({ studentId, incidentDate, offenseId, existingViolations = [] }) {
+export function evaluateMinorOffense({
+  studentId,
+  incidentDate,
+  offenseId,
+  existingViolations = [],
+  currentIncident = {},
+}) {
   const schoolYearKey = getSchoolYearKey(incidentDate);
-  const priorCount = countPriorMinorOffenses(studentId, schoolYearKey, existingViolations);
+  const priorCount = countPriorMinorOffenses(studentId, schoolYearKey, existingViolations, {
+    incident_date: incidentDate,
+    created_at: currentIncident.created_at,
+    id: currentIncident.id,
+  });
   const cumulativeOffenseNumber = priorCount + 1;
   const offenseNumber = clamp(cumulativeOffenseNumber, 1, 3);
   const suspensionEligible = cumulativeOffenseNumber > 3;
@@ -158,9 +220,16 @@ export function evaluateSaresRecommendation({
   incidentDate,
   severityScore = 1,
   existingViolations = [],
+  currentIncident = {},
 }) {
   if (offenseType === 'minor') {
-    return evaluateMinorOffense({ studentId, incidentDate, offenseId, existingViolations });
+    return evaluateMinorOffense({
+      studentId,
+      incidentDate,
+      offenseId,
+      existingViolations,
+      currentIncident,
+    });
   }
   return evaluateMajorOffense({ offenseId, severityScore, incidentDate });
 }
@@ -182,7 +251,14 @@ export function buildViolationRecordsForStudents({
       incidentDate: incidentData.incident_date,
       severityScore: incidentData.severity_score,
       existingViolations,
+      currentIncident: incidentData,
     });
+
+    const recommendedSanction = studentRec.recommendedSanction || recommendation?.recommendedSanction || incidentData.recommended_sanction;
+    const offenseNumberForRecord = incidentData.offense_type === 'minor' ? studentRec.offenseNumber : null;
+    const cumulativeOffenseNumber = incidentData.offense_type === 'minor'
+      ? studentRec.cumulativeOffenseNumber
+      : null;
 
     return {
       ...incidentData,
@@ -190,9 +266,21 @@ export function buildViolationRecordsForStudents({
       student_name: student.full_name || '',
       student_number: student.student_number || '',
       year_level: student.year_level || '',
-      offense_number: incidentData.offense_type === 'minor' ? studentRec.offenseNumber : null,
+      offense_number: offenseNumberForRecord,
+      cumulative_offense_number: cumulativeOffenseNumber,
       severity_score: incidentData.offense_type === 'major' ? incidentData.severity_score : null,
-      recommended_sanction: studentRec.recommendedSanction || recommendation?.recommendedSanction || incidentData.recommended_sanction,
+      recommended_sanction: recommendedSanction,
+      identified_sanction: formatIdentifiedSanction({
+        offense_type: incidentData.offense_type,
+        offense_number: offenseNumberForRecord,
+        cumulative_offense_number: cumulativeOffenseNumber,
+        school_year_key: studentRec.schoolYearKey || incidentData.school_year_key,
+        severity_score: incidentData.severity_score,
+        recommended_sanction: recommendedSanction,
+        intervention_type: incidentData.intervention_type,
+        status: incidentData.status,
+        mediation_status: incidentData.mediation_status,
+      }),
       generated_explanation: incidentData.generated_explanation,
       explanation_source: incidentData.explanation_source,
       suggest_authorities: studentRec.suggestAuthorities || incidentData.suggest_authorities,

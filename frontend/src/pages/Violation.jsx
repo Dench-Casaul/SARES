@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { addDoc, collection, getDocs, serverTimestamp } from 'firebase/firestore'
 import { db } from '../firebase'
+import { uploadEvidenceFiles } from '../engine/evidenceUpload'
+import { formatIdentifiedSanction } from '../engine/sanctionLabel'
 import {
   buildViolationRecordsForStudents,
   evaluateSaresRecommendation,
@@ -44,7 +46,7 @@ function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar }) {
           <BarChart3 className="v-nav-icon" /><span>Reports</span>
         </Link>
         <Link to="/sares/violation" onClick={toggleSidebar} className={`v-nav-item${activePage === '/sares/violation' ? ' active' : ''}`}>
-          <ClipboardList className="v-nav-icon" /><span>Log Violation</span>
+          <ClipboardList className="v-nav-icon" /><span>Incident Report</span>
         </Link>
       </nav>
       <div className="v-logout-section">
@@ -108,11 +110,15 @@ export default function Violation() {
     handling_path: 'sanction',
     incident_description: '',
     witnesses: '',
+    reported_by: '',
+    reporter_role: 'staff',
+    reporter_contact: '',
   })
 
   const [recommendation, setRecommendation] = useState(null)
   const [existingViolations, setExistingViolations] = useState([])
   const [currentPage, setCurrentPage] = useState(1)
+  const [evidenceFiles, setEvidenceFiles] = useState([])
 
   const handleLogout = () => {
     localStorage.removeItem('user')
@@ -198,6 +204,7 @@ export default function Violation() {
       incidentDate: form.incident_date,
       severityScore: form.severity_score,
       existingViolations,
+      currentIncident: { incident_date: form.incident_date },
     })
     setRecommendation(rec)
 
@@ -215,6 +222,11 @@ export default function Violation() {
     }
     if (step === 3 && !form.offense_id) { alert('Please select a violation.'); return }
     if (step === 4 && !form.incident_description.trim()) { alert('Please provide an incident description.'); return }
+    if (step === 4 && !form.reported_by.trim()) { alert('Please enter who reported this incident.'); return }
+    if (step === 4 && form.offense_type === 'major' && evidenceFiles.length === 0) {
+      alert('Major offenses require at least one evidence file.');
+      return
+    }
     setStep(s => s + 1)
   }
 
@@ -246,6 +258,18 @@ export default function Violation() {
       const offenseCount = form.offense_type === 'minor' ? recommendation.offenseNumber : 1
       const severityScore = form.offense_type === 'major' ? form.severity_score : null
       const isMediation = form.handling_path === 'mediation'
+      const evidenceBatchId = `batch-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+      let evidenceUrls = []
+      if (evidenceFiles.length > 0) {
+        try {
+          evidenceUrls = await uploadEvidenceFiles(evidenceFiles, evidenceBatchId)
+        } catch (uploadError) {
+          console.error(uploadError)
+          alert('Failed to upload evidence. Check Firebase Storage rules and try again.')
+          setSubmitting(false)
+          return
+        }
+      }
 
       let generatedExplanation = deterministicTemplateExplanation({
         offenseCategory: form.group_title,
@@ -283,6 +307,10 @@ export default function Violation() {
         incident_date: form.incident_date,
         incident_description: form.incident_description,
         witnesses: form.witnesses,
+        reported_by: form.reported_by.trim(),
+        reporter_role: form.reporter_role,
+        reporter_contact: form.reporter_contact.trim(),
+        evidence_urls: evidenceUrls,
         offense_type: form.offense_type,
         intervention_type: isMediation ? 'mediation' : 'sanction',
         mediation_status: isMediation ? 'pending' : null,
@@ -305,6 +333,15 @@ export default function Violation() {
         school_year_key: recommendation.schoolYearKey,
         engine_mode: 'handbook_v2',
         created_at: serverTimestamp(),
+        identified_sanction: formatIdentifiedSanction({
+          offense_type: form.offense_type,
+          offense_number: form.offense_type === 'minor' ? recommendation.offenseNumber : null,
+          school_year_key: recommendation.schoolYearKey,
+          severity_score: form.offense_type === 'major' ? form.severity_score : null,
+          recommended_sanction: recommendation.recommendedSanction,
+          intervention_type: isMediation ? 'mediation' : 'sanction',
+          status: isMediation ? 'pending' : 'recorded',
+        }),
       }
 
       const studentsToRecord = selectedStudents.length > 0
@@ -325,7 +362,7 @@ export default function Violation() {
       }
 
       const primaryCase = savedDocs[0]
-      navigate('/sares/case-assessment', {
+      navigate(`/sares/case-assessment/${primaryCase.id}`, {
         state: {
           caseData: primaryCase,
           groupCaseData: savedDocs,
@@ -364,8 +401,8 @@ export default function Violation() {
       <div className="v-main">
         <div className="v-main-header">
           <div>
-            <h1 className="v-page-title">Log New Violation</h1>
-            <p className="v-page-sub">Record a student disciplinary incident</p>
+            <h1 className="v-page-title">Incident Report</h1>
+            <p className="v-page-sub">Record a disciplinary incident, reporter, and supporting evidence</p>
           </div>
         </div>
 
@@ -615,8 +652,8 @@ export default function Violation() {
           {/* STEP 5: Description */}
           {step === 4 && (
             <div className="v-step-content">
-              <h2 className="v-directory-title">Step 5: Incident Description</h2>
-              <p className="v-directory-sub">Provide a detailed account of the incident</p>
+              <h2 className="v-directory-title">Step 5: Incident Report</h2>
+              <p className="v-directory-sub">Describe the incident, who reported it, and attach evidence{form.offense_type === 'major' ? ' (required for major offenses)' : ''}</p>
 
               {form.offense_type === 'major' && (
                 <div className="v-field" style={{ marginTop: '1.2rem' }}>
@@ -654,6 +691,43 @@ export default function Violation() {
               </div>
 
               <div className="v-field" style={{ marginTop: '1.5rem' }}>
+                <label className="v-label">Reported by *</label>
+                <input
+                  className="v-input"
+                  type="text"
+                  placeholder="Name of the person who reported this incident"
+                  value={form.reported_by}
+                  onChange={e => setForm(f => ({ ...f, reported_by: e.target.value }))}
+                />
+              </div>
+
+              <div className="v-field" style={{ marginTop: '1.5rem' }}>
+                <label className="v-label">Reporter role *</label>
+                <select
+                  className="v-input"
+                  value={form.reporter_role}
+                  onChange={e => setForm(f => ({ ...f, reporter_role: e.target.value }))}
+                >
+                  <option value="staff">Staff</option>
+                  <option value="teacher">Teacher</option>
+                  <option value="student">Student</option>
+                  <option value="parent">Parent / Guardian</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+
+              <div className="v-field" style={{ marginTop: '1.5rem' }}>
+                <label className="v-label">Reporter contact (optional)</label>
+                <input
+                  className="v-input"
+                  type="text"
+                  placeholder="Phone or email"
+                  value={form.reporter_contact}
+                  onChange={e => setForm(f => ({ ...f, reporter_contact: e.target.value }))}
+                />
+              </div>
+
+              <div className="v-field" style={{ marginTop: '1.5rem' }}>
                 <label className="v-label">Incident Description *</label>
                 <textarea className="v-input v-textarea" rows="5"
                   placeholder="Include relevant details such as location and circumstances..."
@@ -667,6 +741,24 @@ export default function Violation() {
                   placeholder="List any witnesses to the incident..."
                   value={form.witnesses}
                   onChange={e => setForm(f => ({ ...f, witnesses: e.target.value }))} />
+              </div>
+
+              <div className="v-field" style={{ marginTop: '1.5rem' }}>
+                <label className="v-label">
+                  Evidence {form.offense_type === 'major' ? '*' : '(optional)'}
+                </label>
+                <input
+                  className="v-input"
+                  type="file"
+                  multiple
+                  accept="image/*,.pdf,.doc,.docx"
+                  onChange={(e) => setEvidenceFiles(Array.from(e.target.files || []))}
+                />
+                {evidenceFiles.length > 0 && (
+                  <p className="v-directory-sub" style={{ marginTop: '8px' }}>
+                    {evidenceFiles.length} file{evidenceFiles.length > 1 ? 's' : ''} selected: {evidenceFiles.map((f) => f.name).join(', ')}
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -723,6 +815,23 @@ export default function Violation() {
                   <p className="v-review-sanction">{recommendation.recommendedSanction}</p>
                 </div>
                 <div className="v-review-section v-review-section--full">
+                  <h4>Identified Sanction</h4>
+                  <p className="v-review-sanction">
+                    {formatIdentifiedSanction({
+                      offense_type: form.offense_type,
+                      offense_number: recommendation.offenseNumber,
+                      school_year_key: recommendation.schoolYearKey,
+                      severity_score: form.severity_score,
+                      recommended_sanction: recommendation.recommendedSanction,
+                    })}
+                  </p>
+                </div>
+                <div className="v-review-section">
+                  <h4>Reported by</h4>
+                  <p>{form.reported_by} ({form.reporter_role})</p>
+                  {form.reporter_contact && <p className="v-review-meta">{form.reporter_contact}</p>}
+                </div>
+                <div className="v-review-section v-review-section--full">
                   <h4>Incident Description</h4>
                   <p>{form.incident_description}</p>
                 </div>
@@ -730,6 +839,12 @@ export default function Violation() {
                   <div className="v-review-section v-review-section--full">
                     <h4>Witnesses</h4>
                     <p>{form.witnesses}</p>
+                  </div>
+                )}
+                {evidenceFiles.length > 0 && (
+                  <div className="v-review-section v-review-section--full">
+                    <h4>Evidence</h4>
+                    <p>{evidenceFiles.map((f) => f.name).join(', ')}</p>
                   </div>
                 )}
               </div>
@@ -772,7 +887,7 @@ export default function Violation() {
             )}
             {step === 5 && (
               <button className="v-btn-submit" onClick={handleSubmit} disabled={submitting}>
-                {submitting ? 'Submitting...' : form.handling_path === 'mediation' ? 'Submit for Mediation' : 'Submit Violation'}
+                {submitting ? 'Submitting...' : form.handling_path === 'mediation' ? 'Submit for Mediation' : 'Submit Incident Report'}
               </button>
             )}
           </div>

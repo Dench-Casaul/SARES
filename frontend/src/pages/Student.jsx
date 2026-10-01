@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { addDoc, arrayUnion, collection, doc, getDocs, increment, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../firebase'
-import { doesViolationCount, evaluateSaresRecommendation } from '../engine/ruleEngine'
+import { doesViolationCount, evaluateSaresRecommendation, isViolationServed } from '../engine/ruleEngine'
 import '../css/Student.css'
 import wesleyLogo from '../assets/wesley-logo.png'
 import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X, Calendar } from 'lucide-react'
@@ -649,7 +649,9 @@ function StudentList({ students, onSelect, onAddStudent, onEditStudent, location
       return { text: `${pendingMediationCount} Pending Mediation${pendingMediationCount > 1 ? 's' : ''}`, tone: 'monitored' };
     }
 
-    const pendingCount = violations.filter((violation) => normalizeViolationStatus(violation?.status) === 'pending').length;
+    const pendingCount = violations.filter((violation) =>
+      !isViolationServed(violation) && normalizeViolationStatus(violation?.status) === 'pending'
+    ).length;
     if (pendingCount > 0) {
       return { text: `${pendingCount} Pending Sanction${pendingCount > 1 ? 's' : ''}`, tone: 'monitored' };
     }
