@@ -27,35 +27,35 @@ function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar }) {
           <li>
             <Link to="/sares/dashboard" onClick={toggleSidebar} className={`rule-nav-item${activePage === '/sares/dashboard' ? ' rule-nav-item--active' : ''}`}>
               <LayoutDashboard className="rule-nav-icon" />
-              Dashboard
+                <span>Dashboard</span>
             </Link>
           </li>
 
           <li>
             <Link to="/sares/students" onClick={toggleSidebar} className={`rule-nav-item${activePage === '/sares/students' ? ' rule-nav-item--active' : ''}`}>
               <Users className="rule-nav-icon" />
-              Students
+                <span>Students</span>
             </Link>
           </li>
 
           <li>
             <Link to="/sares/rules" onClick={toggleSidebar} className={`rule-nav-item${activePage === '/sares/rules' ? ' rule-nav-item--active' : ''}`}>
               <ShieldCheck className="rule-nav-icon" />
-              Rule Management
+                <span>Rule Management</span>
             </Link>
           </li>
 
           <li>
             <Link to="/sares/reports" onClick={toggleSidebar} className={`rule-nav-item${activePage === '/sares/reports' ? ' rule-nav-item--active' : ''}`}>
               <BarChart3 className="rule-nav-icon" />
-              Reports
+                <span>Reports</span>
             </Link>
           </li>
 
           <li>
             <Link to="/sares/violation" onClick={toggleSidebar} className={`rule-nav-item${activePage === '/sares/violation' ? ' rule-nav-item--active' : ''}`}>
               <ClipboardList className="rule-nav-icon" />
-              Log Violation
+                <span>Log Violation</span>
             </Link>
           </li>
         </ul>
@@ -64,7 +64,7 @@ function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar }) {
       <div className="rule-sidebar-footer">
         <button className="rule-logout-btn" onClick={handleLogout}>
           <LogOut className="rule-logout-icon" />
-          Logout
+          <span>Logout</span>
         </button>
       </div>
     </aside>

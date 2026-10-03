@@ -48,3 +48,248 @@ ul {
 ul {
   padding: 0;
 }
+
+@media (hover: hover) and (pointer: fine) and (min-width: 901px) {
+  #root :is(.sidebar, .report-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar) {
+    width: 76px !important;
+    min-width: 76px !important;
+    overflow: hidden;
+    transition: width 180ms ease, min-width 180ms ease;
+  }
+
+  #root :is(.sidebar, .report-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar):is(:hover, :focus-within) {
+    width: 265px !important;
+    min-width: 265px !important;
+  }
+
+  #root :is(.sidebar-header, .report-sidebar-header, .rule-sidebar-header, .s-sidebar-header, .v-logo, .ca-logo) {
+    display: flex;
+    justify-content: center;
+    padding: 20px 10px;
+    overflow: hidden;
+    transition: padding 180ms ease;
+  }
+
+  #root :is(.sidebar, .report-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar):is(:hover, :focus-within) :is(.sidebar-header, .report-sidebar-header, .rule-sidebar-header, .s-sidebar-header, .v-logo, .ca-logo) {
+    justify-content: flex-start;
+    padding: 28px 20px;
+  }
+
+  #root :is(.logo-container, .report-logo, .rule-logo, .s-logo, .v-logo, .ca-logo) {
+    justify-content: center;
+    gap: 0;
+    min-width: 0;
+  }
+
+  #root :is(.sidebar, .report-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar):is(:hover, :focus-within) :is(.logo-container, .report-logo, .rule-logo, .s-logo, .v-logo, .ca-logo) {
+    justify-content: flex-start;
+    gap: 14px;
+  }
+
+  #root :is(.logo-icon-container, .report-logo-icon, .rule-logo-icon, .s-logo-icon, .v-logo-icon, .ca-logo-icon) {
+    width: 44px;
+    height: 44px;
+  }
+
+  #root :is(.sidebar, .report-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar) .school-logo {
+    width: 40px;
+    height: 40px;
+  }
+
+  #root :is(.admin-title, .report-logo-text, .rule-logo-text, .s-logo-text, .v-logo h1, .ca-logo h1) {
+    width: 0;
+    max-width: 0;
+    overflow: hidden;
+    opacity: 0;
+    white-space: nowrap;
+    transition: width 180ms ease, max-width 180ms ease, opacity 100ms ease;
+  }
+
+  #root :is(.sidebar, .report-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar):is(:hover, :focus-within) :is(.admin-title, .report-logo-text, .rule-logo-text, .s-logo-text, .v-logo h1, .ca-logo h1) {
+    width: auto;
+    max-width: 150px;
+    opacity: 1;
+  }
+
+  #root :is(.navigation, .report-nav, .rule-nav, .s-nav, .v-nav, .ca-nav) {
+    padding: 18px 9px;
+    transition: padding 180ms ease;
+  }
+
+  #root :is(.sidebar, .report-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar):is(:hover, :focus-within) :is(.navigation, .report-nav, .rule-nav, .s-nav, .v-nav, .ca-nav) {
+    padding: 22px 16px;
+  }
+
+  #root :is(.nav-item, .nav-item-active, .report-nav-item, .rule-nav-item, .s-nav-item, .v-nav-item, .ca-nav-item) {
+    justify-content: center;
+    gap: 0;
+    padding: 13px 10px;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  #root :is(.sidebar, .report-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar):is(:hover, :focus-within) :is(.nav-item, .nav-item-active, .report-nav-item, .rule-nav-item, .s-nav-item, .v-nav-item, .ca-nav-item) {
+    justify-content: flex-start;
+    gap: 14px;
+    padding: 13px 16px;
+  }
+
+  #root :is(.navigation, .report-nav, .rule-nav, .s-nav, .v-nav, .ca-nav) :is(.nav-item, .nav-item-active, .report-nav-item, .rule-nav-item, .s-nav-item, .v-nav-item, .ca-nav-item) > span,
+  #root :is(.logout-button, .report-logout-btn, .rule-logout-btn, .s-logout-btn, .v-logout, .ca-logout) > span {
+    width: 0;
+    max-width: 0;
+    overflow: hidden;
+    opacity: 0;
+    white-space: nowrap;
+    transition: width 180ms ease, max-width 180ms ease, opacity 100ms ease;
+  }
+
+  #root :is(.sidebar, .report-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar):is(:hover, :focus-within) :is(.navigation, .report-nav, .rule-nav, .s-nav, .v-nav, .ca-nav) :is(.nav-item, .nav-item-active, .report-nav-item, .rule-nav-item, .s-nav-item, .v-nav-item, .ca-nav-item) > span,
+  #root :is(.sidebar, .report-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar):is(:hover, :focus-within) :is(.logout-button, .report-logout-btn, .rule-logout-btn, .s-logout-btn, .v-logout, .ca-logout) > span {
+    width: auto;
+    max-width: 170px;
+    opacity: 1;
+  }
+
+  #root :is(.logout-section, .report-sidebar-footer, .rule-sidebar-footer, .s-sidebar-footer, .v-logout-section, .ca-logout-section) {
+    padding: 12px 9px;
+    transition: padding 180ms ease;
+  }
+
+  #root :is(.sidebar, .report-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar):is(:hover, :focus-within) :is(.logout-section, .report-sidebar-footer, .rule-sidebar-footer, .s-sidebar-footer, .v-logout-section, .ca-logout-section) {
+    padding: 16px 18px 24px;
+  }
+
+  #root :is(.logout-button, .report-logout-btn, .rule-logout-btn, .s-logout-btn, .v-logout, .ca-logout) {
+    justify-content: center;
+    gap: 0;
+    padding: 12px 8px;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  #root :is(.sidebar, .report-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar):is(:hover, :focus-within) :is(.logout-button, .report-logout-btn, .rule-logout-btn, .s-logout-btn, .v-logout, .ca-logout) {
+    justify-content: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) and (min-width: 769px) and (max-width: 900px) {
+  #root .sidebar {
+    width: 76px !important;
+    min-width: 76px !important;
+    transition: width 180ms ease, min-width 180ms ease;
+  }
+
+  #root .sidebar:is(:hover, :focus-within) {
+    width: 265px !important;
+    min-width: 265px !important;
+  }
+
+  #root .sidebar-header {
+    justify-content: center;
+    padding: 20px 10px;
+  }
+
+  #root .sidebar:is(:hover, :focus-within) .sidebar-header {
+    justify-content: flex-start;
+    padding: 28px 20px;
+  }
+
+  #root .logo-container {
+    justify-content: center;
+    gap: 0;
+  }
+
+  #root .sidebar:is(:hover, :focus-within) .logo-container {
+    justify-content: flex-start;
+    gap: 14px;
+  }
+
+  #root .logo-icon-container {
+    width: 44px;
+    height: 44px;
+  }
+
+  #root .sidebar .school-logo {
+    width: 40px;
+    height: 40px;
+  }
+
+  #root .admin-title {
+    width: 0;
+    max-width: 0;
+    overflow: hidden;
+    opacity: 0;
+    white-space: nowrap;
+  }
+
+  #root .sidebar:is(:hover, :focus-within) .admin-title {
+    width: auto;
+    max-width: 150px;
+    opacity: 1;
+  }
+
+  #root .navigation {
+    padding: 18px 9px;
+  }
+
+  #root .sidebar:is(:hover, :focus-within) .navigation {
+    padding: 22px 16px;
+  }
+
+  #root .sidebar .nav-item,
+  #root .sidebar .nav-item-active {
+    justify-content: center;
+    gap: 0;
+    padding: 13px 10px;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  #root .sidebar:is(:hover, :focus-within) .nav-item,
+  #root .sidebar:is(:hover, :focus-within) .nav-item-active {
+    justify-content: flex-start;
+    gap: 14px;
+    padding: 13px 16px;
+  }
+
+  #root .sidebar .nav-item > .nav-text,
+  #root .sidebar .logout-button > .nav-text {
+    width: 0;
+    max-width: 0;
+    overflow: hidden;
+    opacity: 0;
+    white-space: nowrap;
+  }
+
+  #root .sidebar:is(:hover, :focus-within) .nav-item > .nav-text,
+  #root .sidebar:is(:hover, :focus-within) .logout-button > .nav-text {
+    width: auto;
+    max-width: 170px;
+    opacity: 1;
+  }
+
+  #root .logout-section {
+    padding: 12px 9px;
+  }
+
+  #root .sidebar:is(:hover, :focus-within) .logout-section {
+    padding: 16px 18px 24px;
+  }
+
+  #root .logout-button {
+    justify-content: center;
+    gap: 0;
+    padding: 12px 8px;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  #root .sidebar:is(:hover, :focus-within) .logout-button {
+    justify-content: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+  }
+}
