@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { collection, doc, onSnapshot, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore'
+import { doc, onSnapshot, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore'
 import '../css/Rule.css'
 import wesleyLogo from '../assets/wesley-logo.png'
-import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X, ChevronDown, ChevronRight, Save, Pencil } from 'lucide-react'
-import handbook from '../data/generalizedHandbook.json'
-import { applySanctionOverrides, getSanctionOverrides } from '../data/handbookIndex'
+import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X, ChevronDown, ChevronRight, Save, Plus, Pencil, Trash2 } from 'lucide-react'
+import { applyHandbookOverrides, applySanctionOverrides, getHandbook, getSanctionOverrides } from '../data/handbookIndex'
 import { db } from '../firebase'
 import { formatIdentifiedSanction } from '../engine/sanctionLabel'
 
@@ -110,8 +109,10 @@ export default function Rule() {
   const [tempSearchQuery, setTempSearchQuery] = useState('');
   const [activePanel, setActivePanel] = useState('browse');
   const [sanctionDraft, setSanctionDraft] = useState(getSanctionOverrides);
-  const [violationRows, setViolationRows] = useState([]);
-  const [violationQuery, setViolationQuery] = useState('');
+  const [handbookDraft, setHandbookDraft] = useState(() => structuredClone(getHandbook()));
+  const [classEditor, setClassEditor] = useState(null);
+  const [classEditorViolationTitle, setClassEditorViolationTitle] = useState('');
+  const [classEditorViolationIllegal, setClassEditorViolationIllegal] = useState(false);
   const [editingViolation, setEditingViolation] = useState(null);
   const [panelMessage, setPanelMessage] = useState('');
   const [panelError, setPanelError] = useState('');
@@ -120,22 +121,16 @@ export default function Rule() {
   useEffect(() => {
     const unsubscribeRules = onSnapshot(doc(db, 'rules', 'handbook_sanctions'), (snapshot) => {
       const overrides = snapshot.exists() ? snapshot.data() : {};
+      applyHandbookOverrides(overrides);
       applySanctionOverrides(overrides);
       setSanctionDraft(getSanctionOverrides());
+      setHandbookDraft(structuredClone(getHandbook()));
     }, (error) => {
       console.error('Failed to load sanction rules:', error);
       setPanelError('Unable to load saved sanction overrides.');
     });
-    const unsubscribeViolations = onSnapshot(collection(db, 'violations'), (snapshot) => {
-      setViolationRows(snapshot.docs.map((record) => ({ id: record.id, ...record.data() }))
-        .sort((left, right) => String(right.incident_date || '').localeCompare(String(left.incident_date || ''))));
-    }, (error) => {
-      console.error('Failed to load violations for editing:', error);
-      setPanelError('Unable to load violation records.');
-    });
     return () => {
       unsubscribeRules();
-      unsubscribeViolations();
     };
   }, []);
 
@@ -147,7 +142,13 @@ export default function Rule() {
     try {
       await setDoc(doc(db, 'rules', 'handbook_sanctions'), {
         ...sanctionDraft,
+        offenseGroups: handbookDraft.offenseGroups,
+        offenseTypes: handbookDraft.offenseTypes,
         updated_at: serverTimestamp(),
+      });
+      applyHandbookOverrides({
+        offenseGroups: handbookDraft.offenseGroups,
+        offenseTypes: handbookDraft.offenseTypes,
       });
       applySanctionOverrides(sanctionDraft);
       setPanelMessage('Sanction rules saved. New recommendations will use these values.');
@@ -213,9 +214,136 @@ export default function Rule() {
     setSearchQuery(tempSearchQuery);
   };
 
+  const openClassEditor = (group = null) => {
+    setClassEditor(group ? {
+      ...group,
+      offenses: (group.offenses || []).map((offense) => ({ ...offense })),
+      originalGroup: group,
+    } : {
+      categoryId: 'minor',
+      subcategoryId: 'light',
+      groupTitle: '',
+      offenses: [],
+      originalGroup: null,
+    });
+    setClassEditorViolationTitle('');
+    setClassEditorViolationIllegal(false);
+    setPanelError('');
+  };
+
+  const addViolationToClassDraft = () => {
+    const title = classEditorViolationTitle.trim();
+    if (!title || !classEditor) return;
+    const duplicate = classEditor.offenses.some((offense) => offense.title.trim().toLowerCase() === title.toLowerCase());
+    if (duplicate) {
+      setPanelError('That violation is already in this offense class.');
+      return;
+    }
+    setClassEditor({
+      ...classEditor,
+      offenses: [...classEditor.offenses, {
+        id: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        title,
+        isIllegal: classEditorViolationIllegal,
+      }],
+    });
+    setClassEditorViolationTitle('');
+    setClassEditorViolationIllegal(false);
+    setPanelError('');
+  };
+
+  const saveClassDraft = (event) => {
+    event.preventDefault();
+    if (!classEditor) return;
+    const groupTitle = classEditor.groupTitle.trim();
+    const offenses = classEditor.offenses
+      .map((offense) => ({ ...offense, title: String(offense.title || '').trim() }))
+      .filter((offense) => offense.title);
+
+    if (!groupTitle) {
+      setPanelError('Enter an offense class name.');
+      return;
+    }
+    if (offenses.length === 0) {
+      setPanelError('Add at least one violation to this offense class.');
+      return;
+    }
+
+    const originalGroup = classEditor.originalGroup;
+    const duplicateClass = handbookDraft.offenseGroups.some((group) =>
+      group !== originalGroup &&
+      group.categoryId === classEditor.categoryId &&
+      group.subcategoryId === classEditor.subcategoryId &&
+      group.groupTitle.trim().toLowerCase() === groupTitle.toLowerCase()
+    );
+    if (duplicateClass) {
+      setPanelError('An offense class with that name already exists for this offense type and severity.');
+      return;
+    }
+
+    const groupsWithoutOriginal = originalGroup
+      ? handbookDraft.offenseGroups.filter((group) => group !== originalGroup)
+      : handbookDraft.offenseGroups;
+    const bucketGroups = groupsWithoutOriginal.filter((group) =>
+      group.categoryId === classEditor.categoryId && group.subcategoryId === classEditor.subcategoryId
+    );
+    const handbookNumber = originalGroup && originalGroup.categoryId === classEditor.categoryId && originalGroup.subcategoryId === classEditor.subcategoryId
+      ? originalGroup.handbookNumber
+      : bucketGroups.reduce((max, group) => Math.max(max, Number(group.handbookNumber) || 0), 0) + 1;
+    const updatedGroup = {
+      handbookNumber,
+      categoryId: classEditor.categoryId,
+      subcategoryId: classEditor.subcategoryId,
+      groupTitle,
+      offenses,
+    };
+
+    setHandbookDraft({
+      ...handbookDraft,
+      offenseGroups: [...groupsWithoutOriginal, updatedGroup],
+    });
+    setClassEditor(null);
+    setPanelMessage(originalGroup ? 'Offense class updated in the catalog draft.' : 'Offense class added to the catalog draft.');
+    setPanelError('');
+  };
+
+  const deleteClassDraft = (group) => {
+    setHandbookDraft({
+      ...handbookDraft,
+      offenseGroups: handbookDraft.offenseGroups.filter((item) => item !== group),
+    });
+    setPanelMessage('Offense class removed from the catalog draft.');
+    setPanelError('');
+  };
+
+  const saveViolationCatalog = async () => {
+    setSavingPanel(true);
+    setPanelError('');
+    setPanelMessage('');
+
+    try {
+      await setDoc(doc(db, 'rules', 'handbook_sanctions'), {
+        ...sanctionDraft,
+        offenseGroups: handbookDraft.offenseGroups,
+        offenseTypes: handbookDraft.offenseTypes,
+        updated_at: serverTimestamp(),
+      });
+      applyHandbookOverrides({
+        offenseGroups: handbookDraft.offenseGroups,
+        offenseTypes: handbookDraft.offenseTypes,
+      });
+      setPanelMessage('Violation catalog saved successfully.');
+    } catch (error) {
+      console.error('Failed to save violation catalog:', error);
+      setPanelError('Could not save this violation catalog. Check your access and try again.');
+    } finally {
+      setSavingPanel(false);
+    }
+  };
+
   // Dynamic available categories for the dropdown based on selected tempType and tempSubcategory
   const availableCategories = [...new Set(
-    handbook.offenseGroups
+    handbookDraft.offenseGroups
       .filter(g => {
         const matchType = tempType === 'all' || g.categoryId === tempType;
         const matchSub = !tempSubcategory || tempSubcategory === 'all' || g.subcategoryId === tempSubcategory;
@@ -229,7 +357,7 @@ export default function Rule() {
     navigate('/login');
   };
 
-  const offenseTypes = handbook.offenseTypes;
+  const offenseTypes = handbookDraft.offenseTypes;
   const currentType = offenseTypes.find(t => t.id === activeType);
 
   const toggleGroup = (num) => {
@@ -237,7 +365,7 @@ export default function Rule() {
   };
 
   // Unified filtering logic
-  const filteredGroups = handbook.offenseGroups.filter(g => {
+  const filteredGroups = handbookDraft.offenseGroups.filter(g => {
     const matchType = activeType === 'all' || g.categoryId === activeType;
     const matchSub = !activeSubcategory || activeSubcategory === 'all' || g.subcategoryId === activeSubcategory;
     const matchCat = categoryFilter === 'all' || g.groupTitle === categoryFilter;
@@ -249,13 +377,6 @@ export default function Rule() {
 
     return matchType && matchSub && matchCat && matchSearch;
   });
-  const filteredViolationRows = violationRows.filter((record) => {
-    const query = violationQuery.trim().toLowerCase();
-    if (!query) return true;
-    return [record.student_name, record.student_number, record.group_title, record.offense_variety, record.incident_description]
-      .some((value) => String(value || '').toLowerCase().includes(query));
-  });
-
   const updateSanctionDraft = (key, index, value) => {
     setSanctionDraft((previous) => ({
       ...previous,
@@ -473,25 +594,187 @@ export default function Rule() {
         {activePanel === 'violations' && (
           <section className="rm-editor-panel">
             <div className="rm-editor-heading">
-              <div><h2>Incident Records</h2><p>Edit report details or the saved sanction/status. Each student record is updated separately.</p></div>
-              <input className="rm-violation-search" type="search" placeholder="Search student or incident" value={violationQuery} onChange={(event) => setViolationQuery(event.target.value)} />
+              <div><h2>Violation Catalog</h2><p>Add or remove handbook violations and assign the offense type and severity that governs them.</p></div>
+              <button type="button" className="rm-apply-btn" onClick={saveViolationCatalog} disabled={savingPanel}><Save size={16} /> {savingPanel ? 'Saving...' : 'Save Catalog'}</button>
             </div>
-            <div className="rm-violation-table-wrap">
-              <table className="rm-violation-table">
-                <thead><tr><th>Date</th><th>Student</th><th>Incident</th><th>Status</th><th aria-label="Actions"></th></tr></thead>
-                <tbody>{filteredViolationRows.map((record) => (
-                  <tr key={record.id}>
-                    <td>{record.incident_date || '—'}</td>
-                    <td>{record.student_name || record.student_number || 'Unknown'}</td>
-                    <td>{record.offense_variety || record.group_title || 'Unspecified'}</td>
-                    <td>{record.status || 'recorded'}</td>
-                    <td><button type="button" className="rm-edit-btn" onClick={() => { setEditingViolation({ ...record }); setPanelError(''); }}><Pencil size={14} /> Edit</button></td>
-                  </tr>
-                ))}</tbody>
-              </table>
-              {filteredViolationRows.length === 0 && <p className="rm-empty">No incident records match this search.</p>}
+
+            <div className="rm-class-toolbar">
+              <h3>Offense Class</h3>
+              <button type="button" className="rm-icon-action" aria-label="Add offense class" title="Add offense class" onClick={() => openClassEditor()}>
+                <Plus size={17} />
+              </button>
+            </div>
+
+            <div className="rm-violation-catalog">
+              {(handbookDraft.offenseGroups || [])
+                .slice()
+                .sort((left, right) => {
+                  const categoryRank = { minor: 0, major: 1 };
+                  const leftRank = categoryRank[left.categoryId] ?? 99;
+                  const rightRank = categoryRank[right.categoryId] ?? 99;
+                  if (leftRank !== rightRank) return leftRank - rightRank;
+                  if (left.subcategoryId !== right.subcategoryId) return String(left.subcategoryId).localeCompare(String(right.subcategoryId));
+                  return Number(left.handbookNumber || 0) - Number(right.handbookNumber || 0);
+                })
+                .map((group) => (
+                  <div key={`${group.categoryId}-${group.subcategoryId}-${group.handbookNumber}-${group.groupTitle}`} className="rm-group rm-group--open">
+                    <div className="rm-group-header">
+                      <div className="rm-group-left">
+                        <span className="rm-group-number" style={{ background: SUBCATEGORY_COLORS[group.subcategoryId]?.bg || '#eaf4ff', color: SUBCATEGORY_COLORS[group.subcategoryId]?.color || '#006ed0', border: `1px solid ${SUBCATEGORY_COLORS[group.subcategoryId]?.border || '#b9d9fb'}` }}>
+                          {group.handbookNumber}
+                        </span>
+                        <div>
+                          <h3 className="rm-group-title">{group.groupTitle}</h3>
+                          <span className="rm-group-meta">{group.categoryId === 'major' ? 'Major' : 'Minor'} · {SUBCATEGORY_LABELS[group.subcategoryId] || group.subcategoryId}</span>
+                        </div>
+                      </div>
+                      <button type="button" className="rm-icon-action" aria-label={`Edit ${group.groupTitle}`} title="Edit offense class" onClick={() => openClassEditor(group)}>
+                        <Pencil size={15} />
+                      </button>
+                    </div>
+
+                    <div className="rm-group-body">
+                      <ul className="rm-violation-list">
+                        {(group.offenses || []).map((offense) => (
+                          <li key={offense.id} className="rm-violation-item">
+                            <span>{offense.title}{offense.isIllegal ? ' • Illegal activity' : ''}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                ))}
             </div>
           </section>
+        )}
+
+        {classEditor && (
+          <div className="rm-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setClassEditor(null); }}>
+            <form className="rm-edit-modal rm-class-editor-modal" onSubmit={saveClassDraft}>
+              <div className="rm-editor-heading">
+                <div>
+                  <h2>{classEditor.originalGroup ? 'Edit Offense Class' : 'Add Offense Class'}</h2>
+                  <p>Set the class and severity, then manage the violations it contains.</p>
+                </div>
+                <button type="button" className="rm-modal-close" aria-label="Close editor" onClick={() => setClassEditor(null)}>×</button>
+              </div>
+
+              <div className="rm-edit-fields">
+                <label>
+                  Offense Type
+                  <select
+                    value={classEditor.categoryId}
+                    onChange={(event) => setClassEditor((previous) => ({
+                      ...previous,
+                      categoryId: event.target.value,
+                      subcategoryId: event.target.value === 'minor' ? 'light' : 'serious',
+                    }))}
+                  >
+                    <option value="minor">Minor</option>
+                    <option value="major">Major</option>
+                  </select>
+                </label>
+                <label>
+                  Severity
+                  <select
+                    value={classEditor.subcategoryId}
+                    onChange={(event) => setClassEditor((previous) => ({ ...previous, subcategoryId: event.target.value }))}
+                  >
+                    {classEditor.categoryId === 'minor' ? (
+                      <>
+                        <option value="light">Light</option>
+                        <option value="less_serious">Less Serious</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="serious">Serious</option>
+                        <option value="very_serious">Very Serious</option>
+                      </>
+                    )}
+                  </select>
+                </label>
+                <label className="rm-edit-field-full">
+                  Offense Class
+                  <input
+                    type="text"
+                    required
+                    value={classEditor.groupTitle}
+                    onChange={(event) => setClassEditor((previous) => ({ ...previous, groupTitle: event.target.value }))}
+                    placeholder="Ex: ID and Identification Violations"
+                  />
+                </label>
+              </div>
+
+              <div className="rm-class-violations-heading">
+                <h3>Specific Violations</h3>
+                <span>{classEditor.offenses.length}</span>
+              </div>
+              <ul className="rm-class-violation-list">
+                {classEditor.offenses.map((offense, index) => (
+                  <li key={offense.id}>
+                    <input
+                      aria-label={`Violation ${index + 1}`}
+                      value={offense.title}
+                      onChange={(event) => setClassEditor((previous) => ({
+                        ...previous,
+                        offenses: previous.offenses.map((item) => item.id === offense.id ? { ...item, title: event.target.value } : item),
+                      }))}
+                    />
+                    <label className="rm-class-illegal-toggle" title="Flag for authority referral">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(offense.isIllegal)}
+                        onChange={(event) => setClassEditor((previous) => ({
+                          ...previous,
+                          offenses: previous.offenses.map((item) => item.id === offense.id ? { ...item, isIllegal: event.target.checked } : item),
+                        }))}
+                      />
+                      Referral
+                    </label>
+                    <button
+                      type="button"
+                      className="rm-icon-action rm-danger-action"
+                      aria-label={`Delete ${offense.title || `violation ${index + 1}`}`}
+                      title="Delete violation"
+                      onClick={() => setClassEditor((previous) => ({
+                        ...previous,
+                        offenses: previous.offenses.filter((item) => item.id !== offense.id),
+                      }))}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="rm-add-class-violation">
+                <input
+                  value={classEditorViolationTitle}
+                  onChange={(event) => setClassEditorViolationTitle(event.target.value)}
+                  onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addViolationToClassDraft(); } }}
+                  placeholder="Add a specific violation"
+                  aria-label="New specific violation"
+                />
+                <label className="rm-class-illegal-toggle">
+                  <input type="checkbox" checked={classEditorViolationIllegal} onChange={(event) => setClassEditorViolationIllegal(event.target.checked)} />
+                  Referral
+                </label>
+                <button type="button" className="rm-icon-action" aria-label="Add violation to class" title="Add violation" onClick={addViolationToClassDraft}>
+                  <Plus size={16} />
+                </button>
+              </div>
+
+              <div className="rm-modal-actions">
+                {classEditor.originalGroup && (
+                  <button type="button" className="rm-delete-class-btn" onClick={() => { deleteClassDraft(classEditor.originalGroup); setClassEditor(null); }}>
+                    <Trash2 size={15} /> Delete Class
+                  </button>
+                )}
+                <button type="button" className="rm-modal-cancel" onClick={() => setClassEditor(null)}>Cancel</button>
+                <button className="rm-apply-btn" type="submit"><Save size={16} /> Apply</button>
+              </div>
+            </form>
+          </div>
         )}
 
         {editingViolation && (

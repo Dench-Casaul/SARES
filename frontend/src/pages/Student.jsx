@@ -908,6 +908,16 @@ function StudentProfile({ student, onBack, onSelectViolation, onUpdateViolationS
     setShowViolationModal(true);
   };
 
+  const getOffenseOrdinalLabel = (offenseNumber) => {
+    const number = Number(offenseNumber || 0);
+    if (!Number.isFinite(number) || number <= 0) return "";
+
+    const suffixes = ["th", "st", "nd", "rd"];
+    const remainder = number % 100;
+    const suffix = suffixes[(remainder - 20) % 10] || suffixes[remainder] || suffixes[0];
+    return `${number}${suffix} offense`;
+  };
+
   const sortedViolations = [...(student?.violations || [])].sort((a, b) => {
     const timeA = a?.created_at?.seconds
       ? a.created_at.seconds * 1000
@@ -1059,7 +1069,13 @@ function StudentProfile({ student, onBack, onSelectViolation, onUpdateViolationS
                     onClick={() => onSelectViolation(v)}
                   >
                     <div className="s-history-item-header">
-                      <span className="s-history-category">{v.category}</span>
+                      <span className="s-history-category">
+                        {v.category}{(() => {
+                          const offenseNumber = Number(v.cumulative_offense_number ?? v.offense_number ?? v.offenseNumber ?? 0);
+                          const offenseLabel = getOffenseOrdinalLabel(offenseNumber);
+                          return offenseLabel ? ` [${offenseLabel}]` : "";
+                        })()}
+                      </span>
                       {(() => {
                         const suspensionStarted = !!v.suspension_start && (new Date(v.suspension_start).getTime() <= new Date().getTime());
                         if (suspensionStarted) {

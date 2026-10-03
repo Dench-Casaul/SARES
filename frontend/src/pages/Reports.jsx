@@ -185,60 +185,35 @@ export default function Report() {
     };
   }, [filteredViolations]);
 
-  const exportExcel = async () => {
-    const { createReportsXlsx } = await import("../engine/reportsXlsx");
+  const exportDocx = async () => {
+    const { generateReportsDocx } = await import("../engine/reportsXlsx");
     const headers = [
       "Date",
       "Student Number",
       "Student Name",
+      "Grade Level",
       "Offense Classification",
       "Specific Violation",
       "Offense Number",
-      "Severity Score",
-      "Reported By",
-      "Reporter Role",
-      "Reporter Contact",
-      "Incident Description",
-      "Identified Sanction",
       "Sanction Recommended",
       "Status",
-      "Evidence",
     ];
     const rows = filteredViolations.map((v) => {
       const recordDate = pickDate(v);
-      const evidence = Array.isArray(v.evidence_urls)
-        ? v.evidence_urls.map((file) => `${file.name || "Evidence"}: ${file.url || ""}`).join("; ")
-        : "";
       return [
         recordDate ? recordDate.toISOString().slice(0, 10) : "N/A",
         v.student_number || studentNumbers[String(v.student_id)] || "N/A",
         v.student_name || "Unknown",
-        [v.offense_type, v.subcategory_id || v.category_name].filter(Boolean).join(" - ") || "Unspecified",
+        v.student_year || v.year_level || v.year || "N/A",
+        v.offense_type || "Unspecified",
         v.offense_variety || v.rule_name || "Unspecified",
         v.cumulative_offense_number || v.offense_number || "N/A",
-        v.severity_score ?? v.severity ?? "N/A",
-        v.reported_by || "N/A",
-        v.reporter_role || "N/A",
-        v.reporter_contact || "N/A",
-        v.incident_description || "",
-        v.identified_sanction || formatIdentifiedSanction(v),
         v.recommended_sanction || "N/A",
         v.status || "N/A",
-        evidence,
       ];
     });
 
-    const columnWidths = [14, 20, 26, 24, 36, 16, 16, 24, 18, 26, 48, 48, 48, 16, 48];
-    const workbookBytes = createReportsXlsx(headers, rows, columnWidths);
-    const blob = new Blob([workbookBytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "sares-reports.xlsx";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    await generateReportsDocx(headers, rows, "sares-reports.docx");
   };
 
   return (
@@ -280,7 +255,7 @@ export default function Report() {
                 <option key={item} value={item}>{item}</option>
               ))}
             </select>
-            <button type="button" className="report-secondary-btn" onClick={exportExcel}>Export Excel</button>
+            <button type="button" className="report-secondary-btn" onClick={exportDocx}>Export DOCX</button>
           </div>
         </section>
 
