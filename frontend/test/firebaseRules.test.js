@@ -110,6 +110,29 @@ test('unprovisioned school-domain users are denied', async () => {
   await assertFails(getDoc(doc(firestore, 'users', 'not-provisioned')));
 });
 
+test('a separately provisioned superadmin UID keeps all-scope access', async () => {
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), 'users', 'new-superadmin'), {
+      role: 'superadmin',
+      school_scope: 'all',
+    });
+  });
+
+  const newSuperadmin = signedInAs('new-superadmin');
+  const firestore = newSuperadmin.firestore();
+  const [students, violations] = await Promise.all([
+    assertSucceeds(getDocs(collection(firestore, 'students'))),
+    assertSucceeds(getDocs(collection(firestore, 'violations'))),
+  ]);
+
+  assert.equal(students.size, 3);
+  assert.equal(violations.size, 3);
+  await assertSucceeds(uploadBytes(
+    ref(newSuperadmin.storage(), 'evidence/legacy/new-superadmin.jpg'),
+    new Uint8Array([1, 2, 3])
+  ));
+});
+
 test('counselor writes must match their level and the linked student scope', async () => {
   const firestore = signedInAs('elementary').firestore();
   await assertSucceeds(setDoc(doc(firestore, 'students', 'elementary-new'), {

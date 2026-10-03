@@ -1,20 +1,20 @@
 # SARES Role-Based Setup
 
-This rollout provisions three accounts and scopes counselor access by the student's current grade. Counselors have the same application functions as the superadmin, but only see their school level plus shared records. Superadmin access spans all scopes.
+This rollout provisions a dedicated superadmin account and two counselor accounts. Counselors have the same application functions as the superadmin, but only see their school level plus shared records. Superadmin access spans all scopes and keeps the existing app features, including student and violation management, rules, reports, case assessments, account security, and all-scope evidence access.
 
 ## Account Profiles
 
-Create or update accounts in Firebase Authentication using the Firebase Console. Preserve the existing account UID when changing its email to `admin@ows.edu.ph`. Create `guidance.elem@ows.edu.ph` and `guidance.hs@ows.edu.ph` as the counselor accounts. Do not store passwords in source control, Firestore profiles, shell scripts, or deployment configuration. The supplied passwords were shared in chat; rotate them before production where possible. Users can change their password in SARES under Account Security.
+The dedicated superadmin Firebase Authentication account has been created separately as `admin@ows.edu.ph`; its matching Firestore profile is also provisioned below. This address is a Firebase Email/Password sign-in identifier and does not need to receive email. Do not change, delete, or reuse the UID of an existing account. For a future deployment, create a separate account with an unused `@ows.edu.ph` address. Create `guidance.elem@ows.edu.ph` and `guidance.hs@ows.edu.ph` as the counselor accounts. Set passwords directly in Firebase and never store them in source control, a Firestore profile, a script, or deployment configuration. Users can change their password in SARES under Account Security.
 
-For each Auth UID, create `users/{uid}` in Firestore from the Console. Include:
+For each Auth UID, create `users/{uid}` in Firestore from the Console, including a **new profile for the new superadmin UID**. Include:
 
-| Account | `role` | `school_scope` |
-| --- | --- | --- |
-| Superadmin | `superadmin` | `all` |
-| Elementary counselor | `counselor` | `elementary` |
-| High-school counselor | `counselor` | `high_school` |
+| Account | Email | `role` | `school_scope` |
+| --- | --- | --- | --- |
+| Superadmin | `admin@ows.edu.ph` | `superadmin` | `all` |
+| Elementary counselor | `guidance.elem@ows.edu.ph` | `counselor` | `elementary` |
+| High-school counselor | `guidance.hs@ows.edu.ph` | `counselor` | `high_school` |
 
-Each profile should also include `user_id`, `email`, and `full_name`. `email` must match the Auth user. Role profiles are read-only to app clients; role changes are made by an authorized operator in Firebase Console.
+Each profile should also include `user_id` (the matching Auth UID), `email`, and `full_name`. `email` must match the Auth user. The app and Firebase rules grant the new account the same superadmin capabilities based on this profile; no existing account needs to be changed. Role profiles are read-only to app clients; role changes are made by an authorized operator in Firebase Console.
 
 ## Data Scopes
 
