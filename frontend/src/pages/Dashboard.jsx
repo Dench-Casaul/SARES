@@ -2,17 +2,20 @@ import React, { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { collection, getDocs } from 'firebase/firestore'
 import { db } from '../firebase'
+import { useAuthProfile } from '../authContext'
+import { queryForUserScope } from '../firestoreAccess'
 import { isViolationServed } from '../engine/ruleEngine'
 import '../css/Dashboard.css'
 import heroImg from '../assets/hero.png'
 import wesleyLogo from '../assets/wesley-logo.png'
-import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X } from 'lucide-react'
+import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X, KeyRound } from 'lucide-react'
 
 const normalizeViolationStatus = (violation) => {
   return isViolationServed(violation) ? 'served' : 'pending';
 };
 
 const Dashboard = () => {
+  const { userProfile } = useAuthProfile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -29,8 +32,8 @@ const Dashboard = () => {
   const [monthlyTrends, setMonthlyTrends] = useState([]);
 
   useEffect(() => {
-    loadDashboard();
-  }, []);
+    if (userProfile) loadDashboard();
+  }, [userProfile]);
 
   const toPercentDistribution = (entries, total) => {
     if (!entries.length || total <= 0) {
@@ -62,8 +65,8 @@ const Dashboard = () => {
   const loadDashboard = async () => {
     try {
       const [studentsSnapshot, violationsSnapshot] = await Promise.all([
-        getDocs(collection(db, 'students')),
-        getDocs(collection(db, 'violations')),
+        getDocs(queryForUserScope(collection(db, 'students'), userProfile)),
+        getDocs(queryForUserScope(collection(db, 'violations'), userProfile)),
       ]);
       const studentsData = studentsSnapshot.docs.map((studentDoc) => studentDoc.data());
       const violationsData = violationsSnapshot.docs.map((violationDoc) => ({
@@ -271,6 +274,12 @@ const Dashboard = () => {
               <Link to="/sares/violation" onClick={() => setSidebarOpen(false)} className={`nav-item${location.pathname === '/sares/violation' ? '-active' : ''}`}>
                 <ClipboardList className="nav-icon" />
                 <span className="nav-text">Log Violation</span>
+              </Link>
+            </li>
+            <li>
+              <Link to="/sares/account" onClick={() => setSidebarOpen(false)} className={`nav-item${location.pathname === '/sares/account' ? '-active' : ''}`}>
+                <KeyRound className="nav-icon" />
+                <span className="nav-text">Account Security</span>
               </Link>
             </li>
           </ul>

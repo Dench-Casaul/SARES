@@ -1,30 +1,106 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isSignedInAdmin() {
+    function userProfilePath() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+
+    function isProvisioned() {
       return request.auth != null
         && request.auth.token.email != null
-        && request.auth.token.email.matches('.*@ows\\.edu\\.ph$');
+        && request.auth.token.email.matches('^[^@]+@ows\\.edu\\.ph$')
+        && exists(userProfilePath())
+        && get(userProfilePath()).data.role in ['superadmin', 'counselor']
+        && ((get(userProfilePath()).data.role == 'superadmin'
+            && get(userProfilePath()).data.school_scope == 'all')
+          || (get(userProfilePath()).data.role == 'counselor'
+            && get(userProfilePath()).data.school_scope in ['elementary', 'high_school']));
+    }
+
+    function isSuperadmin() {
+      return isProvisioned() && get(userProfilePath()).data.role == 'superadmin';
+    }
+
+    function isCounselor() {
+      return isProvisioned() && get(userProfilePath()).data.role == 'counselor';
+    }
+
+    function isKnownScope(scope) {
+      return scope in ['elementary', 'high_school', 'shared'];
+    }
+
+    function canReadScope(scope) {
+      return isSuperadmin()
+        || (isCounselor()
+          && (scope == get(userProfilePath()).data.school_scope || scope == 'shared'));
+    }
+
+    function canWriteScope(scope) {
+      return isKnownScope(scope)
+        && (isSuperadmin()
+          || (isCounselor()
+            && (scope == get(userProfilePath()).data.school_scope || scope == 'shared')));
+    }
+
+    function scopeForGrade(yearLevel) {
+      return yearLevel == 'Kindergarten'
+        || yearLevel in ['1st Grade', '2nd Grade', '3rd Grade', '4th Grade', '5th Grade', '6th Grade']
+        ? 'elementary'
+        : yearLevel in ['7th Grade', '8th Grade', '9th Grade', '10th Grade']
+          ? 'high_school'
+          : 'shared';
+    }
+
+    function studentHasValidScope(data) {
+      return data.year_level is string
+        && data.school_scope == scopeForGrade(data.year_level);
+    }
+
+    function linkedStudentPath(data) {
+      return /databases/$(database)/documents/students/$(data.student_id);
+    }
+
+    function violationMatchesCurrentStudent(data) {
+      return data.student_id is string
+        && exists(linkedStudentPath(data))
+        && getAfter(linkedStudentPath(data)).data.school_scope == data.school_scope;
     }
 
     match /students/{studentId} {
-      allow get, list, create, update, delete: if isSignedInAdmin();
+      allow get, list: if isProvisioned() && canReadScope(resource.data.school_scope);
+      allow create: if isProvisioned()
+        && canWriteScope(request.resource.data.school_scope)
+        && studentHasValidScope(request.resource.data);
+      allow update: if isProvisioned()
+        && canReadScope(resource.data.school_scope)
+        && canWriteScope(request.resource.data.school_scope)
+        && studentHasValidScope(request.resource.data);
+      allow delete: if isProvisioned() && canReadScope(resource.data.school_scope);
     }
 
     match /violations/{violationId} {
-      allow get, list, create, update, delete: if isSignedInAdmin();
+      allow get, list: if isProvisioned() && canReadScope(resource.data.school_scope);
+      allow create: if isProvisioned()
+        && canWriteScope(request.resource.data.school_scope)
+        && violationMatchesCurrentStudent(request.resource.data);
+      allow update: if isProvisioned()
+        && canReadScope(resource.data.school_scope)
+        && canWriteScope(request.resource.data.school_scope)
+        && violationMatchesCurrentStudent(request.resource.data);
+      allow delete: if isProvisioned() && canReadScope(resource.data.school_scope);
     }
 
     match /rules/{ruleId} {
-      allow get, list, create, update, delete: if isSignedInAdmin();
+      allow get, list, create, update, delete: if isProvisioned();
     }
 
     match /offense_categories/{categoryId} {
-      allow get, list, create, update, delete: if isSignedInAdmin();
+      allow get, list, create, update, delete: if isProvisioned();
     }
 
     match /users/{userId} {
-      allow get, list, create, update, delete: if isSignedInAdmin();
+      allow get: if isProvisioned() && request.auth.uid == userId;
+      allow list, create, update, delete: if false;
     }
 
     match /{document=**} {

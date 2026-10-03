@@ -39,7 +39,7 @@ SARES/
 ## Prerequisites
 
 Install the following before setup:
-- Node.js 18+ (Node.js 20 LTS recommended)
+- Node.js 20.19+ or 22.12+
 - npm 9+
 - A Firebase project with Authentication and Firestore enabled
 
@@ -109,9 +109,9 @@ npm run preview
 
 ## Security and Roadmap
 
-SARES is an admin-only web application for authorized school personnel. It supports RA 10173 (Data Privacy Act of 2012) compliance by limiting access through authenticated admin accounts, processing student disciplinary records only for official school purposes, and requiring proper handling, retention, and protection of personal data.
+SARES uses provisioned superadmin and counselor roles. Counselors are scoped to elementary or high-school records, with unclassified records shared between counselor scopes; the superadmin can access all records. Firebase rules enforce these roles and scopes. Follow [docs/role-based-setup.md](docs/role-based-setup.md) to provision accounts, migrate existing records/evidence, and deploy the rules safely.
 
-Future scaling may include stronger role-based permissions, audit logs, backup and retention controls, improved reporting, multi-campus support, and performance tuning as student and violation records grow.
+SARES processes sensitive student disciplinary information. Restrict Firebase Console and migration credentials to authorized operators, rotate exposed passwords, and maintain appropriate retention and backup controls.
 
 ## Available Scripts
 
@@ -121,6 +121,9 @@ From `frontend`:
 - `npm run build` - create production build
 - `npm run preview` - preview production build
 - `npm run lint` - run ESLint
+- `npm test` - run frontend unit tests
+- `npm run test:rules` - run Firestore and Storage Emulator authorization tests
+- `npm run backfill:school-scope` - dry-run existing record/evidence scope migration
 
 ## Notes
 

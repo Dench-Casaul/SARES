@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, getDoc, onSnapshot } from "firebase/firestore";
 import Dashboard from "./pages/Dashboard";
 import Student from "./pages/Student";
 import Violation from "./pages/Violation";
@@ -9,10 +9,13 @@ import Report from "./pages/Reports";
 import Login from "./pages/Login";
 import CaseAssessment from "./pages/CaseAssessment";
 import Landing from "./pages/Landing";
+import AccountSecurity from "./pages/AccountSecurity";
 import React, { useEffect, useState } from "react";
-import { applySanctionOverrides } from "./data/handbookIndex";
+import { applyHandbookOverrides, applySanctionOverrides } from "./data/handbookIndex";
 import { auth, db } from "./firebase";
 import { isAllowedLoginEmail } from "./authPolicy";
+import { isValidRoleProfile } from "./schoolScope";
+import { AuthProfileContext } from "./authContext";
 
 class AppErrorBoundary extends React.Component {
   constructor(props) {
@@ -49,48 +52,71 @@ function RequireAuth({ children, isAuthenticated, authReady }) {
 
 function App() {
   const [authReady, setAuthReady] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userProfile, setUserProfile] = useState(null);
   const [ruleRevision, setRuleRevision] = useState(0);
 
   useEffect(() => {
     let unsubscribeRuleOverrides = () => {};
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    let authEvent = 0;
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      const currentEvent = ++authEvent;
       unsubscribeRuleOverrides();
       setAuthReady(false);
-      if (user && !isAllowedLoginEmail(user.email || "")) {
-        signOut(auth).catch(() => {});
-        localStorage.removeItem("user");
-        setIsAuthenticated(false);
-        setAuthReady(true);
-        return;
-      }
+      setUserProfile(null);
 
-      const signedIn = Boolean(user);
-      setIsAuthenticated(signedIn);
-
-      if (!signedIn) {
+      if (!user) {
         localStorage.removeItem("user");
+        applyHandbookOverrides();
         applySanctionOverrides();
         setAuthReady(true);
         return;
       }
 
-      unsubscribeRuleOverrides = onSnapshot(
-        doc(db, "rules", "handbook_sanctions"),
-        (snapshot) => {
-          applySanctionOverrides(snapshot.exists() ? snapshot.data() : {});
-          setRuleRevision((revision) => revision + 1);
-          setAuthReady(true);
-        },
-        (error) => {
-          console.error("Failed to load handbook sanction updates:", error);
-          applySanctionOverrides();
+      try {
+        const email = user.email || "";
+        if (!isAllowedLoginEmail(email)) throw new Error("This account is not eligible to sign in.");
+
+        const profileSnapshot = await getDoc(doc(db, "users", user.uid));
+        const profileData = profileSnapshot.exists() ? profileSnapshot.data() : null;
+        const profile = profileData ? {
+          ...profileData,
+          user_id: user.uid,
+          email,
+          full_name: profileData.full_name || user.displayName || email,
+        } : null;
+
+        if (!isValidRoleProfile(profile)) throw new Error("This account has no valid SARES role.");
+        if (currentEvent !== authEvent) return;
+
+        setUserProfile(profile);
+        setAuthReady(true);
+        unsubscribeRuleOverrides = onSnapshot(
+          doc(db, "rules", "handbook_sanctions"),
+          (snapshot) => {
+            const overrides = snapshot.exists() ? snapshot.data() : {};
+            applyHandbookOverrides(overrides);
+            applySanctionOverrides(overrides);
+            setRuleRevision((revision) => revision + 1);
+          },
+          (error) => {
+            console.error("Failed to load handbook sanction updates:", error);
+            applyHandbookOverrides();
+            applySanctionOverrides();
+          }
+        );
+      } catch (error) {
+        console.error("Failed to validate SARES account:", error);
+        if (currentEvent === authEvent) {
+          localStorage.removeItem("user");
+          await signOut(auth).catch(() => {});
+          setUserProfile(null);
           setAuthReady(true);
         }
-      );
+      }
     });
 
     return () => {
+      authEvent += 1;
       unsubscribe();
       unsubscribeRuleOverrides();
     };
@@ -98,35 +124,32 @@ function App() {
 
   return (
     <div data-rule-revision={ruleRevision}>
-    <AppErrorBoundary>
-      <Routes>
-        <Route path="/" element={<Landing />} />
-        <Route path="/login" element={<Login />} />
-        <Route
-          path="/sares"
-          element={
-            <RequireAuth isAuthenticated={isAuthenticated} authReady={authReady}>
-              <Navigate to="/sares/dashboard" replace />
-            </RequireAuth>
-          }
-        />
-        <Route path="/sares/dashboard" element={<RequireAuth isAuthenticated={isAuthenticated} authReady={authReady}><Dashboard /></RequireAuth>} />
-        <Route path="/sares/students" element={<RequireAuth isAuthenticated={isAuthenticated} authReady={authReady}><Student /></RequireAuth>} />
-        <Route path="/sares/violation" element={<RequireAuth isAuthenticated={isAuthenticated} authReady={authReady}><Violation /></RequireAuth>} />
-        <Route path="/sares/case-assessment/:violationId" element={<RequireAuth isAuthenticated={isAuthenticated} authReady={authReady}><CaseAssessment /></RequireAuth>} />
-        <Route path="/sares/case-assessment" element={<RequireAuth isAuthenticated={isAuthenticated} authReady={authReady}><CaseAssessment /></RequireAuth>} />
-        <Route path="/sares/rules" element={<RequireAuth isAuthenticated={isAuthenticated} authReady={authReady}><Rule /></RequireAuth>} />
-        <Route path="/sares/reports" element={<RequireAuth isAuthenticated={isAuthenticated} authReady={authReady}><Report /></RequireAuth>} />
-        <Route path="/dashboard" element={<RequireAuth isAuthenticated={isAuthenticated} authReady={authReady}><Dashboard /></RequireAuth>} />
-        <Route path="/students" element={<RequireAuth isAuthenticated={isAuthenticated} authReady={authReady}><Student /></RequireAuth>} />
-        <Route path="/violation" element={<RequireAuth isAuthenticated={isAuthenticated} authReady={authReady}><Violation /></RequireAuth>} />
-        <Route path="/case-assessment/:violationId" element={<RequireAuth isAuthenticated={isAuthenticated} authReady={authReady}><CaseAssessment /></RequireAuth>} />
-        <Route path="/case-assessment" element={<RequireAuth isAuthenticated={isAuthenticated} authReady={authReady}><CaseAssessment /></RequireAuth>} />
-        <Route path="/rules" element={<RequireAuth isAuthenticated={isAuthenticated} authReady={authReady}><Rule /></RequireAuth>} />
-        <Route path="/reports" element={<RequireAuth isAuthenticated={isAuthenticated} authReady={authReady}><Report /></RequireAuth>} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </AppErrorBoundary>
+      <AuthProfileContext.Provider value={{ userProfile }}>
+        <AppErrorBoundary>
+          <Routes>
+            <Route path="/" element={<Landing />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/sares" element={<RequireAuth isAuthenticated={Boolean(userProfile)} authReady={authReady}><Navigate to="/sares/dashboard" replace /></RequireAuth>} />
+            <Route path="/sares/dashboard" element={<RequireAuth isAuthenticated={Boolean(userProfile)} authReady={authReady}><Dashboard /></RequireAuth>} />
+            <Route path="/sares/students" element={<RequireAuth isAuthenticated={Boolean(userProfile)} authReady={authReady}><Student /></RequireAuth>} />
+            <Route path="/sares/violation" element={<RequireAuth isAuthenticated={Boolean(userProfile)} authReady={authReady}><Violation /></RequireAuth>} />
+            <Route path="/sares/case-assessment/:violationId" element={<RequireAuth isAuthenticated={Boolean(userProfile)} authReady={authReady}><CaseAssessment /></RequireAuth>} />
+            <Route path="/sares/case-assessment" element={<RequireAuth isAuthenticated={Boolean(userProfile)} authReady={authReady}><CaseAssessment /></RequireAuth>} />
+            <Route path="/sares/rules" element={<RequireAuth isAuthenticated={Boolean(userProfile)} authReady={authReady}><Rule /></RequireAuth>} />
+            <Route path="/sares/reports" element={<RequireAuth isAuthenticated={Boolean(userProfile)} authReady={authReady}><Report /></RequireAuth>} />
+            <Route path="/sares/account" element={<RequireAuth isAuthenticated={Boolean(userProfile)} authReady={authReady}><AccountSecurity /></RequireAuth>} />
+            <Route path="/dashboard" element={<RequireAuth isAuthenticated={Boolean(userProfile)} authReady={authReady}><Dashboard /></RequireAuth>} />
+            <Route path="/students" element={<RequireAuth isAuthenticated={Boolean(userProfile)} authReady={authReady}><Student /></RequireAuth>} />
+            <Route path="/violation" element={<RequireAuth isAuthenticated={Boolean(userProfile)} authReady={authReady}><Violation /></RequireAuth>} />
+            <Route path="/case-assessment/:violationId" element={<RequireAuth isAuthenticated={Boolean(userProfile)} authReady={authReady}><CaseAssessment /></RequireAuth>} />
+            <Route path="/case-assessment" element={<RequireAuth isAuthenticated={Boolean(userProfile)} authReady={authReady}><CaseAssessment /></RequireAuth>} />
+            <Route path="/rules" element={<RequireAuth isAuthenticated={Boolean(userProfile)} authReady={authReady}><Rule /></RequireAuth>} />
+            <Route path="/reports" element={<RequireAuth isAuthenticated={Boolean(userProfile)} authReady={authReady}><Report /></RequireAuth>} />
+            <Route path="/account" element={<RequireAuth isAuthenticated={Boolean(userProfile)} authReady={authReady}><AccountSecurity /></RequireAuth>} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </AppErrorBoundary>
+      </AuthProfileContext.Provider>
     </div>
   );
 }

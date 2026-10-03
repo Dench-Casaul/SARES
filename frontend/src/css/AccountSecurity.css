@@ -1,0 +1,124 @@
+.account-security-page {
+  min-height: 100vh;
+  padding: 28px clamp(18px, 5vw, 64px);
+  background: #f4f8fd;
+  color: #071f5f;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.account-security-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #d8e6f7;
+}
+
+.account-back-link,
+.account-security-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #245076;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.account-back-link:hover { color: #006ed0; }
+.account-security-mark { color: #006ed0; }
+
+.account-security-content {
+  width: min(520px, 100%);
+  margin: 9vh auto 0;
+}
+
+.account-security-heading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 26px;
+}
+
+.account-security-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  background: #dff1ff;
+  color: #006ed0;
+}
+
+.account-security-heading h1 {
+  margin: 0;
+  color: #071f5f;
+  font-size: 25px;
+  font-weight: 800;
+}
+
+.account-security-heading p {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.account-password-form {
+  display: grid;
+  gap: 16px;
+  padding: 22px;
+  border: 1px solid #d8e6f7;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.account-password-form label {
+  display: grid;
+  gap: 7px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.account-password-form input {
+  min-height: 42px;
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  color: #172033;
+  font: 400 14px 'DM Sans', sans-serif;
+}
+
+.account-password-form input:focus {
+  outline: 2px solid rgba(17, 152, 232, 0.2);
+  border-color: #1198e8;
+}
+
+.account-password-form button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  margin-top: 2px;
+  border: 0;
+  border-radius: 6px;
+  background: #087ccc;
+  color: #fff;
+  font: 700 14px 'DM Sans', sans-serif;
+  cursor: pointer;
+}
+
+.account-password-form button:disabled { opacity: 0.65; cursor: wait; }
+.account-security-error { margin: 0; color: #b42318; font-size: 13px; }
+.account-security-message { margin: 0; color: #166534; font-size: 13px; }
+
+@media (max-width: 560px) {
+  .account-security-page { padding: 18px; }
+  .account-security-mark { font-size: 12px; }
+  .account-password-form { padding: 18px; }
+}

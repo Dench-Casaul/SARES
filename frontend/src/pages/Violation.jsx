@@ -2,6 +2,9 @@ import React, { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { addDoc, collection, getDocs, serverTimestamp } from 'firebase/firestore'
 import { db } from '../firebase'
+import { useAuthProfile } from '../authContext'
+import { queryForUserScope } from '../firestoreAccess'
+import { getSchoolScopeForYear } from '../schoolScope'
 import { uploadEvidenceFiles } from '../engine/evidenceUpload'
 import { formatIdentifiedSanction } from '../engine/sanctionLabel'
 import {
@@ -21,6 +24,7 @@ import {
   LayoutDashboard, Users, ClipboardList, ShieldCheck,
   BarChart3, LogOut, Menu, X, ChevronRight, AlertTriangle,
   CheckCircle, ChevronLeft,
+  KeyRound,
 } from 'lucide-react'
 
 function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar }) {
@@ -47,6 +51,9 @@ function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar }) {
         </Link>
         <Link to="/sares/violation" onClick={toggleSidebar} className={`v-nav-item${activePage === '/sares/violation' ? ' active' : ''}`}>
           <ClipboardList className="v-nav-icon" /><span>Incident Report</span>
+        </Link>
+        <Link to="/sares/account" onClick={toggleSidebar} className={`v-nav-item${activePage === '/sares/account' ? ' active' : ''}`}>
+          <KeyRound className="v-nav-icon" /><span>Account Security</span>
         </Link>
       </nav>
       <div className="v-logout-section">
@@ -84,6 +91,7 @@ function deterministicTemplateExplanation({
 }
 
 export default function Violation() {
+  const { userProfile } = useAuthProfile()
   const location = useLocation()
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -125,10 +133,11 @@ export default function Violation() {
     navigate('/login')
   }
 
-  useEffect(() => { 
-    fetchStudents() 
+  useEffect(() => {
+    if (!userProfile) return
+    fetchStudents()
     fetchViolations()
-  }, [])
+  }, [userProfile])
 
   useEffect(() => {
     const prefill = location.state?.prefillStudentId
@@ -155,7 +164,7 @@ export default function Violation() {
 
   const fetchStudents = async () => {
     try {
-      const snap = await getDocs(collection(db, 'students'))
+      const snap = await getDocs(queryForUserScope(collection(db, 'students'), userProfile))
       setStudents(snap.docs.map(d => {
         const data = d.data()
         const { first_name, last_name } = splitStudentName(data.full_name || data.name || '')
@@ -163,6 +172,7 @@ export default function Violation() {
           ...data,
           __docId: d.id,
           student_id: data.student_id || d.id,
+          school_scope: data.school_scope || getSchoolScopeForYear(data.year_level || data.year),
           first_name,
           last_name,
         }
@@ -172,7 +182,7 @@ export default function Violation() {
 
   const fetchViolations = async () => {
     try {
-      const snap = await getDocs(collection(db, 'violations'))
+      const snap = await getDocs(queryForUserScope(collection(db, 'violations'), userProfile))
       const records = snap.docs.map(d => ({ id: d.id, ...d.data() }))
       records.sort((a, b) => {
         const timeA = a.created_at?.seconds || 0
@@ -254,15 +264,23 @@ export default function Violation() {
     if (!recommendation) return
     setSubmitting(true)
     try {
-      const user = JSON.parse(localStorage.getItem('user'))
+      const studentsToRecord = (selectedStudents.length > 0
+        ? selectedStudents
+        : (selectedStudent ? [selectedStudent] : [])).map((student) => ({
+          ...student,
+          school_scope: student.school_scope || getSchoolScopeForYear(student.year_level || student.year),
+        }))
       const offenseCount = form.offense_type === 'minor' ? recommendation.offenseNumber : 1
       const severityScore = form.offense_type === 'major' ? form.severity_score : null
       const isMediation = form.handling_path === 'mediation'
       const evidenceBatchId = `batch-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-      let evidenceUrls = []
+      const evidenceByScope = {}
       if (evidenceFiles.length > 0) {
         try {
-          evidenceUrls = await uploadEvidenceFiles(evidenceFiles, evidenceBatchId)
+          const distinctScopes = [...new Set(studentsToRecord.map((student) => student.school_scope))]
+          await Promise.all(distinctScopes.map(async (scope) => {
+            evidenceByScope[scope] = await uploadEvidenceFiles(evidenceFiles, evidenceBatchId, scope)
+          }))
         } catch (uploadError) {
           console.error(uploadError)
           alert('Failed to upload evidence. Check Firebase Storage rules and try again.')
@@ -310,7 +328,6 @@ export default function Violation() {
         reported_by: form.reported_by.trim(),
         reporter_role: form.reporter_role,
         reporter_contact: form.reporter_contact.trim(),
-        evidence_urls: evidenceUrls,
         offense_type: form.offense_type,
         intervention_type: isMediation ? 'mediation' : 'sanction',
         mediation_status: isMediation ? 'pending' : null,
@@ -329,7 +346,7 @@ export default function Violation() {
         explanation_source: explanationSource,
         suggest_authorities: recommendation.suggestAuthorities,
         status: isMediation ? 'pending' : 'recorded',
-        created_by: user?.user_id || 'system',
+        created_by: userProfile.user_id,
         school_year_key: recommendation.schoolYearKey,
         engine_mode: 'handbook_v2',
         created_at: serverTimestamp(),
@@ -344,16 +361,15 @@ export default function Violation() {
         }),
       }
 
-      const studentsToRecord = selectedStudents.length > 0
-        ? selectedStudents
-        : (selectedStudent ? [selectedStudent] : [])
-
       const payloads = buildViolationRecordsForStudents({
         incidentData: baseIncidentData,
         selectedStudents: studentsToRecord,
         recommendation,
         existingViolations,
-      })
+      }).map((payload) => ({
+        ...payload,
+        evidence_urls: evidenceByScope[payload.school_scope] || [],
+      }))
 
       const savedDocs = []
       for (const payload of payloads) {

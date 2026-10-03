@@ -4,7 +4,8 @@ import { Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "../firebase";
-import { ADMIN_LOGIN_EMAIL, isAllowedLoginEmail, normalizeLoginEmail } from "../authPolicy";
+import { isAllowedLoginEmail, normalizeLoginEmail } from "../authPolicy";
+import { isValidRoleProfile } from "../schoolScope";
 import heroImg from "../assets/hero.png";
 import wesleyLogo from "../assets/wesley-logo.png";
 import saresLogo from "../assets/sares-logo.png";
@@ -82,27 +83,15 @@ function Login() {
         return;
       }
 
-      let userPayload = {
-        user_id: firebaseUser.uid,
-        full_name: firebaseUser.displayName || "Firebase User",
-        email: firebaseUser.email || normalizedEmail,
-        role: "admin",
-      };
-
       const userDocRef = doc(db, "users", firebaseUser.uid);
       const userDoc = await getDoc(userDocRef);
 
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        userPayload = {
-          user_id: userData.user_id || firebaseUser.uid,
-          full_name: userData.full_name || firebaseUser.displayName || "Firebase User",
-          email: userData.email || firebaseUser.email || normalizedEmail,
-          role: userData.role || "admin",
-        };
+      const userData = userDoc.exists() ? userDoc.data() : null;
+      if (!userData || !isValidRoleProfile(userData)) {
+        await signOut(auth);
+        setError("This account is not provisioned for SARES. Contact the system administrator.");
+        return;
       }
-
-      localStorage.setItem("user", JSON.stringify(userPayload));
 
       navigate("/sares/dashboard");
     } catch (error) {
@@ -145,7 +134,7 @@ function Login() {
         <div className="login-card">
           <header className="login-header">
             <h2>Welcome Back!</h2>
-            <p>Sign in to your admin account</p>
+            <p>Sign in to your SARES account</p>
           </header>
 
           <form className="login-form" onSubmit={handleLogin}>

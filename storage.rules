@@ -1,14 +1,34 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    function isSignedInAdmin() {
-      return request.auth != null
-        && request.auth.token.email != null
-        && request.auth.token.email.matches('.*@ows\\.edu\\.ph$');
+    function userProfile() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
     }
 
-    match /evidence/{allPaths=**} {
-      allow read, write: if isSignedInAdmin();
+    function isProvisioned() {
+      return request.auth != null
+        && request.auth.token.email != null
+        && request.auth.token.email.matches('^[^@]+@ows\\.edu\\.ph$')
+        && firestore.exists(/databases/(default)/documents/users/$(request.auth.uid))
+        && userProfile().role in ['superadmin', 'counselor']
+        && ((userProfile().role == 'superadmin' && userProfile().school_scope == 'all')
+          || (userProfile().role == 'counselor'
+            && userProfile().school_scope in ['elementary', 'high_school']));
+    }
+
+    function canAccessScope(scope) {
+      return isProvisioned()
+        && (userProfile().role == 'superadmin'
+          || scope == userProfile().school_scope
+          || scope == 'shared');
+    }
+
+    match /evidence/{schoolScope}/{batchId}/{fileName} {
+      allow read, write: if canAccessScope(schoolScope);
+    }
+
+    match /evidence/{legacyPath=**} {
+      allow read, write: if isProvisioned() && userProfile().role == 'superadmin';
     }
   }
 }

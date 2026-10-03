@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   Printer,
   Download,
+  KeyRound,
 } from "lucide-react";
 import { formatIdentifiedSanction } from "../engine/sanctionLabel";
 
@@ -29,6 +30,7 @@ function Sidebar({ activePage, onLogout }) {
         <Link to="/sares/rules" className={`ca-nav-item${activePage === "/sares/rules" ? " active" : ""}`}><ShieldCheck className="ca-nav-icon" /><span>Rule Management</span></Link>
         <Link to="/sares/reports" className={`ca-nav-item${activePage === "/sares/reports" ? " active" : ""}`}><BarChart3 className="ca-nav-icon" /><span>Reports</span></Link>
         <Link to="/sares/violation" className={`ca-nav-item${activePage === "/sares/violation" ? " active" : ""}`}><ClipboardList className="ca-nav-icon" /><span>Log Violation</span></Link>
+        <Link to="/sares/account" className={`ca-nav-item${activePage === "/sares/account" ? " active" : ""}`}><KeyRound className="ca-nav-icon" /><span>Account Security</span></Link>
       </nav>
       <div className="ca-logout-section">
         <button className="ca-logout" onClick={onLogout}><LogOut className="ca-nav-icon" /><span>Logout</span></button>

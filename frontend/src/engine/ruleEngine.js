@@ -16,6 +16,7 @@ import {
   getOffenseById,
 } from '../data/handbookIndex.js';
 import { formatIdentifiedSanction } from './sanctionLabel.js';
+import { getSchoolScopeForYear } from '../schoolScope.js';
 
 /** Month (1–12) when the school year label rolls over. Default 6 = June (PH). */
 export const SCHOOL_YEAR_START_MONTH = 6;
@@ -266,6 +267,7 @@ export function buildViolationRecordsForStudents({
       student_name: student.full_name || '',
       student_number: student.student_number || '',
       year_level: student.year_level || '',
+      school_scope: student.school_scope || getSchoolScopeForYear(student.year_level || student.year),
       offense_number: offenseNumberForRecord,
       cumulative_offense_number: cumulativeOffenseNumber,
       severity_score: incidentData.offense_type === 'major' ? incidentData.severity_score : null,

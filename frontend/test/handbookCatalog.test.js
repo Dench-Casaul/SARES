@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { addHandbookOffense, removeHandbookOffense, getHandbook } from '../src/data/handbookIndex.js';
+import { addHandbookOffense, applyHandbookOverrides, removeHandbookOffense, getHandbook } from '../src/data/handbookIndex.js';
 
 test('addHandbookOffense inserts a new violation into the correct offense type and severity bucket', () => {
   const base = structuredClone(getHandbook().offenseGroups);
@@ -33,4 +33,13 @@ test('removeHandbookOffense removes the selected violation and prunes empty grou
   const group = updated.find((item) => item.groupTitle === 'ID and Identification Violations');
   assert.ok(group, 'expected the group to remain when other offenses exist');
   assert.ok(!group.offenses.some((offense) => offense.title === 'Failure to wear school ID'));
+});
+
+test('clearing handbook overrides restores the base catalog', () => {
+  const defaultGroups = getHandbook().offenseGroups;
+  applyHandbookOverrides({ offenseGroups: [] });
+  assert.equal(getHandbook().offenseGroups.length, 0);
+
+  applyHandbookOverrides();
+  assert.equal(getHandbook().offenseGroups.length, defaultGroups.length);
 });

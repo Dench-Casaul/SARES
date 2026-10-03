@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { doc, onSnapshot, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore'
 import '../css/Rule.css'
 import wesleyLogo from '../assets/wesley-logo.png'
-import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X, ChevronDown, ChevronRight, Save, Plus, Pencil, Trash2 } from 'lucide-react'
+import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X, ChevronDown, ChevronRight, Save, Plus, Pencil, Trash2, KeyRound } from 'lucide-react'
 import { applyHandbookOverrides, applySanctionOverrides, getHandbook, getSanctionOverrides } from '../data/handbookIndex'
 import { db } from '../firebase'
 import { formatIdentifiedSanction } from '../engine/sanctionLabel'
@@ -56,6 +56,12 @@ function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar }) {
             <Link to="/sares/violation" onClick={toggleSidebar} className={`rule-nav-item${activePage === '/sares/violation' ? ' rule-nav-item--active' : ''}`}>
               <ClipboardList className="rule-nav-icon" />
                 <span>Log Violation</span>
+            </Link>
+          </li>
+          <li>
+            <Link to="/sares/account" onClick={toggleSidebar} className={`rule-nav-item${activePage === '/sares/account' ? ' rule-nav-item--active' : ''}`}>
+              <KeyRound className="rule-nav-icon" />
+              <span>Account Security</span>
             </Link>
           </li>
         </ul>

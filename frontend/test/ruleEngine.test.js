@@ -42,6 +42,8 @@ test('buildViolationRecordsForStudents creates one record per selected student a
   assert.equal(records.length, 2);
   assert.equal(records[0].student_id, 's1');
   assert.equal(records[1].student_id, 's2');
+  assert.equal(records[0].school_scope, 'high_school');
+  assert.equal(records[1].school_scope, 'high_school');
   assert.equal(records[0].group_incident_id, records[1].group_incident_id);
   assert.equal(records[0].group_size, 2);
   assert.equal(records[0].incident_description, 'Group incident during assembly');

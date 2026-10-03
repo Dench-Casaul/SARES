@@ -11,8 +11,11 @@ import {
   LogOut,
   Menu,
   X,
+  KeyRound,
 } from "lucide-react";
 import { auth, db } from "../firebase";
+import { useAuthProfile } from "../authContext";
+import { queryForUserScope } from "../firestoreAccess";
 import { doesViolationCount } from "../engine/ruleEngine";
 import { formatIdentifiedSanction } from "../engine/sanctionLabel";
 import "../css/Reports.css";
@@ -39,6 +42,7 @@ function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar }) {
           <li><Link to="/sares/rules" onClick={toggleSidebar} className={`report-nav-item${activePage === "/sares/rules" ? " report-nav-item--active" : ""}`}><ShieldCheck className="report-nav-icon" /><span>Rule Management</span></Link></li>
           <li><Link to="/sares/reports" onClick={toggleSidebar} className={`report-nav-item${activePage === "/sares/reports" ? " report-nav-item--active" : ""}`}><BarChart3 className="report-nav-icon" /><span>Reports</span></Link></li>
           <li><Link to="/sares/violation" onClick={toggleSidebar} className={`report-nav-item${activePage === "/sares/violation" ? " report-nav-item--active" : ""}`}><ClipboardList className="report-nav-icon" /><span>Log Violation</span></Link></li>
+          <li><Link to="/sares/account" onClick={toggleSidebar} className={`report-nav-item${activePage === "/sares/account" ? " report-nav-item--active" : ""}`}><KeyRound className="report-nav-icon" /><span>Account Security</span></Link></li>
         </ul>
       </nav>
 
@@ -75,6 +79,7 @@ function toGradeSection(violation) {
 }
 
 export default function Report() {
+  const { userProfile } = useAuthProfile();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -88,8 +93,9 @@ export default function Report() {
   const [category, setCategory] = useState("all");
 
   useEffect(() => {
+    if (!userProfile) return undefined;
     const unsubscribe = onSnapshot(
-      collection(db, "violations"),
+      queryForUserScope(collection(db, "violations"), userProfile),
       (snapshot) => {
         const rows = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
         setViolations(rows);
@@ -104,7 +110,7 @@ export default function Report() {
     );
 
     const unsubscribeStudents = onSnapshot(
-      collection(db, "students"),
+      queryForUserScope(collection(db, "students"), userProfile),
       (snapshot) => {
         const numbers = Object.fromEntries(snapshot.docs.map((studentDoc) => {
           const student = studentDoc.data();
@@ -119,7 +125,7 @@ export default function Report() {
       unsubscribe();
       unsubscribeStudents();
     };
-  }, []);
+  }, [userProfile]);
 
   const handleLogout = async () => {
     try {

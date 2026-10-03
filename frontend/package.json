@@ -8,7 +8,9 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "node --test test/ruleEngine.test.js"
+    "test": "node --test test/handbookCatalog.test.js test/incidentReportPdf.test.js test/reportsXlsx.test.js test/ruleEngine.test.js test/schoolScope.test.js",
+    "test:rules": "npx --yes firebase-tools@15.32.1 emulators:exec --config ../firebase.json --only firestore,storage --project sares-role-rules-test \"node --test test/firebaseRules.test.js\"",
+    "backfill:school-scope": "node scripts/backfill-school-scope.mjs"
   },
   "dependencies": {
     "docx": "^9.8.1",
@@ -22,6 +24,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@firebase/rules-unit-testing": "^5.0.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
@@ -29,6 +32,7 @@
     "eslint": "^10.2.1",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
+    "firebase-admin": "^14.5.0",
     "globals": "^17.5.0",
     "postcss": "^8.5.10",
     "tailwindcss": "^4.2.4",

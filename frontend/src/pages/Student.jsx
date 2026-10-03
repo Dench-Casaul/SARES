@@ -1,11 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { addDoc, arrayUnion, collection, doc, getDocs, increment, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { addDoc, arrayUnion, collection, doc, getDocs, increment, updateDoc, serverTimestamp, writeBatch } from 'firebase/firestore'
 import { db } from '../firebase'
+import { useAuthProfile } from '../authContext'
+import { queryForUserScope } from '../firestoreAccess'
+import { canAccessSchoolScope, getSchoolScopeForYear } from '../schoolScope'
 import { doesViolationCount, evaluateSaresRecommendation, isViolationServed } from '../engine/ruleEngine'
 import '../css/Student.css'
 import wesleyLogo from '../assets/wesley-logo.png'
-import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X, Calendar, Download } from 'lucide-react'
+import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X, Calendar, Download, KeyRound } from 'lucide-react'
 import { getSubcategories, listOffenseGroups, listOffensesByGroup } from '../data/handbookIndex'
 
 const normalizeViolationStatus = (status) => {
@@ -105,6 +108,16 @@ function Sidebar({ activePage, isOpen, toggleSidebar }) {
             >
               <ClipboardList className="s-nav-icon" />
               <span>Log Violation</span>
+            </Link>
+          </li>
+          <li>
+            <Link
+              to="/sares/account"
+              onClick={toggleSidebar}
+              className={`s-nav-item${activePage === "/sares/account" ? " s-nav-item--active" : ""}`}
+            >
+              <KeyRound className="s-nav-icon" />
+              <span>Account Security</span>
             </Link>
           </li>
         </ul>
@@ -463,6 +476,7 @@ function SuspensionDateModal({ initialStart, initialEnd, onClose, onSave, saving
 }
 
 function CaseManagementModal({ student, violationDraft, onClose, onSaved }) {
+  const { userProfile } = useAuthProfile();
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -470,7 +484,7 @@ function CaseManagementModal({ student, violationDraft, onClose, onSaved }) {
     setSaving(true);
     try {
       const today = new Date().toISOString().slice(0, 10);
-      const violationsSnapshot = await getDocs(collection(db, 'violations'));
+      const violationsSnapshot = await getDocs(queryForUserScope(collection(db, 'violations'), userProfile));
       const existingViolations = violationsSnapshot.docs.map((violationDoc) => ({
         id: violationDoc.id,
         ...violationDoc.data(),
@@ -494,6 +508,7 @@ function CaseManagementModal({ student, violationDraft, onClose, onSaved }) {
         student_name: student.name,
         student_number: student.id || '',
         year_level: student.year || '',
+        school_scope: student.school_scope,
         incident_date: today,
         incident_description: violationDraft.incident_description,
         offense_type: violationDraft.offense_type,
@@ -540,6 +555,7 @@ function CaseManagementModal({ student, violationDraft, onClose, onSaved }) {
       await updateDoc(doc(db, 'students', student.docId), {
         violations: arrayUnion(studentViolationEntry),
         violation_count: increment(1),
+        school_scope: student.school_scope,
       });
       await onSaved();
     } catch (error) {
@@ -1351,6 +1367,7 @@ function ViolationDetails({ violation, student, onBack, onSetSuspensionDates, su
 
 /* Students */
 export default function Students() {
+  const { userProfile } = useAuthProfile();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -1416,6 +1433,7 @@ export default function Students() {
       initials: initials || 'S',
       color: colors[(student.student_id || 0) % colors.length],
       year: student.year_level || student.year || '',
+      school_scope: student.school_scope || getSchoolScopeForYear(student.year_level || student.year),
       section: student.section || '',
       email: student.email || '',
       phone: student.phone_number || student.phone || '',
@@ -1428,8 +1446,8 @@ export default function Students() {
   const fetchStudents = async () => {
     try {
       const [studentsSnapshot, violationsSnapshot] = await Promise.all([
-        getDocs(collection(db, 'students')),
-        getDocs(collection(db, 'violations')),
+        getDocs(queryForUserScope(collection(db, 'students'), userProfile)),
+        getDocs(queryForUserScope(collection(db, 'violations'), userProfile)),
       ]);
 
       const allViolations = violationsSnapshot.docs.map((violationDoc) => ({
@@ -1510,8 +1528,8 @@ export default function Students() {
   };
 
   useEffect(() => {
-    fetchStudents();
-  }, []);
+    if (userProfile) fetchStudents();
+  }, [userProfile]);
 
   useEffect(() => {
     if (location.state?.openStudentId && students.length > 0) {
@@ -1541,6 +1559,7 @@ export default function Students() {
       student_number: form.id,
       full_name: `${form.first_name || ''} ${form.last_name || ''}`.trim(),
       year_level: form.year,
+      school_scope: getSchoolScopeForYear(form.year),
       section: form.section,
       email: form.email,
       phone_number: form.phone,
@@ -1565,20 +1584,54 @@ export default function Students() {
 
   const handleEditStudent = async (docId, form) => {
     if (!docId) return;
+    const existingStudent = students.find((student) => student.docId === docId);
+    const previousScope = existingStudent?.school_scope || getSchoolScopeForYear(existingStudent?.year);
+    const nextScope = getSchoolScopeForYear(form.year);
+    if (!canAccessSchoolScope(userProfile, nextScope)) {
+      window.alert('You cannot move this student to a different school level. Contact the superadmin.');
+      return;
+    }
     const payload = {
       student_number: form.id,
       full_name: `${form.first_name || ''} ${form.last_name || ''}`.trim(),
       year_level: form.year,
+      school_scope: nextScope,
       section: form.section,
       email: form.email,
       phone_number: form.phone,
     };
-    await updateDoc(doc(db, 'students', docId), payload);
+    if (previousScope !== nextScope) {
+      const violationsSnapshot = await getDocs(queryForUserScope(collection(db, 'violations'), userProfile));
+      const relatedViolations = violationsSnapshot.docs.filter((violationDoc) => {
+        const violation = violationDoc.data();
+        return String(violation.student_id || '') === String(docId)
+          || (existingStudent?.id && String(violation.student_id || '') === String(existingStudent.id))
+          || (existingStudent?.id && String(violation.student_number || '') === String(existingStudent.id));
+      });
+      const batchSize = 450;
+      let startIndex = 0;
+      let firstBatch = true;
+      while (firstBatch || startIndex < relatedViolations.length) {
+        const batch = writeBatch(db);
+        if (firstBatch) batch.update(doc(db, 'students', docId), payload);
+        const batchCapacity = firstBatch ? batchSize - 1 : batchSize;
+        const endIndex = Math.min(startIndex + batchCapacity, relatedViolations.length);
+        relatedViolations.slice(startIndex, endIndex).forEach((violationDoc) => {
+          batch.update(violationDoc.ref, { school_scope: nextScope });
+        });
+        await batch.commit();
+        startIndex = endIndex;
+        firstBatch = false;
+      }
+    } else {
+      await updateDoc(doc(db, 'students', docId), payload);
+    }
     setStudents((prev) =>
       prev.map((student) =>
         student.docId === docId
           ? {
               ...student,
+              school_scope: nextScope,
               id: payload.student_number,
               name: payload.full_name,
               year: payload.year_level,
@@ -1596,8 +1649,8 @@ export default function Students() {
 
     try {
       const [studentsSnapshot, violationsSnapshot] = await Promise.all([
-        getDocs(collection(db, 'students')),
-        getDocs(collection(db, 'violations')),
+        getDocs(queryForUserScope(collection(db, 'students'), userProfile)),
+        getDocs(queryForUserScope(collection(db, 'violations'), userProfile)),
       ]);
 
       const targetStudent = studentsSnapshot.docs.find((studentDoc) => studentDoc.id === docId);

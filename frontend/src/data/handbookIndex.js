@@ -5,7 +5,8 @@
  */
 import handbook from './generalizedHandbook.json' with { type: 'json' };
 
-let runtimeHandbook = structuredClone(handbook);
+const baseHandbook = structuredClone(handbook);
+let runtimeHandbook = structuredClone(baseHandbook);
 
 /** All offense groups keyed by `${categoryId}-${subcategoryId}-${handbookNumber}` */
 let groupIndex = {};
@@ -68,6 +69,8 @@ export function applySanctionOverrides(overrides = {}) {
 }
 
 export function applyHandbookOverrides(overrides = {}) {
+  runtimeHandbook = structuredClone(baseHandbook);
+
   if (overrides.offenseGroups) {
     runtimeHandbook = {
       ...runtimeHandbook,
