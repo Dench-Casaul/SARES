@@ -48,6 +48,12 @@ export function isValidRoleProfile(profile) {
   return COUNSELOR_SCOPES.has(profile.school_scope);
 }
 
+export function isRoleProfileForLoginType(profile, loginType) {
+  if (!isValidRoleProfile(profile)) return false;
+  if (loginType === 'superadmin') return profile.role === 'superadmin';
+  return profile.role === 'counselor' && profile.school_scope === loginType;
+}
+
 export function getAllowedSchoolScopes(profile) {
   if (!isValidRoleProfile(profile)) return [];
   if (profile.role === 'superadmin') return null;

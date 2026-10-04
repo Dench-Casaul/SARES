@@ -285,6 +285,8 @@ export function buildViolationRecordsForStudents({
       }),
       generated_explanation: incidentData.generated_explanation,
       explanation_source: incidentData.explanation_source,
+      ai_assisted_solution: incidentData.ai_assisted_solution,
+      ai_assisted_solution_source: incidentData.ai_assisted_solution_source,
       suggest_authorities: studentRec.suggestAuthorities || incidentData.suggest_authorities,
       status: incidentData.status || 'recorded',
       created_by: incidentData.created_by || 'system',

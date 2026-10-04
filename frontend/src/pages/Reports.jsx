@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   Users,
   ClipboardList,
+  Activity,
   ShieldCheck,
   BarChart3,
   LogOut,
@@ -18,10 +19,11 @@ import { useAuthProfile } from "../authContext";
 import { queryForUserScope } from "../firestoreAccess";
 import { doesViolationCount } from "../engine/ruleEngine";
 import { formatIdentifiedSanction } from "../engine/sanctionLabel";
+import { ACTIVITY_ACTIONS, recordActivity } from "../activityLog";
 import "../css/Reports.css";
 import wesleyLogo from "../assets/wesley-logo.png";
 
-function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar }) {
+function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar, userProfile }) {
   return (
     <aside className={`report-sidebar${isOpen ? " report-sidebar--open" : ""}`}>
       <div className="report-sidebar-header">
@@ -43,6 +45,7 @@ function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar }) {
           <li><Link to="/sares/reports" onClick={toggleSidebar} className={`report-nav-item${activePage === "/sares/reports" ? " report-nav-item--active" : ""}`}><BarChart3 className="report-nav-icon" /><span>Reports</span></Link></li>
           <li><Link to="/sares/violation" onClick={toggleSidebar} className={`report-nav-item${activePage === "/sares/violation" ? " report-nav-item--active" : ""}`}><ClipboardList className="report-nav-icon" /><span>Log Violation</span></Link></li>
           <li><Link to="/sares/account" onClick={toggleSidebar} className={`report-nav-item${activePage === "/sares/account" ? " report-nav-item--active" : ""}`}><KeyRound className="report-nav-icon" /><span>Account Security</span></Link></li>
+          {userProfile?.role === "superadmin" && <li><Link to="/sares/system-logs" onClick={toggleSidebar} className={`report-nav-item${activePage === "/sares/system-logs" ? " report-nav-item--active" : ""}`}><Activity className="report-nav-icon" /><span>System Logs</span></Link></li>}
         </ul>
       </nav>
 
@@ -128,6 +131,7 @@ export default function Report() {
   }, [userProfile]);
 
   const handleLogout = async () => {
+    await recordActivity(userProfile, ACTIVITY_ACTIONS.LOGOUT, "session");
     try {
       await signOut(auth);
     } catch {
@@ -234,7 +238,7 @@ export default function Report() {
         </button>
       </div>
 
-      <Sidebar activePage={location.pathname} handleLogout={handleLogout} isOpen={sidebarOpen} toggleSidebar={() => setSidebarOpen(false)} />
+      <Sidebar activePage={location.pathname} handleLogout={handleLogout} isOpen={sidebarOpen} toggleSidebar={() => setSidebarOpen(false)} userProfile={userProfile} />
 
       <main className="report-main">
         <h1>Reports</h1>

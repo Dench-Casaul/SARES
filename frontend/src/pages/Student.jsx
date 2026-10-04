@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { addDoc, arrayUnion, collection, doc, getDocs, increment, updateDoc, serverTimestamp, writeBatch } from 'firebase/firestore'
+import { addDoc, arrayUnion, collection, deleteDoc, doc, getDocs, increment, updateDoc, serverTimestamp, writeBatch } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuthProfile } from '../authContext'
 import { queryForUserScope } from '../firestoreAccess'
@@ -8,8 +8,9 @@ import { canAccessSchoolScope, getSchoolScopeForYear } from '../schoolScope'
 import { doesViolationCount, evaluateSaresRecommendation, isViolationServed } from '../engine/ruleEngine'
 import '../css/Student.css'
 import wesleyLogo from '../assets/wesley-logo.png'
-import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X, Calendar, Download, KeyRound } from 'lucide-react'
+import { Activity, LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X, Calendar, Download, KeyRound } from 'lucide-react'
 import { getSubcategories, listOffenseGroups, listOffensesByGroup } from '../data/handbookIndex'
+import { ACTIVITY_ACTIONS, recordActivity } from '../activityLog'
 
 const normalizeViolationStatus = (status) => {
   const normalized = String(status || '').toLowerCase().trim();
@@ -33,8 +34,10 @@ const splitStudentName = (fullName = '') => {
 /* sidebar */
 function Sidebar({ activePage, isOpen, toggleSidebar }) {
   const navigate = useNavigate();
+  const { userProfile } = useAuthProfile();
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await recordActivity(userProfile, ACTIVITY_ACTIONS.LOGOUT, 'session');
     localStorage.removeItem("user");
     navigate("/login");
   };
@@ -120,6 +123,18 @@ function Sidebar({ activePage, isOpen, toggleSidebar }) {
               <span>Account Security</span>
             </Link>
           </li>
+          {userProfile?.role === 'superadmin' && (
+            <li>
+              <Link
+                to="/sares/system-logs"
+                onClick={toggleSidebar}
+                className={`s-nav-item${activePage === "/sares/system-logs" ? " s-nav-item--active" : ""}`}
+              >
+                <Activity className="s-nav-icon" />
+                <span>System Logs</span>
+              </Link>
+            </li>
+          )}
         </ul>
       </nav>
 
@@ -532,7 +547,8 @@ function CaseManagementModal({ student, violationDraft, onClose, onSaved }) {
         created_at: serverTimestamp(),
       };
 
-      await addDoc(collection(db, 'violations'), payload);
+      const savedViolation = await addDoc(collection(db, 'violations'), payload);
+      await recordActivity(userProfile, ACTIVITY_ACTIONS.VIOLATION_RECORDED, 'violation', savedViolation.id);
 
       const studentViolationEntry = {
         id: `${Date.now()}`,
@@ -557,6 +573,7 @@ function CaseManagementModal({ student, violationDraft, onClose, onSaved }) {
         violation_count: increment(1),
         school_scope: student.school_scope,
       });
+      await recordActivity(userProfile, ACTIVITY_ACTIONS.CASE_RECORDED, 'violation', savedViolation.id);
       await onSaved();
     } catch (error) {
       console.error('Failed to save case:', error);
@@ -1342,12 +1359,23 @@ function ViolationDetails({ violation, student, onBack, onSetSuspensionDates, su
               </div>
               <div className="s-divider" />
 
-              <div className="s-vd-field s-vd-field--full">
-                <div className="s-vd-field-label">Counselor Explanation</div>
-                <div className="s-vd-desc-box">
-                  {violation.generated_explanation || violation.explanation || 'No counselor explanation available.'}
+              {(violation.generated_explanation || violation.explanation) && (
+                <div className="s-vd-field s-vd-field--full">
+                  <div className="s-vd-field-label">Counselor Explanation</div>
+                  <div className="s-vd-desc-box">
+                    {violation.generated_explanation || violation.explanation}
+                  </div>
                 </div>
-              </div>
+              )}
+              {violation.ai_assisted_solution && (
+                <>
+                  <div className="s-divider" />
+                  <div className="s-vd-field s-vd-field--full">
+                    <div className="s-vd-field-label">AI-Assisted Prevention / Alternative Suggestion</div>
+                    <div className="s-vd-desc-box">{violation.ai_assisted_solution}</div>
+                  </div>
+                </>
+              )}
             </>
           )}
         </div>
@@ -1570,6 +1598,7 @@ export default function Students() {
 
     try {
       const newStudentRef = await addDoc(collection(db, 'students'), studentData);
+      await recordActivity(userProfile, ACTIVITY_ACTIONS.STUDENT_CREATED, 'student', newStudentRef.id);
       const createdStudent = {
         ...studentData,
         student_id: newStudentRef.id,
@@ -1626,6 +1655,7 @@ export default function Students() {
     } else {
       await updateDoc(doc(db, 'students', docId), payload);
     }
+    await recordActivity(userProfile, ACTIVITY_ACTIONS.STUDENT_UPDATED, 'student', docId);
     setStudents((prev) =>
       prev.map((student) =>
         student.docId === docId
@@ -1669,6 +1699,7 @@ export default function Students() {
         deleteDoc(doc(db, 'students', docId)),
         ...relatedViolationIds.map((violationId) => deleteDoc(doc(db, 'violations', violationId))),
       ]);
+      await recordActivity(userProfile, ACTIVITY_ACTIONS.STUDENT_DELETED, 'student', docId);
 
       setStudents((prev) => prev.filter((student) => student.docId !== docId));
       if (selectedStudent?.docId === docId) {
@@ -1690,6 +1721,7 @@ export default function Students() {
         suspension_end: endDate,
         updated_at: serverTimestamp(),
       });
+      await recordActivity(userProfile, ACTIVITY_ACTIONS.SUSPENSION_DATES_UPDATED, 'violation', violationId);
 
       setStudents((prev) =>
         prev.map((student) => ({
@@ -1760,6 +1792,7 @@ export default function Students() {
         ...nextPatch,
         updated_at: serverTimestamp(),
       });
+      await recordActivity(userProfile, ACTIVITY_ACTIONS.VIOLATION_STATUS_UPDATED, 'violation', violationId);
     } catch (error) {
       console.error('Failed to update violation status:', error);
       await fetchStudents();

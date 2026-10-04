@@ -1,12 +1,12 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { addDoc, collection, getDocs, serverTimestamp } from 'firebase/firestore'
-import { db } from '../firebase'
+import { auth, db } from '../firebase'
 import { useAuthProfile } from '../authContext'
 import { queryForUserScope } from '../firestoreAccess'
 import { getSchoolScopeForYear } from '../schoolScope'
-import { uploadEvidenceFiles } from '../engine/evidenceUpload'
 import { formatIdentifiedSanction } from '../engine/sanctionLabel'
+import { ACTIVITY_ACTIONS, recordActivity } from '../activityLog'
 import {
   buildViolationRecordsForStudents,
   evaluateSaresRecommendation,
@@ -21,13 +21,13 @@ import {
 import '../css/Violation.css'
 import wesleyLogo from '../assets/wesley-logo.png'
 import {
-  LayoutDashboard, Users, ClipboardList, ShieldCheck,
+  Activity, LayoutDashboard, Users, ClipboardList, ShieldCheck,
   BarChart3, LogOut, Menu, X, ChevronRight, AlertTriangle,
   CheckCircle, ChevronLeft,
   KeyRound,
 } from 'lucide-react'
 
-function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar }) {
+function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar, userProfile }) {
   return (
     <div className={`v-sidebar${isOpen ? ' v-sidebar--open' : ''}`}>
       <div className="v-logo">
@@ -50,11 +50,16 @@ function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar }) {
           <BarChart3 className="v-nav-icon" /><span>Reports</span>
         </Link>
         <Link to="/sares/violation" onClick={toggleSidebar} className={`v-nav-item${activePage === '/sares/violation' ? ' active' : ''}`}>
-          <ClipboardList className="v-nav-icon" /><span>Incident Report</span>
+          <ClipboardList className="v-nav-icon" /><span>Log Violation</span>
         </Link>
         <Link to="/sares/account" onClick={toggleSidebar} className={`v-nav-item${activePage === '/sares/account' ? ' active' : ''}`}>
           <KeyRound className="v-nav-icon" /><span>Account Security</span>
         </Link>
+        {userProfile?.role === 'superadmin' && (
+          <Link to="/sares/system-logs" onClick={toggleSidebar} className={`v-nav-item${activePage === '/sares/system-logs' ? ' active' : ''}`}>
+            <Activity className="v-nav-icon" /><span>System Logs</span>
+          </Link>
+        )}
       </nav>
       <div className="v-logout-section">
         <button className="v-logout" onClick={handleLogout}>
@@ -77,19 +82,6 @@ const splitStudentName = (fullName = '') => {
   }
 }
 
-function deterministicTemplateExplanation({
-  offenseCategory,
-  offenseType,
-  offenseCount,
-  severityScore,
-  recommendedSanction,
-}) {
-  return `Based on the recorded violation, the case is classified under ${offenseCategory || "Unspecified Category"} (${offenseType || "Unspecified Offense"}). ` +
-    `This incident corresponds to offense count ${offenseCount ?? "N/A"} with a severity score of ${severityScore ?? "N/A"}. ` +
-    `Following the system's deterministic rule engine, the recommended sanction is: ${recommendedSanction || "N/A"}. ` +
-    `This explanation is generated for counselor review and does not replace formal disciplinary due process.`;
-}
-
 export default function Violation() {
   const { userProfile } = useAuthProfile()
   const location = useLocation()
@@ -101,6 +93,11 @@ export default function Violation() {
   const [studentMenuOpen, setStudentMenuOpen] = useState(false)
   const [selectedStudents, setSelectedStudents] = useState([])
   const [submitting, setSubmitting] = useState(false)
+  const [useAiAssistance, setUseAiAssistance] = useState(false)
+  const [aiSuggestion, setAiSuggestion] = useState('')
+  const [aiSuggestionSource, setAiSuggestionSource] = useState('')
+  const [aiSuggestionLoading, setAiSuggestionLoading] = useState(false)
+  const [aiSuggestionError, setAiSuggestionError] = useState('')
 
   const today = new Date().toISOString().split('T')[0]
 
@@ -126,9 +123,9 @@ export default function Violation() {
   const [recommendation, setRecommendation] = useState(null)
   const [existingViolations, setExistingViolations] = useState([])
   const [currentPage, setCurrentPage] = useState(1)
-  const [evidenceFiles, setEvidenceFiles] = useState([])
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await recordActivity(userProfile, ACTIVITY_ACTIONS.LOGOUT, 'session');
     localStorage.removeItem('user')
     navigate('/login')
   }
@@ -231,11 +228,43 @@ export default function Violation() {
       await fetchViolations()
     }
     if (step === 3 && !form.offense_id) { alert('Please select a violation.'); return }
-    if (step === 4 && !form.incident_description.trim()) { alert('Please provide an incident description.'); return }
-    if (step === 4 && !form.reported_by.trim()) { alert('Please enter who reported this incident.'); return }
-    if (step === 4 && form.offense_type === 'major' && evidenceFiles.length === 0) {
-      alert('Major offenses require at least one evidence file.');
+    if (step === 4 && useAiAssistance && !form.incident_description.trim()) {
+      alert('Enter an anonymized incident description to request AI assistance.')
       return
+    }
+    if (step === 4 && !form.reported_by.trim()) { alert('Please enter who reported this incident.'); return }
+    if (step === 4 && useAiAssistance) {
+      setAiSuggestion('')
+      setAiSuggestionSource('')
+      setAiSuggestionError('')
+      setAiSuggestionLoading(true)
+      try {
+        const idToken = await auth.currentUser?.getIdToken()
+        if (!idToken) throw new Error('Sign in again to use AI assistance.')
+        const response = await fetch('/api/generate-prevention-suggestion', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({
+            incidentDescription: form.incident_description.trim(),
+            offenseCategory: form.group_title,
+            offenseType: form.offense_title,
+          }),
+        })
+        const result = await response.json()
+        if (!response.ok || !result?.suggestion) {
+          throw new Error(result?.error || 'AI assistance is currently unavailable.')
+        }
+        setAiSuggestion(result.suggestion)
+        setAiSuggestionSource(result.source || 'gemini')
+      } catch (error) {
+        console.error('Failed to generate AI prevention suggestion:', error)
+        setAiSuggestionError('AI assistance is unavailable right now. You can continue without an AI suggestion.')
+      } finally {
+        setAiSuggestionLoading(false)
+      }
     }
     setStep(s => s + 1)
   }
@@ -270,56 +299,7 @@ export default function Violation() {
           ...student,
           school_scope: student.school_scope || getSchoolScopeForYear(student.year_level || student.year),
         }))
-      const offenseCount = form.offense_type === 'minor' ? recommendation.offenseNumber : 1
-      const severityScore = form.offense_type === 'major' ? form.severity_score : null
       const isMediation = form.handling_path === 'mediation'
-      const evidenceBatchId = `batch-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-      const evidenceByScope = {}
-      if (evidenceFiles.length > 0) {
-        try {
-          const distinctScopes = [...new Set(studentsToRecord.map((student) => student.school_scope))]
-          await Promise.all(distinctScopes.map(async (scope) => {
-            evidenceByScope[scope] = await uploadEvidenceFiles(evidenceFiles, evidenceBatchId, scope)
-          }))
-        } catch (uploadError) {
-          console.error(uploadError)
-          alert('Failed to upload evidence. Check Firebase Storage rules and try again.')
-          setSubmitting(false)
-          return
-        }
-      }
-
-      let generatedExplanation = deterministicTemplateExplanation({
-        offenseCategory: form.group_title,
-        offenseType: form.offense_title,
-        offenseCount,
-        severityScore,
-        recommendedSanction: recommendation.recommendedSanction,
-      })
-      let explanationSource = 'fallback'
-
-      try {
-        const response = await fetch('/api/generate-explanation', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            offenseCategory: form.group_title,
-            offenseType: form.offense_title,
-            offenseCount,
-            severityScore,
-            recommendedSanction: recommendation.recommendedSanction,
-          }),
-        })
-        if (response.ok) {
-          const result = await response.json()
-          if (result?.explanation) {
-            generatedExplanation = result.explanation
-            explanationSource = result?.source || 'gemini'
-          }
-        }
-      } catch {
-        // Fallback template remains active.
-      }
 
       const baseIncidentData = {
         incident_date: form.incident_date,
@@ -342,8 +322,12 @@ export default function Violation() {
         suspension_eligible: form.offense_type === 'minor' ? Boolean(recommendation.suspensionEligible) : false,
         severity_score: form.offense_type === 'major' ? form.severity_score : null,
         recommended_sanction: recommendation.recommendedSanction,
-        generated_explanation: generatedExplanation,
-        explanation_source: explanationSource,
+        generated_explanation: '',
+        explanation_source: 'not_generated',
+        ai_assisted_solution: useAiAssistance ? aiSuggestion : '',
+        ai_assisted_solution_source: useAiAssistance
+          ? (aiSuggestion ? aiSuggestionSource : 'unavailable')
+          : 'not_requested',
         suggest_authorities: recommendation.suggestAuthorities,
         status: isMediation ? 'pending' : 'recorded',
         created_by: userProfile.user_id,
@@ -368,7 +352,7 @@ export default function Violation() {
         existingViolations,
       }).map((payload) => ({
         ...payload,
-        evidence_urls: evidenceByScope[payload.school_scope] || [],
+        evidence_urls: [],
       }))
 
       const savedDocs = []
@@ -376,6 +360,9 @@ export default function Violation() {
         const saved = await addDoc(collection(db, 'violations'), payload)
         savedDocs.push({ ...payload, id: saved.id })
       }
+      await Promise.all(savedDocs.map((violation) => (
+        recordActivity(userProfile, ACTIVITY_ACTIONS.VIOLATION_RECORDED, 'violation', violation.id)
+      )))
 
       const primaryCase = savedDocs[0]
       navigate(`/sares/case-assessment/${primaryCase.id}`, {
@@ -412,12 +399,12 @@ export default function Violation() {
         </button>
       </div>
 
-      <Sidebar activePage={location.pathname} handleLogout={handleLogout} isOpen={sidebarOpen} toggleSidebar={() => setSidebarOpen(false)} />
+      <Sidebar activePage={location.pathname} handleLogout={handleLogout} isOpen={sidebarOpen} toggleSidebar={() => setSidebarOpen(false)} userProfile={userProfile} />
 
       <div className="v-main">
         <div className="v-main-header">
           <div>
-            <h1 className="v-page-title">Incident Report</h1>
+            <h1 className="v-page-title">Log Violation</h1>
             <p className="v-page-sub">Record a disciplinary incident, reporter, and supporting evidence</p>
           </div>
         </div>
@@ -669,7 +656,7 @@ export default function Violation() {
           {step === 4 && (
             <div className="v-step-content">
               <h2 className="v-directory-title">Step 5: Incident Report</h2>
-              <p className="v-directory-sub">Describe the incident, who reported it, and attach evidence{form.offense_type === 'major' ? ' (required for major offenses)' : ''}</p>
+              <p className="v-directory-sub">Optionally describe the incident for AI-assisted prevention or alternative suggestions, and provide who reported it.</p>
 
               {form.offense_type === 'major' && (
                 <div className="v-field" style={{ marginTop: '1.2rem' }}>
@@ -743,12 +730,44 @@ export default function Violation() {
                 />
               </div>
 
+              <div className="v-ai-privacy-notice" role="note">
+                <strong>Privacy warning — do not enter confidential or identifying information.</strong>
+                <p>
+                  If AI assistance is enabled, the incident description and selected violation category/type are sent to Google Gemini using its free tier. Google may use free-tier content to improve its services. Do not include names, student numbers, contact details, health information, or other private details. Describe the incident in general, anonymous terms.
+                </p>
+              </div>
+
+              <label className="v-ai-toggle">
+                <input
+                  type="checkbox"
+                  checked={useAiAssistance}
+                  onChange={(event) => {
+                    setUseAiAssistance(event.target.checked)
+                    setAiSuggestion('')
+                    setAiSuggestionSource('')
+                    setAiSuggestionError('')
+                  }}
+                />
+                <span>
+                  <strong>Use AI-assisted prevention / alternative solution</strong>
+                  <small>Optional. When off, the incident description is optional and no narrative is sent to Gemini.</small>
+                </span>
+              </label>
+
               <div className="v-field" style={{ marginTop: '1.5rem' }}>
-                <label className="v-label">Incident Description *</label>
+                <label className="v-label">
+                  Incident Description {useAiAssistance ? '*' : '(optional)'}
+                </label>
                 <textarea className="v-input v-textarea" rows="5"
-                  placeholder="Include relevant details such as location and circumstances..."
+                  maxLength={3000}
+                  placeholder={useAiAssistance
+                    ? 'Describe what happened using anonymous, non-confidential details...'
+                    : 'Optional. Leave blank if you do not want to provide a narrative...'}
                   value={form.incident_description}
                   onChange={e => setForm(f => ({ ...f, incident_description: e.target.value }))} />
+                {useAiAssistance && (
+                  <p className="v-ai-character-count">{form.incident_description.length} / 3000 characters</p>
+                )}
               </div>
 
               <div className="v-field" style={{ marginTop: '1.5rem' }}>
@@ -759,23 +778,6 @@ export default function Violation() {
                   onChange={e => setForm(f => ({ ...f, witnesses: e.target.value }))} />
               </div>
 
-              <div className="v-field" style={{ marginTop: '1.5rem' }}>
-                <label className="v-label">
-                  Evidence {form.offense_type === 'major' ? '*' : '(optional)'}
-                </label>
-                <input
-                  className="v-input"
-                  type="file"
-                  multiple
-                  accept="image/*,.pdf,.doc,.docx"
-                  onChange={(e) => setEvidenceFiles(Array.from(e.target.files || []))}
-                />
-                {evidenceFiles.length > 0 && (
-                  <p className="v-directory-sub" style={{ marginTop: '8px' }}>
-                    {evidenceFiles.length} file{evidenceFiles.length > 1 ? 's' : ''} selected: {evidenceFiles.map((f) => f.name).join(', ')}
-                  </p>
-                )}
-              </div>
             </div>
           )}
 
@@ -849,18 +851,27 @@ export default function Violation() {
                 </div>
                 <div className="v-review-section v-review-section--full">
                   <h4>Incident Description</h4>
-                  <p>{form.incident_description}</p>
+                  <p>{form.incident_description || 'Not provided'}</p>
                 </div>
+                {useAiAssistance && (
+                  <div className="v-review-section v-review-section--full v-ai-review">
+                    <h4>AI-Assisted Prevention / Alternative Suggestion</h4>
+                    {aiSuggestionLoading ? (
+                      <p>Generating suggestion…</p>
+                    ) : aiSuggestion ? (
+                      <>
+                        <p>{aiSuggestion}</p>
+                        <p className="v-review-meta">Source: {aiSuggestionSource || 'Gemini'} · Review and adapt this suggestion; it does not replace school policy or professional judgment.</p>
+                      </>
+                    ) : (
+                      <p>{aiSuggestionError || 'No AI suggestion was generated.'}</p>
+                    )}
+                  </div>
+                )}
                 {form.witnesses && (
                   <div className="v-review-section v-review-section--full">
                     <h4>Witnesses</h4>
                     <p>{form.witnesses}</p>
-                  </div>
-                )}
-                {evidenceFiles.length > 0 && (
-                  <div className="v-review-section v-review-section--full">
-                    <h4>Evidence</h4>
-                    <p>{evidenceFiles.map((f) => f.name).join(', ')}</p>
                   </div>
                 )}
               </div>
@@ -897,8 +908,8 @@ export default function Violation() {
             {step === 0 && <Link to="/sares/dashboard" className="v-btn-cancel v-link-btn">Cancel</Link>}
 
             {step < 5 && step !== 1 && step !== 2 && (
-              <button className="v-btn-submit" onClick={goNext}>
-                Next <ChevronRight size={16} />
+              <button className="v-btn-submit" onClick={goNext} disabled={aiSuggestionLoading}>
+                {aiSuggestionLoading ? 'Generating suggestion…' : <>Next <ChevronRight size={16} /></>}
               </button>
             )}
             {step === 5 && (

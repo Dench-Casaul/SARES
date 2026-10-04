@@ -1,17 +1,25 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { ArrowLeft, GraduationCap, Mail, Lock, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import { isAllowedLoginEmail, normalizeLoginEmail } from "../authPolicy";
-import { isValidRoleProfile } from "../schoolScope";
+import { isRoleProfileForLoginType, isValidRoleProfile } from "../schoolScope";
+import { ACTIVITY_ACTIONS, recordActivity } from "../activityLog";
 import heroImg from "../assets/hero.png";
 import wesleyLogo from "../assets/wesley-logo.png";
 import saresLogo from "../assets/sares-logo.png";
 import "../css/Login.css";
 
 function Login() {
+  const [searchParams] = useSearchParams();
+  const initialAccountType = searchParams.get("type");
+  const [selectedAccountType, setSelectedAccountType] = useState(
+    ["elementary", "high_school", "superadmin"].includes(initialAccountType)
+      ? initialAccountType
+      : ""
+  );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -93,6 +101,13 @@ function Login() {
         return;
       }
 
+      if (!isRoleProfileForLoginType(userData, selectedAccountType)) {
+        await signOut(auth);
+        setError("This account does not match the selected sign-in. Choose the account type assigned to you.");
+        return;
+      }
+
+      await recordActivity(userData, ACTIVITY_ACTIONS.LOGIN_SUCCESS, "session");
       navigate("/sares/dashboard");
     } catch (error) {
       console.error("Login error:", error);
@@ -133,111 +148,170 @@ function Login() {
       <main className="login-panel">
         <div className="login-card">
           <header className="login-header">
-            <h2>Welcome Back!</h2>
-            <p>Sign in to your SARES account</p>
+            <h2>{selectedAccountType ? "Welcome Back!" : "Sign in to SARES"}</h2>
+            <p>
+              {selectedAccountType === "elementary"
+                ? "Elementary counselor account"
+                : selectedAccountType === "high_school"
+                  ? "High school counselor account"
+                  : selectedAccountType === "superadmin"
+                    ? "Restricted superadmin access"
+                    : "Choose your account type to continue"}
+            </p>
           </header>
 
-          <form className="login-form" onSubmit={handleLogin}>
-            <label className="form-field">
-              <span>Email Address</span>
-
-              <div className="input-group">
-                <span className="input-icon" aria-hidden="true">
-                  <Mail className="input-icon-svg" strokeWidth={2} />
+          {!selectedAccountType ? (
+            <div className="account-type-options" role="group" aria-label="Choose account type">
+              <button
+                type="button"
+                className="account-type-option"
+                onClick={() => setSelectedAccountType("elementary")}
+              >
+                <GraduationCap aria-hidden="true" />
+                <span>
+                  <strong>Elementary Counselor</strong>
+                  <small>Sign in to the elementary school workspace</small>
                 </span>
-
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="Email"
-                  className="input-field"
-                  required
-                />
-              </div>
-            </label>
-
-            <label className="form-field">
-              <span>Password</span>
-
-              <div className="input-group">
-                <span className="input-icon" aria-hidden="true">
-                  <Lock className="input-icon-svg" strokeWidth={2} />
+              </button>
+              <button
+                type="button"
+                className="account-type-option"
+                onClick={() => setSelectedAccountType("high_school")}
+              >
+                <GraduationCap aria-hidden="true" />
+                <span>
+                  <strong>High School Counselor</strong>
+                  <small>Sign in to the high school workspace</small>
                 </span>
-
-                <input
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  placeholder="Password"
-                  className="input-field input-field--with-toggle"
-                  autoComplete="current-password"
-                  required
-                />
-
-                <button
-                  type="button"
-                  className="input-password-toggle"
-                  onClick={() => setShowPassword((previous) => !previous)}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                >
-                  {showPassword ? (
-                    <EyeOff className="input-icon-svg" strokeWidth={2} aria-hidden="true" />
-                  ) : (
-                    <Eye className="input-icon-svg" strokeWidth={2} aria-hidden="true" />
-                  )}
-                </button>
-              </div>
-            </label>
-
-            {error && <p className="login-error">{error}</p>}
-
-            <label className="privacy-check">
-              <input
-                type="checkbox"
-                checked={acceptedPolicies}
-                onChange={(event) => {
-                  const checked = event.target.checked;
-                  setAcceptedPolicies(checked);
-                  if (checked) {
-                    setShowPolicyHint(false);
-                  }
+              </button>
+              <button
+                type="button"
+                className="superadmin-entry"
+                onClick={() => setSelectedAccountType("superadmin")}
+              >
+                <ShieldCheck aria-hidden="true" />
+                <span>
+                  <strong>Admin sign-in</strong>
+                  <small>For authorized administrators only</small>
+                </span>
+              </button>
+            </div>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="login-back-button"
+                onClick={() => {
+                  navigate("/");
                 }}
-              />
-              <span>
-                I have read and agree to the{" "}
-                <button
-                  type="button"
-                  className="privacy-link"
-                  onClick={() => {
-                    setActivePolicyTab("privacy");
-                    setIsPolicyModalOpen(true);
-                  }}
-                >
-                  Privacy Policy
-                </button>{" "}
-                and{" "}
-                <button
-                  type="button"
-                  className="privacy-link"
-                  onClick={() => {
-                    setActivePolicyTab("terms");
-                    setIsPolicyModalOpen(true);
-                  }}
-                >
-                  Terms of Use
-                </button>
-                .
-              </span>
-            </label>
-            {!acceptedPolicies && showPolicyHint && (
-              <p className="privacy-hint">Please agree to the policy to continue.</p>
-            )}
+              >
+                <ArrowLeft aria-hidden="true" size={16} />
+                Choose a different account type
+              </button>
+              <form className="login-form" onSubmit={handleLogin}>
+                <label className="form-field">
+                  <span>Email Address</span>
 
-            <button type="submit" className="login-button" disabled={loading}>
-              {loading ? "Logging in..." : "Login"}
-            </button>
-          </form>
+                  <div className="input-group">
+                    <span className="input-icon" aria-hidden="true">
+                      <Mail className="input-icon-svg" strokeWidth={2} />
+                    </span>
+
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      placeholder="Email"
+                      className="input-field"
+                      autoComplete="username"
+                      required
+                    />
+                  </div>
+                </label>
+
+                <label className="form-field">
+                  <span>Password</span>
+
+                  <div className="input-group">
+                    <span className="input-icon" aria-hidden="true">
+                      <Lock className="input-icon-svg" strokeWidth={2} />
+                    </span>
+
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      placeholder="Password"
+                      className="input-field input-field--with-toggle"
+                      autoComplete="current-password"
+                      required
+                    />
+
+                    <button
+                      type="button"
+                      className="input-password-toggle"
+                      onClick={() => setShowPassword((previous) => !previous)}
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="input-icon-svg" strokeWidth={2} aria-hidden="true" />
+                      ) : (
+                        <Eye className="input-icon-svg" strokeWidth={2} aria-hidden="true" />
+                      )}
+                    </button>
+                  </div>
+                </label>
+
+                {error && <p className="login-error" role="alert">{error}</p>}
+
+                <label className="privacy-check">
+                  <input
+                    type="checkbox"
+                    checked={acceptedPolicies}
+                    onChange={(event) => {
+                      const checked = event.target.checked;
+                      setAcceptedPolicies(checked);
+                      if (checked) {
+                        setShowPolicyHint(false);
+                      }
+                    }}
+                  />
+                  <span>
+                    I have read and agree to the{" "}
+                    <button
+                      type="button"
+                      className="privacy-link"
+                      onClick={() => {
+                        setActivePolicyTab("privacy");
+                        setIsPolicyModalOpen(true);
+                      }}
+                    >
+                      Privacy Policy
+                    </button>{" "}
+                    and{" "}
+                    <button
+                      type="button"
+                      className="privacy-link"
+                      onClick={() => {
+                        setActivePolicyTab("terms");
+                        setIsPolicyModalOpen(true);
+                      }}
+                    >
+                      Terms of Use
+                    </button>
+                    .
+                  </span>
+                </label>
+                {!acceptedPolicies && showPolicyHint && (
+                  <p className="privacy-hint">Please agree to the policy to continue.</p>
+                )}
+
+                <button type="submit" className="login-button" disabled={loading}>
+                  {loading ? "Logging in..." : "Login"}
+                </button>
+              </form>
+            </>
+          )}
         </div>
       </main>
 

@@ -1796,10 +1796,10 @@
     position: fixed;
     top: 52px;
     left: 0;
-    bottom: 0;
+    bottom: auto;
     z-index: 40;
     width: 220px !important;
-    height: 100vh !important;
+    height: calc(100dvh - 52px) !important;
   }
   .rule-sidebar--open {
     display: flex !important;

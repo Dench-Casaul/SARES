@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "node --test test/handbookCatalog.test.js test/incidentReportPdf.test.js test/reportsXlsx.test.js test/ruleEngine.test.js test/schoolScope.test.js",
+    "test": "node --test test/aiSuggestion.test.js test/handbookCatalog.test.js test/incidentReportPdf.test.js test/reportsXlsx.test.js test/ruleEngine.test.js test/schoolScope.test.js",
     "test:rules": "npx --yes firebase-tools@15.32.1 emulators:exec --config ../firebase.json --only firestore,storage --project sares-role-rules-test \"node --test test/firebaseRules.test.js\"",
     "backfill:school-scope": "node scripts/backfill-school-scope.mjs"
   },

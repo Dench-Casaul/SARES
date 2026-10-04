@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   Users,
   ClipboardList,
+  Activity,
   ShieldCheck,
   BarChart3,
   LogOut,
@@ -14,8 +15,10 @@ import {
   KeyRound,
 } from "lucide-react";
 import { formatIdentifiedSanction } from "../engine/sanctionLabel";
+import { useAuthProfile } from "../authContext";
+import { ACTIVITY_ACTIONS, recordActivity } from "../activityLog";
 
-function Sidebar({ activePage, onLogout }) {
+function Sidebar({ activePage, onLogout, userProfile }) {
   return (
     <div className="ca-sidebar">
       <div className="ca-logo">
@@ -31,6 +34,7 @@ function Sidebar({ activePage, onLogout }) {
         <Link to="/sares/reports" className={`ca-nav-item${activePage === "/sares/reports" ? " active" : ""}`}><BarChart3 className="ca-nav-icon" /><span>Reports</span></Link>
         <Link to="/sares/violation" className={`ca-nav-item${activePage === "/sares/violation" ? " active" : ""}`}><ClipboardList className="ca-nav-icon" /><span>Log Violation</span></Link>
         <Link to="/sares/account" className={`ca-nav-item${activePage === "/sares/account" ? " active" : ""}`}><KeyRound className="ca-nav-icon" /><span>Account Security</span></Link>
+        {userProfile?.role === "superadmin" && <Link to="/sares/system-logs" className={`ca-nav-item${activePage === "/sares/system-logs" ? " active" : ""}`}><Activity className="ca-nav-icon" /><span>System Logs</span></Link>}
       </nav>
       <div className="ca-logout-section">
         <button className="ca-logout" onClick={onLogout}><LogOut className="ca-nav-icon" /><span>Logout</span></button>
@@ -66,11 +70,13 @@ function printableDate(value) {
 }
 
 export default function CaseAssessment() {
+  const { userProfile } = useAuthProfile();
   const location = useLocation();
   const navigate = useNavigate();
   const caseData = location.state?.caseData || null;
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await recordActivity(userProfile, ACTIVITY_ACTIONS.LOGOUT, "session");
     localStorage.removeItem("user");
     navigate("/login");
   };
@@ -78,7 +84,7 @@ export default function CaseAssessment() {
   if (!caseData) {
     return (
       <div className="ca-page">
-        <Sidebar activePage="/sares/violation" onLogout={handleLogout} />
+        <Sidebar activePage="/sares/violation" onLogout={handleLogout} userProfile={userProfile} />
         <main className="ca-main">
           <section className="ca-card">
             <h1 className="ca-title">Case Assessment</h1>
@@ -107,7 +113,7 @@ export default function CaseAssessment() {
 
   return (
     <div className="ca-page">
-      <Sidebar activePage="/sares/violation" onLogout={handleLogout} />
+      <Sidebar activePage="/sares/violation" onLogout={handleLogout} userProfile={userProfile} />
       <main className="ca-main">
         <header className="ca-header">
           <h1 className="ca-title">Case Assessment</h1>
@@ -228,10 +234,20 @@ export default function CaseAssessment() {
           </section>
         )}
 
-        {!(isMediation && (caseData.status === 'resolved' || caseData.mediation_status === 'resolved')) && (
+        {caseData.ai_assisted_solution && (
+          <section className="ca-card" style={{ marginTop: "16px" }}>
+            <h2>AI-Assisted Prevention / Alternative Suggestion</h2>
+            <p className="ca-paragraph">{caseData.ai_assisted_solution}</p>
+            <p className="ca-sub" style={{ marginTop: "8px" }}>
+              Source: {caseData.ai_assisted_solution_source || "Gemini"}. AI-generated guidance for counselor review; it does not replace school policy or professional judgment.
+            </p>
+          </section>
+        )}
+
+        {caseData.generated_explanation && !(isMediation && (caseData.status === 'resolved' || caseData.mediation_status === 'resolved')) && (
           <section className="ca-card" style={{ marginTop: "16px" }}>
             <h2>Counselor Explanation</h2>
-            <p className="ca-paragraph">{caseData.generated_explanation || "No generated explanation available."}</p>
+            <p className="ca-paragraph">{caseData.generated_explanation}</p>
             <div className="ca-row" style={{ marginTop: "10px" }}>
               <span>Explanation Source</span>
               <strong>{caseData.explanation_source || "N/A"}</strong>

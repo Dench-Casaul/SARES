@@ -920,11 +920,11 @@
     position: fixed;
     top: 60px;
     left: 0;
-    bottom: 0;
+    bottom: auto;
     z-index: 40;
     width: 265px;
     min-width: 265px;
-    height: calc(100vh - 60px);
+    height: calc(100dvh - 60px);
   }
 
   .report-sidebar--open {

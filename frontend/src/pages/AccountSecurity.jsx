@@ -4,6 +4,7 @@ import { KeyRound, ArrowLeft, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { auth } from '../firebase';
 import { useAuthProfile } from '../authContext';
+import { ACTIVITY_ACTIONS, recordActivity } from '../activityLog';
 import '../css/AccountSecurity.css';
 
 export default function AccountSecurity() {
@@ -44,6 +45,7 @@ export default function AccountSecurity() {
       const credential = EmailAuthProvider.credential(user.email, currentPassword);
       await reauthenticateWithCredential(user, credential);
       await updatePassword(user, newPassword);
+      await recordActivity(userProfile, ACTIVITY_ACTIONS.PASSWORD_UPDATED, 'session');
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');

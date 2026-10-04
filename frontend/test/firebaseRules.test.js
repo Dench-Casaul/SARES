@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
-import { collection, doc, getDoc, getDocs, query, setDoc, where, writeBatch } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDoc, getDocs, limit, orderBy, query, serverTimestamp, setDoc, where, writeBatch } from 'firebase/firestore';
 import { ref, uploadBytes } from 'firebase/storage';
 
 const workspaceRoot = resolve(fileURLToPath(new URL('../../', import.meta.url)));
@@ -108,6 +108,54 @@ test('unprovisioned school-domain users are denied', async () => {
   const firestore = signedInAs('not-provisioned').firestore();
   await assertFails(getDocs(collection(firestore, 'students')));
   await assertFails(getDoc(doc(firestore, 'users', 'not-provisioned')));
+});
+
+test('activity logs are append-only, attributed to the caller, and superadmin-readable', async () => {
+  const elementaryDb = signedInAs('elementary').firestore();
+  const logRef = doc(collection(elementaryDb, 'activity_logs'), 'elementary-login');
+  await assertSucceeds(setDoc(logRef, {
+    action: 'login_success',
+    actor_uid: 'elementary',
+    actor_email: 'elementary@ows.edu.ph',
+    actor_role: 'counselor',
+    school_scope: 'elementary',
+    target_type: 'session',
+    target_id: '',
+    source: 'client',
+    created_at: serverTimestamp(),
+  }));
+  await assertFails(getDocs(collection(elementaryDb, 'activity_logs')));
+  await assertFails(setDoc(doc(collection(elementaryDb, 'activity_logs')), {
+    action: 'login_success',
+    actor_uid: 'highschool',
+    actor_email: 'highschool@ows.edu.ph',
+    actor_role: 'counselor',
+    school_scope: 'high_school',
+    target_type: 'session',
+    target_id: '',
+    source: 'client',
+    created_at: serverTimestamp(),
+  }));
+  await assertFails(setDoc(logRef, {
+    action: 'logout',
+    actor_uid: 'elementary',
+    actor_email: 'elementary@ows.edu.ph',
+    actor_role: 'counselor',
+    school_scope: 'elementary',
+    target_type: 'session',
+    target_id: '',
+    source: 'client',
+    created_at: serverTimestamp(),
+  }));
+  await assertFails(deleteDoc(logRef));
+
+  const superadminDb = signedInAs('superadmin').firestore();
+  const logs = await assertSucceeds(getDocs(query(
+    collection(superadminDb, 'activity_logs'),
+    orderBy('created_at', 'desc'),
+    limit(30)
+  )));
+  assert.equal(logs.size, 1);
 });
 
 test('a separately provisioned superadmin UID keeps all-scope access', async () => {

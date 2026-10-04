@@ -1,6 +1,6 @@
 # SARES Role-Based Setup
 
-This rollout provisions a dedicated superadmin account and two counselor accounts. Counselors have the same application functions as the superadmin, but only see their school level plus shared records. Superadmin access spans all scopes and keeps the existing app features, including student and violation management, rules, reports, case assessments, account security, and all-scope evidence access.
+This rollout provisions a dedicated superadmin account and two counselor accounts. Counselors have the same application functions as the superadmin, but only see their school level plus shared records. Superadmin access spans all scopes and keeps the existing app features, including student and violation management, rules, reports, case assessments, and account security. Evidence upload is disabled for this no-billing rollout; new violation records have no evidence files.
 
 ## Account Profiles
 
@@ -23,12 +23,24 @@ Each profile should also include `user_id` (the matching Auth UID), `email`, and
 - Missing or unrecognized year levels, including grades not currently supported in the app: `shared`
 - Violation history follows the student's current grade. Orphaned violations use their own recognized year level, otherwise `shared`.
 
-Evidence files are stored under `evidence/{school_scope}/{batchId}/{filename}`. Legacy evidence paths are superadmin-only after Storage rules are deployed. The migration moves evidence for linked violations, removes stored download-token URLs, and attempts to invalidate legacy download tokens.
+Evidence upload is disabled because the project is not using Cloud Storage. The migration will retain any existing evidence references and will only move evidence files if evidence is present and a Storage bucket is available.
+
+## System Activity Log
+
+The superadmin-only **System Logs** sidebar tab shows the latest 200 successful sign-ins, sign-outs, password changes, student changes, violation/case actions, suspension-date changes, and handbook updates across school scopes. Firestore rules restrict reads to the superadmin, tie new entries to the caller's provisioned UID/email/role/scope, and disallow log edits or deletes. No student names or descriptions are copied into the log.
+
+Because this rollout keeps billing disabled and writes remain client-side, these entries are **client-reported, not tamper-proof audit evidence**: a modified client can omit or misstate its own activity. Failed sign-in attempts are not included. Trusted, complete audit capture requires a server-side component and a separate billing/deployment decision.
+
+## Optional AI Prevention Suggestions
+
+The violation form lets the counselor opt in to a short prevention/alternative suggestion based on an anonymized incident narrative. The narrative is optional when AI is off and required only when AI is enabled. Before enabling, the form warns not to submit confidential or identifying details. The AI endpoint receives only the narrative and selected violation category/type (not student or reporter profile fields), requires a valid signed-in Firebase account with a provisioned SARES role, and does not decide or change sanctions. Free-tier Google Gemini content may be used to improve Google's services; do not use AI for sensitive narratives.
+
+Configure `GEMINI_API_KEY` and `FIREBASE_WEB_API_KEY` as server-side Vercel environment variables for the production deployment. `FIREBASE_PROJECT_ID` may be set to `sares-system`; the endpoint defaults to that project. Never expose the Gemini API key in frontend code. If AI is unavailable or not configured, the violation can still be submitted without an AI suggestion.
 
 ## Migration And Deployment
 
 1. Create the Auth accounts and their matching role profiles in Firebase Console.
-2. Install the Google Cloud SDK and authenticate Application Default Credentials with an operator identity that can read/write the Firestore database and Storage bucket:
+2. Install the Google Cloud SDK and authenticate Application Default Credentials with an operator identity that can read/write the Firestore database:
 
    ```powershell
    gcloud auth application-default login
@@ -42,16 +54,16 @@ Evidence files are stored under `evidence/{school_scope}/{batchId}/{filename}`. 
    npm run backfill:school-scope -- --apply
    ```
 
-   The dry run changes no data. The apply run normalizes student/violation scopes, moves linked evidence by scope, removes download-token URLs from records, and writes a completion marker to `rules/school_scope_migration`. Back up Firestore and Storage before applying. Do not deploy the new rules until the backfill is complete.
+   The dry run changes no data. The apply run normalizes student/violation scopes and writes a completion marker to `rules/school_scope_migration`. Back up Firestore before applying. Evidence upload remains disabled and Storage rules are not part of this no-billing rollout. Do not deploy the new Firestore rules until the backfill is complete.
 
 4. Deploy the updated frontend and Firebase rules in a coordinated release. Old clients issue unfiltered queries and will stop working as soon as scope-enforcing rules are active. Deploy rules from the repository root:
 
    ```powershell
    firebase login
-   firebase deploy --only firestore:rules,storage --project sares-system
+   firebase deploy --only firestore:rules --project sares-system
    ```
 
-5. Verify sign-in and role profile access for all three accounts. Check elementary/high-school separation, shared records, a current-grade transfer, and evidence access before ending the maintenance window.
+5. Verify sign-in and role profile access for all three accounts. Check elementary/high-school separation, shared records, a current-grade transfer, and confirm violation submission works without evidence files before ending the maintenance window.
 
 ## Validation
 
@@ -63,4 +75,4 @@ npm run test:rules
 npm run build
 ```
 
-`npm run test:rules` starts Firestore and Storage emulators using the root `firebase.json` and verifies scoped query requirements, cross-school denials, linked-student writes, role self-promotion denial, and evidence access.
+`npm run test:rules` starts Firestore and Storage emulators using the root `firebase.json` and verifies scoped query requirements, cross-school denials, linked-student writes, role self-promotion denial, and evidence access rules.

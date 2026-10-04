@@ -3,12 +3,14 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { doc, onSnapshot, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore'
 import '../css/Rule.css'
 import wesleyLogo from '../assets/wesley-logo.png'
-import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X, ChevronDown, ChevronRight, Save, Plus, Pencil, Trash2, KeyRound } from 'lucide-react'
+import { Activity, LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X, ChevronDown, ChevronRight, Save, Plus, Pencil, Trash2, KeyRound } from 'lucide-react'
 import { applyHandbookOverrides, applySanctionOverrides, getHandbook, getSanctionOverrides } from '../data/handbookIndex'
 import { db } from '../firebase'
 import { formatIdentifiedSanction } from '../engine/sanctionLabel'
+import { useAuthProfile } from '../authContext'
+import { ACTIVITY_ACTIONS, recordActivity } from '../activityLog'
 
-function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar }) {
+function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar, userProfile }) {
   return (
     <aside className={`rule-sidebar${isOpen ? ' rule-sidebar--open' : ''}`}>
       <div className="rule-sidebar-header">
@@ -64,6 +66,14 @@ function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar }) {
               <span>Account Security</span>
             </Link>
           </li>
+          {userProfile?.role === 'superadmin' && (
+            <li>
+              <Link to="/sares/system-logs" onClick={toggleSidebar} className={`rule-nav-item${activePage === '/sares/system-logs' ? ' rule-nav-item--active' : ''}`}>
+                <Activity className="rule-nav-icon" />
+                <span>System Logs</span>
+              </Link>
+            </li>
+          )}
         </ul>
       </nav>
 
@@ -99,6 +109,7 @@ const SEVERITY_OPTIONS = [
 ];
 
 export default function Rule() {
+  const { userProfile } = useAuthProfile();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -152,6 +163,7 @@ export default function Rule() {
         offenseTypes: handbookDraft.offenseTypes,
         updated_at: serverTimestamp(),
       });
+      await recordActivity(userProfile, ACTIVITY_ACTIONS.HANDBOOK_UPDATED, 'handbook', 'handbook_sanctions');
       applyHandbookOverrides({
         offenseGroups: handbookDraft.offenseGroups,
         offenseTypes: handbookDraft.offenseTypes,
@@ -203,6 +215,7 @@ export default function Rule() {
     };
     try {
       await updateDoc(doc(db, 'violations', editingViolation.id), payload);
+      await recordActivity(userProfile, ACTIVITY_ACTIONS.VIOLATION_UPDATED, 'violation', editingViolation.id);
       setEditingViolation(null);
       setPanelMessage('Violation record updated.');
     } catch (error) {
@@ -334,6 +347,7 @@ export default function Rule() {
         offenseTypes: handbookDraft.offenseTypes,
         updated_at: serverTimestamp(),
       });
+      await recordActivity(userProfile, ACTIVITY_ACTIONS.HANDBOOK_UPDATED, 'handbook', 'handbook_sanctions');
       applyHandbookOverrides({
         offenseGroups: handbookDraft.offenseGroups,
         offenseTypes: handbookDraft.offenseTypes,
@@ -358,7 +372,8 @@ export default function Rule() {
       .map(g => g.groupTitle)
   )].sort();
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await recordActivity(userProfile, ACTIVITY_ACTIONS.LOGOUT, 'session');
     localStorage.removeItem('user');
     navigate('/login');
   };
@@ -411,6 +426,7 @@ export default function Rule() {
         handleLogout={handleLogout}
         isOpen={sidebarOpen}
         toggleSidebar={() => setSidebarOpen(false)}
+        userProfile={userProfile}
       />
 
       <main className="rule-main">

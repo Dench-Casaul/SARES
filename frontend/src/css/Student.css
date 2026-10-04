@@ -1283,10 +1283,10 @@
     position: fixed;
     top: 52px;
     left: 0;
-    bottom: 0;
+    bottom: auto;
     z-index: 40;
     width: 220px !important;
-    height: 100vh !important;
+    height: calc(100dvh - 52px) !important;
   }
   .s-sidebar--open {
     display: flex !important;
@@ -1348,11 +1348,11 @@
     position: fixed;
     top: 60px;
     left: 0;
-    bottom: 0;
+    bottom: auto;
     z-index: 40;
     width: 265px;
     min-width: 265px;
-    height: calc(100vh - 60px);
+    height: calc(100dvh - 60px);
   }
 
   .s-sidebar--open {

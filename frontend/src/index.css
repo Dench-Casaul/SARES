@@ -49,12 +49,39 @@ ul {
   padding: 0;
 }
 
+@media (min-width: 901px) {
+  #root :is(.sidebar, .report-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar) {
+    position: fixed !important;
+    inset: 0 auto 0 0;
+    z-index: 60;
+    height: 100vh;
+  }
+
+  #root :is(.main-content, .report-main, .rule-main, .s-main, .v-main, .ca-main) {
+    margin-left: 265px !important;
+  }
+
+  #root :is(.navigation, .report-nav, .rule-nav, .s-nav, .v-nav, .ca-nav) {
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  #root :is(.logout-section, .report-sidebar-footer, .rule-sidebar-footer, .s-sidebar-footer, .v-logout-section, .ca-logout-section) {
+    flex-shrink: 0;
+    background: #ffffff;
+  }
+}
+
 @media (hover: hover) and (pointer: fine) and (min-width: 901px) {
   #root :is(.sidebar, .report-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar) {
     width: 76px !important;
     min-width: 76px !important;
     overflow: hidden;
     transition: width 180ms ease, min-width 180ms ease;
+  }
+
+  #root :is(.main-content, .report-main, .rule-main, .s-main, .v-main, .ca-main) {
+    margin-left: 76px !important;
   }
 
   #root :is(.sidebar, .report-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar):is(:hover, :focus-within) {

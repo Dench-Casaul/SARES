@@ -4,6 +4,7 @@ import {
   canAccessSchoolScope,
   getAllowedSchoolScopes,
   getSchoolScopeForYear,
+  isRoleProfileForLoginType,
   isValidRoleProfile,
   normalizeYearLevel,
 } from '../src/schoolScope.js';
@@ -35,4 +36,18 @@ test('role profiles fail closed and scope access follows the assigned role', () 
   assert.equal(canAccessSchoolScope({ role: 'counselor', school_scope: 'elementary' }, 'high_school'), false);
   assert.equal(canAccessSchoolScope({ role: 'superadmin', school_scope: 'all' }, 'high_school'), true);
   assert.equal(canAccessSchoolScope({ role: 'counselor', school_scope: 'elementary' }, undefined), false);
+});
+
+test('login account selection must match the provisioned role and school scope', () => {
+  const elementary = { role: 'counselor', school_scope: 'elementary' };
+  const highSchool = { role: 'counselor', school_scope: 'high_school' };
+  const superadmin = { role: 'superadmin', school_scope: 'all' };
+
+  assert.equal(isRoleProfileForLoginType(elementary, 'elementary'), true);
+  assert.equal(isRoleProfileForLoginType(elementary, 'high_school'), false);
+  assert.equal(isRoleProfileForLoginType(highSchool, 'high_school'), true);
+  assert.equal(isRoleProfileForLoginType(highSchool, 'elementary'), false);
+  assert.equal(isRoleProfileForLoginType(superadmin, 'superadmin'), true);
+  assert.equal(isRoleProfileForLoginType(superadmin, 'elementary'), false);
+  assert.equal(isRoleProfileForLoginType(elementary, 'superadmin'), false);
 });

@@ -30,8 +30,28 @@ function Landing() {
           Sares supports the guidance counselor by reducing manual cross-referencing and
           provide necessary sanctions derived from the student handbook
         </p>
-        <button type="button" className="hero-cta" onClick={() => navigate("/login")}>
-          Continue to Login
+        <div className="landing-login-options" aria-label="Choose an account type">
+          <button
+            type="button"
+            className="landing-login-option"
+            onClick={() => navigate("/login?type=elementary")}
+          >
+            Elementary Counselor
+          </button>
+          <button
+            type="button"
+            className="landing-login-option"
+            onClick={() => navigate("/login?type=high_school")}
+          >
+            High School Counselor
+          </button>
+        </div>
+        <button
+          type="button"
+          className="landing-admin-link"
+          onClick={() => navigate("/login?type=superadmin")}
+        >
+          Admin sign-in
         </button>
       </section>
 

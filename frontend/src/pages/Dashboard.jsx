@@ -5,10 +5,11 @@ import { db } from '../firebase'
 import { useAuthProfile } from '../authContext'
 import { queryForUserScope } from '../firestoreAccess'
 import { isViolationServed } from '../engine/ruleEngine'
+import { ACTIVITY_ACTIONS, recordActivity } from '../activityLog'
 import '../css/Dashboard.css'
 import heroImg from '../assets/hero.png'
 import wesleyLogo from '../assets/wesley-logo.png'
-import { LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X, KeyRound } from 'lucide-react'
+import { Activity, LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X, KeyRound } from 'lucide-react'
 
 const normalizeViolationStatus = (violation) => {
   return isViolationServed(violation) ? 'served' : 'pending';
@@ -150,7 +151,8 @@ const Dashboard = () => {
     return Object.entries(stats).map(([month, count]) => ({ month, count }));
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await recordActivity(userProfile, ACTIVITY_ACTIONS.LOGOUT, 'session');
     // Clear any stored user data (e.g., tokens, user info)
     localStorage.removeItem('user');
     // Navigate to the login page
@@ -282,6 +284,14 @@ const Dashboard = () => {
                 <span className="nav-text">Account Security</span>
               </Link>
             </li>
+            {userProfile?.role === 'superadmin' && (
+              <li>
+                <Link to="/sares/system-logs" onClick={() => setSidebarOpen(false)} className={`nav-item${location.pathname === '/sares/system-logs' ? '-active' : ''}`}>
+                  <Activity className="nav-icon" />
+                  <span className="nav-text">System Logs</span>
+                </Link>
+              </li>
+            )}
           </ul>
         </nav>
 
@@ -443,8 +453,6 @@ const Dashboard = () => {
               </div>
             </div>
           </div>
-
-
 
           {/* Bottom: Recent Activity + Repeat Offender Alerts */}
           <div className="bottom-grid">

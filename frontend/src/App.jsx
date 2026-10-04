@@ -10,6 +10,7 @@ import Login from "./pages/Login";
 import CaseAssessment from "./pages/CaseAssessment";
 import Landing from "./pages/Landing";
 import AccountSecurity from "./pages/AccountSecurity";
+import SystemLogs from "./pages/SystemLogs";
 import React, { useEffect, useState } from "react";
 import { applyHandbookOverrides, applySanctionOverrides } from "./data/handbookIndex";
 import { auth, db } from "./firebase";
@@ -48,6 +49,12 @@ class AppErrorBoundary extends React.Component {
 function RequireAuth({ children, isAuthenticated, authReady }) {
   if (!authReady) return null;
   return isAuthenticated ? children : <Navigate to="/login" replace />;
+}
+
+function RequireSuperadmin({ children, userProfile }) {
+  return userProfile?.role === "superadmin"
+    ? children
+    : <Navigate to="/sares/dashboard" replace />;
 }
 
 function App() {
@@ -138,6 +145,7 @@ function App() {
             <Route path="/sares/rules" element={<RequireAuth isAuthenticated={Boolean(userProfile)} authReady={authReady}><Rule /></RequireAuth>} />
             <Route path="/sares/reports" element={<RequireAuth isAuthenticated={Boolean(userProfile)} authReady={authReady}><Report /></RequireAuth>} />
             <Route path="/sares/account" element={<RequireAuth isAuthenticated={Boolean(userProfile)} authReady={authReady}><AccountSecurity /></RequireAuth>} />
+            <Route path="/sares/system-logs" element={<RequireAuth isAuthenticated={Boolean(userProfile)} authReady={authReady}><RequireSuperadmin userProfile={userProfile}><SystemLogs /></RequireSuperadmin></RequireAuth>} />
             <Route path="/dashboard" element={<RequireAuth isAuthenticated={Boolean(userProfile)} authReady={authReady}><Dashboard /></RequireAuth>} />
             <Route path="/students" element={<RequireAuth isAuthenticated={Boolean(userProfile)} authReady={authReady}><Student /></RequireAuth>} />
             <Route path="/violation" element={<RequireAuth isAuthenticated={Boolean(userProfile)} authReady={authReady}><Violation /></RequireAuth>} />
@@ -146,6 +154,7 @@ function App() {
             <Route path="/rules" element={<RequireAuth isAuthenticated={Boolean(userProfile)} authReady={authReady}><Rule /></RequireAuth>} />
             <Route path="/reports" element={<RequireAuth isAuthenticated={Boolean(userProfile)} authReady={authReady}><Report /></RequireAuth>} />
             <Route path="/account" element={<RequireAuth isAuthenticated={Boolean(userProfile)} authReady={authReady}><AccountSecurity /></RequireAuth>} />
+            <Route path="/system-logs" element={<RequireAuth isAuthenticated={Boolean(userProfile)} authReady={authReady}><RequireSuperadmin userProfile={userProfile}><SystemLogs /></RequireSuperadmin></RequireAuth>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </AppErrorBoundary>

@@ -103,6 +103,49 @@ service cloud.firestore {
       allow list, create, update, delete: if false;
     }
 
+    match /activity_logs/{activityId} {
+      allow get, list: if isSuperadmin();
+      allow create: if isProvisioned()
+        && request.resource.data.keys().hasOnly([
+          'action', 'actor_uid', 'actor_email', 'actor_role', 'school_scope',
+          'target_type', 'target_id', 'source', 'created_at'
+        ])
+        && request.resource.data.keys().hasAll([
+          'action', 'actor_uid', 'actor_email', 'actor_role', 'school_scope',
+          'target_type', 'target_id', 'source', 'created_at'
+        ])
+        && request.resource.data.actor_uid == request.auth.uid
+        && request.resource.data.actor_email == request.auth.token.email
+        && request.resource.data.actor_role == get(userProfilePath()).data.role
+        && request.resource.data.school_scope == get(userProfilePath()).data.school_scope
+        && request.resource.data.action in [
+          'login_success', 'logout', 'password_updated', 'case_recorded',
+          'student_created', 'student_updated', 'student_deleted',
+          'violation_recorded', 'violation_updated',
+          'violation_status_updated', 'suspension_dates_updated', 'handbook_updated'
+        ]
+        && request.resource.data.target_type in [
+          'session', 'student', 'violation', 'handbook'
+        ]
+        && (
+          (request.resource.data.action in ['login_success', 'logout', 'password_updated']
+            && request.resource.data.target_type == 'session')
+          || (request.resource.data.action in ['student_created', 'student_updated', 'student_deleted']
+            && request.resource.data.target_type == 'student')
+          || (request.resource.data.action in [
+              'case_recorded', 'violation_recorded', 'violation_updated',
+              'violation_status_updated', 'suspension_dates_updated'
+            ] && request.resource.data.target_type == 'violation')
+          || (request.resource.data.action == 'handbook_updated'
+            && request.resource.data.target_type == 'handbook')
+        )
+        && request.resource.data.target_id is string
+        && request.resource.data.target_id.size() <= 128
+        && request.resource.data.source == 'client'
+        && request.resource.data.created_at == request.time;
+      allow update, delete: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

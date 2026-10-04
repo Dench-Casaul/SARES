@@ -21,6 +21,8 @@ test('buildViolationRecordsForStudents creates one record per selected student a
     recommended_sanction: 'Warning',
     generated_explanation: 'Test explanation',
     explanation_source: 'fallback',
+    ai_assisted_solution: 'Consider a restorative conversation.',
+    ai_assisted_solution_source: 'gemini',
     suggest_authorities: false,
     status: 'recorded',
     created_by: 'teacher',
@@ -47,6 +49,8 @@ test('buildViolationRecordsForStudents creates one record per selected student a
   assert.equal(records[0].group_incident_id, records[1].group_incident_id);
   assert.equal(records[0].group_size, 2);
   assert.equal(records[0].incident_description, 'Group incident during assembly');
+  assert.equal(records[0].ai_assisted_solution, 'Consider a restorative conversation.');
+  assert.equal(records[1].ai_assisted_solution_source, 'gemini');
 });
 
 test('minor offense sequence uses incident date first-come-first-serve, not log order', () => {
