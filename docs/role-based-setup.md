@@ -37,6 +37,10 @@ The violation form lets the counselor opt in to a short prevention/alternative s
 
 Configure `GEMINI_API_KEY` and `FIREBASE_WEB_API_KEY` as server-side Vercel environment variables for the production deployment. `FIREBASE_PROJECT_ID` may be set to `sares-system`; the endpoint defaults to that project. Never expose the Gemini API key in frontend code. If AI is unavailable or not configured, the violation can still be submitted without an AI suggestion.
 
+## Progressive Web App
+
+SARES can be installed from a supported browser and launched in a standalone app window. The service worker caches only the app shell and built static assets; it does not cache Firebase data, authentication/API responses, or student records. An internet connection is required to sign in, access records, and use AI suggestions. When offline, SARES displays a connection notice rather than offering offline record access.
+
 ## Migration And Deployment
 
 1. Create the Auth accounts and their matching role profiles in Firebase Console.

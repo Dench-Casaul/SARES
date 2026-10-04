@@ -23,6 +23,18 @@ body {
   color: #f3f5ff;
 }
 
+.network-status {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 1000;
+  padding: 12px 18px;
+  background: #7a271a;
+  color: #fff;
+  text-align: center;
+  font-size: 0.95rem;
+  box-shadow: 0 2px 12px rgb(0 0 0 / 25%);
+}
+
 button,
 input,
 textarea,
