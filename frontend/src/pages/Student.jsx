@@ -1367,15 +1367,18 @@ function ViolationDetails({ violation, student, onBack, onSetSuspensionDates, su
                   </div>
                 </div>
               )}
-              {violation.ai_assisted_solution && (
-                <>
-                  <div className="s-divider" />
-                  <div className="s-vd-field s-vd-field--full">
-                    <div className="s-vd-field-label">AI-Assisted Prevention / Alternative Suggestion</div>
-                    <div className="s-vd-desc-box">{violation.ai_assisted_solution}</div>
-                  </div>
-                </>
-              )}
+            </>
+          )}
+          {violation.ai_assisted_solution && (
+            <>
+              <div className="s-divider" />
+              <div className="s-vd-field s-vd-field--full">
+                <div className="s-vd-field-label">AI-Assisted Prevention / Alternative Suggestion</div>
+                <div className="s-vd-desc-box">{violation.ai_assisted_solution}</div>
+                <div className="s-vd-field-label" style={{ marginTop: '8px' }}>
+                  Source: {violation.ai_assisted_solution_source || 'Gemini'}. AI-generated guidance for counselor review; it does not replace school policy or professional judgment.
+                </div>
+              </div>
             </>
           )}
         </div>
