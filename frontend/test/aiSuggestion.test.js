@@ -123,6 +123,7 @@ test('AI endpoint sends only narrative and violation labels and returns preventi
   assert.match(prompt, /Respect/);
   assert.doesNotMatch(prompt, /Must not be sent/);
   assert.doesNotMatch(prompt, /recommended sanction|severity score/i);
+  assert.match(calls.at(-1).url, /models\/gemini-3\.5-flash-lite:generateContent/);
 });
 
 test('AI endpoint rejects empty and oversized narratives before calling Gemini', async (t) => {
