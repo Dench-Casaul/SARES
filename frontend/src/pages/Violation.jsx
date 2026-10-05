@@ -261,7 +261,9 @@ export default function Violation() {
         setAiSuggestionSource(result.source || 'gemini')
       } catch (error) {
         console.error('Failed to generate AI prevention suggestion:', error)
-        setAiSuggestionError('AI assistance is unavailable right now. You can continue without an AI suggestion.')
+        const details = error instanceof Error ? error.message : 'AI assistance is currently unavailable.'
+        const fallback = 'AI assistance is unavailable right now. You can continue without an AI suggestion.'
+        setAiSuggestionError(details && details !== 'AI assistance is currently unavailable.' ? `${details} You can continue without an AI suggestion.` : fallback)
       } finally {
         setAiSuggestionLoading(false)
       }
