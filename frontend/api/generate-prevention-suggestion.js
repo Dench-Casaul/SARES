@@ -10,6 +10,13 @@ function cleanLabel(value) {
   return typeof value === "string" ? value.trim().slice(0, 120) : "";
 }
 
+function getGeminiErrorMessage(data) {
+  const message = typeof data?.error?.message === "string"
+    ? data.error.message
+    : "";
+  return message.replace(/[\r\n]+/g, " ").slice(0, 300);
+}
+
 async function authenticateRequest(req) {
   const authorization = req.headers?.authorization || req.headers?.Authorization || "";
   const idToken = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
@@ -108,8 +115,16 @@ export default async function handler(req, res) {
     );
 
     if (!response.ok) {
-      console.error(`Gemini prevention suggestion request failed with status ${response.status}.`);
-      return res.status(502).json({ error: "AI assistance is temporarily unavailable." });
+      const errorData = await response.json().catch(() => null);
+      const providerMessage = getGeminiErrorMessage(errorData);
+      console.error("Gemini prevention suggestion request failed:", {
+        status: response.status,
+        message: providerMessage || response.statusText,
+      });
+      const detail = providerMessage ? `: ${providerMessage}` : "";
+      return res.status(502).json({
+        error: `Gemini request failed (${response.status})${detail}`,
+      });
     }
 
     const data = await response.json();
@@ -119,6 +134,10 @@ export default async function handler(req, res) {
       .trim() || "";
 
     if (!suggestion) {
+      console.error("Gemini returned no suggestion:", {
+        finishReason: data?.candidates?.[0]?.finishReason || "unknown",
+        blockReason: data?.promptFeedback?.blockReason || "none",
+      });
       return res.status(502).json({ error: "AI did not return a usable suggestion." });
     }
 

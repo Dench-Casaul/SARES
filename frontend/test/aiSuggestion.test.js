@@ -22,6 +22,7 @@ function createAuthenticatedFetch(t, {
   geminiResponse = {
     candidates: [{ content: { parts: [{ text: 'Consider a restorative conversation and supportive check-ins.' }] } }],
   },
+  geminiHttpResponse = null,
   profile = {
     role: { stringValue: 'counselor' },
     school_scope: { stringValue: 'elementary' },
@@ -59,6 +60,7 @@ function createAuthenticatedFetch(t, {
         },
       };
     }
+    if (geminiHttpResponse) return geminiHttpResponse;
     return {
       ok: true,
       async json() {
@@ -135,4 +137,28 @@ test('AI endpoint rejects empty and oversized narratives before calling Gemini',
   assert.equal(emptyResponse.statusCode, 400);
   assert.equal(longResponse.statusCode, 413);
   assert.equal(calls.filter(({ url }) => url.includes('generativelanguage.googleapis.com')).length, 0);
+});
+
+test('AI endpoint reports the Gemini rejection reason when generation fails', async (t) => {
+  createAuthenticatedFetch(t, {
+    geminiHttpResponse: {
+      ok: false,
+      status: 403,
+      statusText: 'Forbidden',
+      async json() {
+        return { error: { message: 'API key not valid. Please pass a valid API key.' } };
+      },
+    },
+  });
+  const response = createResponse();
+
+  await handler({
+    method: 'POST',
+    headers: { authorization: 'Bearer test-token' },
+    body: { incidentDescription: 'A generic anonymized narrative.' },
+  }, response);
+
+  assert.equal(response.statusCode, 502);
+  assert.match(response.body.error, /Gemini request failed \(403\)/);
+  assert.match(response.body.error, /API key not valid/);
 });
