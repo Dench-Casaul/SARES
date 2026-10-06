@@ -104,10 +104,6 @@ export default function SystemLogs() {
           </label>
         </header>
 
-        <div className="logs-trust-notice" role="note">
-          These entries are append-only and tied to the signed-in account, but are browser-reported and may be incomplete or misreported. Failed sign-in attempts are not included.
-        </div>
-
         <section className="logs-card" aria-label="Recent system activity">
           {loading ? (
             <p className="logs-state">Loading system activity…</p>
