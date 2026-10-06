@@ -120,7 +120,6 @@ export default function SystemLogs() {
                     <th scope="col">Account</th>
                     <th scope="col">School</th>
                     <th scope="col">Activity</th>
-                    <th scope="col">Record reference</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -128,9 +127,8 @@ export default function SystemLogs() {
                     <tr key={activity.id}>
                       <td>{formatActivityDate(activity.created_at)}</td>
                       <td>{activity.actor_email || 'Unknown account'}</td>
-                      <td>{activity.school_scope === 'high_school' ? 'High school' : activity.school_scope === 'elementary' ? 'Elementary' : activity.school_scope === 'all' ? 'All scopes' : 'Shared'}</td>
+                      <td>{activity.school_scope === 'high_school' ? 'High school' : activity.school_scope === 'elementary' ? 'Elementary' : activity.school_scope === 'all' ? 'Admin' : 'Shared'}</td>
                       <td>{getActivityActionLabel(activity.action)}</td>
-                      <td>{activity.target_id || '—'}</td>
                     </tr>
                   ))}
                 </tbody>
