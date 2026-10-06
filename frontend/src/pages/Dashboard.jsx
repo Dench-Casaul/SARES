@@ -312,7 +312,9 @@ const Dashboard = () => {
             <div className="welcome-inner">
               <div className="welcome-grid">
                 <div className="welcome-text-section">
-                  <h1 className="welcome-title">Welcome Back, Admin!</h1>
+                  <h1 className="welcome-title">
+                    {userProfile?.role === 'counselor' ? 'Welcome Back, Counselor!' : 'Welcome Back, Admin!'}
+                  </h1>
                   <p className="welcome-subtitle">Here's what's happening today.</p>
 
 

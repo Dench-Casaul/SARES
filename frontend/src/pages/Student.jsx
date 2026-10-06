@@ -1351,6 +1351,16 @@ function ViolationDetails({ violation, student, onBack, onSetSuspensionDates, su
             </>
           )}
 
+          {violation.parent_contact_notes && (
+            <>
+              <div className="s-vd-field s-vd-field--full">
+                <div className="s-vd-field-label">Parent/Guardian Involvement</div>
+                <div className="s-vd-desc-box">{violation.parent_contact_notes}</div>
+              </div>
+              <div className="s-divider" />
+            </>
+          )}
+
           {!(violation.intervention_type === 'mediation' && (violation.status === 'resolved' || violation.mediation_status === 'resolved')) && (
             <>
               <div className="s-vd-field s-vd-field--full">

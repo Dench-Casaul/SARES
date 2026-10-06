@@ -114,6 +114,7 @@ export default function Violation() {
     severity_score: 5,      // major: 1-10
     handling_path: 'sanction',
     incident_description: '',
+    parent_contact_notes: '',
     witnesses: '',
     reported_by: '',
     reporter_role: 'staff',
@@ -306,6 +307,9 @@ export default function Violation() {
       const baseIncidentData = {
         incident_date: form.incident_date,
         incident_description: form.incident_description,
+        ...(form.parent_contact_notes.trim()
+          ? { parent_contact_notes: form.parent_contact_notes.trim() }
+          : {}),
         witnesses: form.witnesses,
         reported_by: form.reported_by.trim(),
         reporter_role: form.reporter_role,
@@ -773,6 +777,19 @@ export default function Violation() {
               </div>
 
               <div className="v-field" style={{ marginTop: '1.5rem' }}>
+                <label className="v-label" htmlFor="parent-contact-notes">Parent/Guardian Involvement (optional)</label>
+                <textarea
+                  id="parent-contact-notes"
+                  className="v-input v-textarea"
+                  rows="3"
+                  maxLength={1000}
+                  placeholder="Add any notes about parent/guardian involvement related to this incident..."
+                  value={form.parent_contact_notes}
+                  onChange={e => setForm(f => ({ ...f, parent_contact_notes: e.target.value }))}
+                />
+              </div>
+
+              <div className="v-field" style={{ marginTop: '1.5rem' }}>
                 <label className="v-label">Witnesses (Optional)</label>
                 <textarea className="v-input v-textarea" rows="2"
                   placeholder="List any witnesses to the incident..."
@@ -855,6 +872,12 @@ export default function Violation() {
                   <h4>Incident Description</h4>
                   <p>{form.incident_description || 'Not provided'}</p>
                 </div>
+                {form.parent_contact_notes.trim() && (
+                  <div className="v-review-section v-review-section--full">
+                    <h4>Parent/Guardian Involvement</h4>
+                    <p>{form.parent_contact_notes.trim()}</p>
+                  </div>
+                )}
                 {useAiAssistance && (
                   <div className="v-review-section v-review-section--full v-ai-review">
                     <h4>AI-Assisted Prevention / Alternative Suggestion</h4>

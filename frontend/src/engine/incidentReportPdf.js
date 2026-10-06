@@ -134,6 +134,9 @@ export function createIncidentReportPdf(caseData, groupMembers = [caseData]) {
   });
   y += 2;
   addParagraph("Narrative Description of the Incident", caseData.incident_description, 24);
+  if (caseData.parent_contact_notes) {
+    addParagraph("Parent/Guardian Involvement", caseData.parent_contact_notes, 15);
+  }
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8.5);
