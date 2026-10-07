@@ -528,6 +528,10 @@
   gap: 12px;
 }
 
+.s-field-row--name {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .s-label {
   font-size: 13px;
   color: #365577;

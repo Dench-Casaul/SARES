@@ -82,6 +82,12 @@ const splitStudentName = (fullName = '') => {
   }
 }
 
+const formatStudentName = (student) => [
+  student.first_name,
+  student.middle_name,
+  student.last_name,
+].map((name) => String(name || '').trim()).filter(Boolean).join(' ') || student.full_name || ''
+
 export default function Violation() {
   const { userProfile } = useAuthProfile()
   const location = useLocation()
@@ -165,14 +171,15 @@ export default function Violation() {
       const snap = await getDocs(queryForUserScope(collection(db, 'students'), userProfile))
       setStudents(snap.docs.map(d => {
         const data = d.data()
-        const { first_name, last_name } = splitStudentName(data.full_name || data.name || '')
+        const parsedName = splitStudentName(data.full_name || data.name || '')
         return {
           ...data,
           __docId: d.id,
           student_id: data.student_id || d.id,
           school_scope: data.school_scope || getSchoolScopeForYear(data.year_level || data.year),
-          first_name,
-          last_name,
+          first_name: data.first_name || parsedName.first_name,
+          middle_name: data.middle_name || '',
+          last_name: data.last_name || parsedName.last_name,
         }
       }))
     } catch { alert('Failed to load students.') }
@@ -196,6 +203,7 @@ export default function Violation() {
     if (!q) return true
     return (s.full_name || '').toLowerCase().includes(q) ||
       (s.first_name || '').toLowerCase().includes(q) ||
+      (s.middle_name || '').toLowerCase().includes(q) ||
       (s.last_name || '').toLowerCase().includes(q) ||
       String(s.student_number || '').toLowerCase().includes(q)
   })
@@ -477,14 +485,14 @@ export default function Violation() {
                                     }
                                     return [...prev, {
                                       student_id: String(s.student_id),
-                                      full_name: `${s.first_name || ''} ${s.last_name || ''}`.trim() || s.full_name || '',
+                                      full_name: formatStudentName(s),
                                       student_number: s.student_number || '',
                                       year_level: s.year_level || '',
                                     }]
                                   })
                                   setForm(f => ({ ...f, student_id: String(s.student_id) }))
                                 }}>
-                                <span className="v-student-option-name">{`${s.first_name || ''} ${s.last_name || ''}`.trim() || s.full_name || ''}</span>
+                                <span className="v-student-option-name">{formatStudentName(s)}</span>
                                 {s.student_number && <span className="v-student-option-meta">{s.student_number}</span>}
                               </li>
                             )

@@ -155,6 +155,7 @@ function AddStudentModal({ onClose, onAdd, initialForm, submitLabel = 'Add Stude
   const [form, setForm] = useState({
     id: initialForm?.id || '',
     first_name: initialForm?.first_name || initialNameParts[0] || '',
+    middle_name: initialForm?.middle_name || '',
     last_name: initialForm?.last_name || initialNameParts.slice(1).join(' ') || '',
     year: initialForm?.year || '',
     section: initialForm?.section || '',
@@ -165,7 +166,10 @@ function AddStudentModal({ onClose, onAdd, initialForm, submitLabel = 'Add Stude
   const handle = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   const submit = async () => {
-    const fullName = `${form.first_name || ''} ${form.last_name || ''}`.trim();
+    const fullName = [form.first_name, form.middle_name, form.last_name]
+      .map((name) => String(name || '').trim())
+      .filter(Boolean)
+      .join(' ');
     if (!form.first_name || !form.last_name || !form.year || !form.section || !form.email) return;
     await onAdd({ ...form, name: fullName });
   };
@@ -197,10 +201,14 @@ function AddStudentModal({ onClose, onAdd, initialForm, submitLabel = 'Add Stude
             />
           </div>
 
-          <div className="s-field-row">
+          <div className="s-field-row s-field-row--name">
             <div className="s-field">
               <label className="s-label">First Name</label>
               <input className="s-input" name="first_name" value={form.first_name} onChange={handle} placeholder="Juan" />
+            </div>
+            <div className="s-field">
+              <label className="s-label">Middle Name (Optional)</label>
+              <input className="s-input" name="middle_name" value={form.middle_name} onChange={handle} placeholder="Santos" />
             </div>
             <div className="s-field">
               <label className="s-label">Last Name</label>
@@ -790,6 +798,7 @@ function StudentList({ students, onSelect, onAddStudent, onEditStudent, location
                 <tr>
                   <th>Student</th>
                   <th>First Name</th>
+                  <th>Middle Name</th>
                   <th>Last Name</th>
                   <th>Student ID</th>
                   <th>Year Level & Section</th>
@@ -804,6 +813,7 @@ function StudentList({ students, onSelect, onAddStudent, onEditStudent, location
                   <tr key={student.docId || student.id} onClick={() => onSelect(student)}>
                     <td className="s-student-name">{student.name}</td>
                     <td>{student.first_name || ''}</td>
+                    <td>{student.middle_name || ''}</td>
                     <td>{student.last_name || ''}</td>
                     <td>{student.id}</td>
                     <td>{student.year} - {student.section}</td>
@@ -894,6 +904,9 @@ function StudentList({ students, onSelect, onAddStudent, onEditStudent, location
           onAdd={handleEdit}
           initialForm={{
             id: editingStudent.id,
+            first_name: editingStudent.first_name,
+            middle_name: editingStudent.middle_name,
+            last_name: editingStudent.last_name,
             name: editingStudent.name,
             year: editingStudent.year,
             section: editingStudent.section,
@@ -1041,6 +1054,12 @@ function StudentProfile({ student, onBack, onSelectViolation, onUpdateViolationS
             <div className="s-info-field">
               <span className="s-info-label">First Name</span>
               <span className="s-info-value">{student.first_name || ''}</span>
+            </div>
+            <div className="s-divider" />
+
+            <div className="s-info-field">
+              <span className="s-info-label">Middle Name</span>
+              <span className="s-info-value">{student.middle_name || ''}</span>
             </div>
             <div className="s-divider" />
 
@@ -1469,8 +1488,9 @@ export default function Students() {
       docId: student.student_id || '',
       id: student.student_number || student.id || '',
       name: name,
-      first_name,
-      last_name,
+      first_name: student.first_name || first_name,
+      middle_name: student.middle_name || '',
+      last_name: student.last_name || last_name,
       initials: initials || 'S',
       color: colors[(student.student_id || 0) % colors.length],
       year: student.year_level || student.year || '',
@@ -1598,7 +1618,10 @@ export default function Students() {
     const studentData = {
       student_id: '',
       student_number: form.id,
-      full_name: `${form.first_name || ''} ${form.last_name || ''}`.trim(),
+      first_name: form.first_name.trim(),
+      middle_name: form.middle_name.trim(),
+      last_name: form.last_name.trim(),
+      full_name: form.name,
       year_level: form.year,
       school_scope: getSchoolScopeForYear(form.year),
       section: form.section,
@@ -1635,7 +1658,10 @@ export default function Students() {
     }
     const payload = {
       student_number: form.id,
-      full_name: `${form.first_name || ''} ${form.last_name || ''}`.trim(),
+      first_name: form.first_name.trim(),
+      middle_name: form.middle_name.trim(),
+      last_name: form.last_name.trim(),
+      full_name: form.name,
       year_level: form.year,
       school_scope: nextScope,
       section: form.section,
@@ -1677,6 +1703,9 @@ export default function Students() {
               school_scope: nextScope,
               id: payload.student_number,
               name: payload.full_name,
+              first_name: payload.first_name,
+              middle_name: payload.middle_name,
+              last_name: payload.last_name,
               year: payload.year_level,
               section: payload.section,
               email: payload.email,
