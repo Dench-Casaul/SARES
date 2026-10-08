@@ -1,14 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { addDoc, arrayUnion, collection, deleteDoc, doc, getDocs, increment, updateDoc, serverTimestamp, writeBatch } from 'firebase/firestore'
+import { addDoc, arrayUnion, collection, deleteField, doc, getDocs, increment, serverTimestamp, updateDoc, writeBatch } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuthProfile } from '../authContext'
 import { queryForUserScope } from '../firestoreAccess'
+import { isRecordInTrash } from '../recordStatus'
 import { canAccessSchoolScope, getSchoolScopeForYear } from '../schoolScope'
 import { doesViolationCount, evaluateSaresRecommendation, isViolationServed } from '../engine/ruleEngine'
 import '../css/Student.css'
 import wesleyLogo from '../assets/wesley-logo.png'
-import { Activity, LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X, Calendar, Download, KeyRound } from 'lucide-react'
+import { Activity, AlertTriangle, LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X, Calendar, Download, KeyRound, Trash2, RotateCcw } from 'lucide-react'
 import { getSubcategories, listOffenseGroups, listOffensesByGroup } from '../data/handbookIndex'
 import { ACTIVITY_ACTIONS, recordActivity } from '../activityLog'
 
@@ -508,10 +509,12 @@ function CaseManagementModal({ student, violationDraft, onClose, onSaved }) {
     try {
       const today = new Date().toISOString().slice(0, 10);
       const violationsSnapshot = await getDocs(queryForUserScope(collection(db, 'violations'), userProfile));
-      const existingViolations = violationsSnapshot.docs.map((violationDoc) => ({
-        id: violationDoc.id,
-        ...violationDoc.data(),
-      }));
+      const existingViolations = violationsSnapshot.docs
+        .map((violationDoc) => ({
+          id: violationDoc.id,
+          ...violationDoc.data(),
+        }))
+        .filter((violation) => !isRecordInTrash(violation));
 
       const recommendation = evaluateSaresRecommendation({
         offenseType: violationDraft.offense_type,
@@ -643,16 +646,80 @@ function CaseManagementModal({ student, violationDraft, onClose, onSaved }) {
 }
 
 /* Student List View */
-function StudentList({ students, onSelect, onAddStudent, onEditStudent, location, sidebarOpen, setSidebarOpen }) {
+function StudentActionConfirmModal({ student, mode, onClose, onConfirm, saving }) {
+  const isPermanent = mode === 'permanent';
+  const title = isPermanent ? 'Permanently delete this student?' : 'Move this student to Trash?';
+
+  return (
+    <div className="s-modal-backdrop" onClick={saving ? undefined : onClose}>
+      <div className="s-modal s-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="s-student-confirm-title" onClick={(event) => event.stopPropagation()}>
+        <div className="s-modal-header">
+          <div className="s-confirm-heading">
+            <span className={`s-confirm-icon${isPermanent ? ' s-confirm-icon--danger' : ''}`}>
+              {isPermanent ? <AlertTriangle size={20} /> : <Trash2 size={20} />}
+            </span>
+            <div>
+              <h2 id="s-student-confirm-title" className="s-modal-title">{title}</h2>
+              <p className="s-modal-sub">{student.name}</p>
+            </div>
+          </div>
+          <button className="s-modal-close" onClick={onClose} disabled={saving} aria-label="Close confirmation">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="s-modal-body">
+          {isPermanent ? (
+            <p className="s-confirm-warning">
+              This permanently deletes the student record and all {student.recordedViolationCount} linked violation record{student.recordedViolationCount === 1 ? '' : 's'}. This cannot be undone.
+            </p>
+          ) : (
+            <p className="s-confirm-warning">
+              The student and all {student.recordedViolationCount} linked violation record{student.recordedViolationCount === 1 ? '' : 's'} will move to Trash together. They will be excluded from active lists and reports, and can be restored later.
+            </p>
+          )}
+        </div>
+        <div className="s-modal-footer">
+          <button className="s-btn-cancel" onClick={onClose} disabled={saving}>Cancel</button>
+          <button
+            className={`s-btn-submit${isPermanent ? ' s-btn-submit--danger' : ''}`}
+            onClick={onConfirm}
+            disabled={saving}
+          >
+            {saving ? 'Working...' : isPermanent ? 'Delete Permanently' : 'Move to Trash'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StudentList({
+  students,
+  trashedStudents,
+  onSelect,
+  onAddStudent,
+  onEditStudent,
+  onMoveToTrash,
+  onRestoreStudent,
+  onPermanentlyDeleteStudent,
+  location,
+  sidebarOpen,
+  setSidebarOpen,
+}) {
   const [search, setSearch] = useState('');
   const [yearFilter, setYearFilter] = useState('All Year');
+  const [showTrash, setShowTrash] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingStudent, setEditingStudent] = useState(null);
   const [openActionId, setOpenActionId] = useState(null);
+  const [confirmStudent, setConfirmStudent] = useState(null);
+  const [confirmMode, setConfirmMode] = useState(null);
+  const [confirmSaving, setConfirmSaving] = useState(false);
   const [toast, setToast] = useState(false);
 
-  const filtered = students.filter((s) => {
+  const displayedStudents = showTrash ? trashedStudents : students;
+  const filtered = displayedStudents.filter((s) => {
     const studentName = String(s?.name || '').toLowerCase();
     const studentId = String(s?.id || '');
 
@@ -720,11 +787,20 @@ function StudentList({ students, onSelect, onAddStudent, onEditStudent, location
     setEditingStudent(null);
   };
 
-  const handleDelete = async (student) => {
-    const confirmed = window.confirm(`Delete ${student.name}? This cannot be undone.`);
-    if (!confirmed) return;
-    await onDeleteStudent(student.docId || student.student_id || student.id);
-    setOpenActionId(null);
+  const handleConfirmAction = async () => {
+    if (!confirmStudent || !confirmMode) return;
+    setConfirmSaving(true);
+    try {
+      const completed = confirmMode === 'trash'
+        ? await onMoveToTrash(confirmStudent.docId)
+        : await onPermanentlyDeleteStudent(confirmStudent.docId);
+      if (completed) {
+        setConfirmStudent(null);
+        setConfirmMode(null);
+      }
+    } finally {
+      setConfirmSaving(false);
+    }
   };
 
   return (
@@ -748,18 +824,42 @@ function StudentList({ students, onSelect, onAddStudent, onEditStudent, location
             <h1 className="s-page-title">Student Profile</h1>
             <p className="s-page-sub">Manage student profiles and disciplinary records</p>
           </div>
-          <button className="s-add-btn" onClick={() => setShowModal(true)}>
+          {!showTrash && <button className="s-add-btn" onClick={() => setShowModal(true)}>
             <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
               <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
             </svg>
             Add Student
-          </button>
+          </button>}
         </div>
 
         <div className="s-directory-card">
           <div className="s-directory-header">
-            <h2 className="s-directory-title">Student List</h2>
-            <p className="s-directory-sub">Search and filter student records</p>
+            <div>
+              <h2 className="s-directory-title">{showTrash ? 'Student Trash' : 'Student List'}</h2>
+              <p className="s-directory-sub">
+                {showTrash ? 'Restore students or permanently delete their records' : 'Search and filter student records'}
+              </p>
+            </div>
+            <div className="s-directory-tabs" role="tablist" aria-label="Student records">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={!showTrash}
+                className={`s-directory-tab${!showTrash ? ' s-directory-tab--active' : ''}`}
+                onClick={() => { setShowTrash(false); setOpenActionId(null); }}
+              >
+                <Users size={16} /> Students <span>{students.length}</span>
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={showTrash}
+                className={`s-directory-tab${showTrash ? ' s-directory-tab--active' : ''}`}
+                onClick={() => { setShowTrash(true); setOpenActionId(null); }}
+              >
+                <Trash2 size={16} /> Trash <span>{trashedStudents.length}</span>
+              </button>
+            </div>
           </div>
 
           <div className="s-controls">
@@ -810,20 +910,45 @@ function StudentList({ students, onSelect, onAddStudent, onEditStudent, location
 
               <tbody>
                 {filtered.map((student) => (
-                  <tr key={student.docId || student.id} onClick={() => onSelect(student)}>
+                  <tr
+                    key={student.docId || student.id}
+                    onClick={() => { if (!showTrash) onSelect(student); }}
+                    className={showTrash ? 's-table-row--trashed' : ''}
+                  >
                     <td className="s-student-name">{student.name}</td>
                     <td>{student.first_name || ''}</td>
                     <td>{student.middle_name || ''}</td>
                     <td>{student.last_name || ''}</td>
                     <td>{student.id}</td>
                     <td>{student.year} - {student.section}</td>
-                    <td>{student.violationCount}</td>
-                    <td>{(() => {
+                    <td>{showTrash ? student.recordedViolationCount : student.violationCount}</td>
+                    <td>{showTrash ? (
+                      <span className="s-status-pill s-status-pill--trashed">In Trash</span>
+                    ) : (() => {
                       const status = getStudentStatus(student);
                       if (!status) return null;
                       return <span className={`s-status-pill ${status.tone}`}>{status.text}</span>;
                     })()}</td>
-                    <td>
+                    <td className="s-row-actions">
+                      {showTrash ? (
+                        <div className="s-trash-actions">
+                          <button
+                            type="button"
+                            className="s-row-action-btn"
+                            onClick={() => onRestoreStudent(student.docId)}
+                          >
+                            <RotateCcw size={14} /> Restore
+                          </button>
+                          <button
+                            type="button"
+                            className="s-row-action-btn s-row-action-btn--danger"
+                            onClick={() => { setConfirmStudent(student); setConfirmMode('permanent'); }}
+                          >
+                            <Trash2 size={14} /> Delete permanently
+                          </button>
+                        </div>
+                      ) : (
+                        <>
                       <button
                         type="button"
                         className="s-action-btn"
@@ -835,48 +960,44 @@ function StudentList({ students, onSelect, onAddStudent, onEditStudent, location
                         ⋮
                       </button>
                       {openActionId === student.docId && (
-                        <div
-                          style={{
-                            position: 'absolute',
-                            right: '12px',
-                            zIndex: 20,
-                            background: '#fff',
-                            border: '1px solid #dce7ff',
-                            borderRadius: '8px',
-                            boxShadow: '0 8px 24px rgba(12,39,95,0.12)',
-                            overflow: 'hidden',
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                        >
+                        <div className="s-action-menu" onClick={(e) => e.stopPropagation()}>
                           <button
                             type="button"
-                            style={{
-                              display: 'block',
-                              width: '100%',
-                              textAlign: 'left',
-                              padding: '8px 12px',
-                              background: '#ffffff',
-                              border: 'none',
-                              cursor: 'pointer',
-                              color: '#0f2553',
-                              fontSize: '14px',
-                              fontWeight: 600,
-                              whiteSpace: 'nowrap',
-                            }}
+                            className="s-action-menu-btn"
                             onClick={() => openEdit(student)}
                           >
                             Edit
                           </button>
+                          <button
+                            type="button"
+                            className="s-action-menu-btn s-action-menu-btn--danger"
+                            onClick={() => {
+                              setConfirmStudent(student);
+                              setConfirmMode('trash');
+                              setOpenActionId(null);
+                            }}
+                          >
+                            Move to Trash
+                          </button>
                         </div>
+                      )}
+                        </>
                       )}
                     </td>
                   </tr>
                 ))}
+                {filtered.length === 0 && (
+                  <tr>
+                    <td colSpan="9" className="s-empty">
+                      {showTrash ? 'Trash is empty.' : 'No students match your search.'}
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
 
             <div className="s-table-footer">
-              <p>Showing 1 to {filtered.length} of {students.length} students</p>
+              <p>Showing {filtered.length === 0 ? 0 : 1} to {filtered.length} of {displayedStudents.length} {showTrash ? 'trashed students' : 'students'}</p>
 
               <div className="s-pagination">
                 <button type="button">‹</button>
@@ -916,6 +1037,21 @@ function StudentList({ students, onSelect, onAddStudent, onEditStudent, location
           submitLabel="Save Changes"
           title="Edit Student"
           subtitle="Update the student's profile information"
+        />
+      )}
+
+      {confirmStudent && confirmMode && (
+        <StudentActionConfirmModal
+          student={confirmStudent}
+          mode={confirmMode}
+          onClose={() => {
+            if (!confirmSaving) {
+              setConfirmStudent(null);
+              setConfirmMode(null);
+            }
+          }}
+          onConfirm={handleConfirmAction}
+          saving={confirmSaving}
         />
       )}
 
@@ -1434,6 +1570,7 @@ export default function Students() {
 
   const [view, setView] = useState('list');
   const [students, setStudents] = useState([]);
+  const [trashedStudents, setTrashedStudents] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [selectedViolation, setSelectedViolation] = useState(null);
   const [suspensionSaving, setSuspensionSaving] = useState(false);
@@ -1499,8 +1636,10 @@ export default function Students() {
       email: student.email || '',
       phone: student.phone_number || student.phone || '',
       violationCount,
+      recordedViolationCount: violationList.length,
       repeatOffender: student.repeat_offender || false,
       violations: violationList,
+      deleted_at: student.deleted_at || null,
     };
   };
 
@@ -1516,14 +1655,17 @@ export default function Students() {
         ...violationDoc.data(),
       }));
 
-      const snapshot = studentsSnapshot;
-      const data = snapshot.docs.map((studentDoc) => ({
+      const allStudents = studentsSnapshot.docs.map((studentDoc) => ({
         ...studentDoc.data(),
         student_id: studentDoc.id,
       }));
+      const data = allStudents.filter((student) => !isRecordInTrash(student));
+      const trashStudents = allStudents.filter(isRecordInTrash);
+      const activeViolations = allViolations.filter((violation) => !isRecordInTrash(violation));
+      const trashedViolations = allViolations.filter(isRecordInTrash);
 
       const studentsWithLiveViolations = data.map((student) => {
-        const mappedViolations = allViolations
+        const mappedViolations = activeViolations
           .filter((violation) => String(violation.student_id) === String(student.student_id))
           .sort((a, b) => {
             const timeA = a.created_at?.seconds ? a.created_at.seconds * 1000 : new Date(a.incident_date || 0).getTime();
@@ -1532,7 +1674,7 @@ export default function Students() {
           })
           .map((violation) => {
             const groupRecords = violation.group_incident_id
-              ? allViolations.filter((record) => record.group_incident_id === violation.group_incident_id)
+              ? activeViolations.filter((record) => record.group_incident_id === violation.group_incident_id)
               : [violation];
             const groupMembers = groupRecords.map((record) => {
               const recordStudent = data.find((item) => String(item.student_id) === String(record.student_id));
@@ -1583,6 +1725,26 @@ export default function Students() {
       });
 
       setStudents(studentsWithLiveViolations.map(formatStudent));
+      setTrashedStudents(trashStudents.map((student) => {
+        const studentNumber = String(student.student_number || student.id || '');
+        const studentViolations = trashedViolations.filter((violation) =>
+          String(violation.student_id || '') === String(student.student_id)
+          || (studentNumber && String(violation.student_id || '') === studentNumber)
+          || (studentNumber && String(violation.student_number || '') === studentNumber)
+        );
+        const embeddedViolations = Array.isArray(student.violations)
+          ? student.violations
+          : Array.isArray(student.history)
+            ? student.history
+            : [];
+        return {
+          ...formatStudent({
+            ...student,
+            violations: studentViolations.length > 0 ? studentViolations : embeddedViolations,
+          }),
+          recordedViolationCount: Math.max(studentViolations.length, embeddedViolations.length),
+        };
+      }));
     } catch (error) {
       console.error('Failed to fetch students:', error);
     }
@@ -1716,41 +1878,112 @@ export default function Students() {
     );
   };
 
-  const handleDeleteStudent = async (docId) => {
-    if (!docId) return;
+  const getStudentTrashContext = async (docId) => {
+    const [studentsSnapshot, violationsSnapshot] = await Promise.all([
+      getDocs(queryForUserScope(collection(db, 'students'), userProfile)),
+      getDocs(queryForUserScope(collection(db, 'violations'), userProfile)),
+    ]);
+    const studentSnapshot = studentsSnapshot.docs.find((studentDoc) => studentDoc.id === docId);
+    if (!studentSnapshot) throw new Error('The selected student could not be found in your school scope.');
 
+    const studentData = studentSnapshot.data();
+    const studentNumber = studentData.student_number || studentData.id || '';
+    const relatedViolationDocs = violationsSnapshot.docs.filter((violationDoc) => {
+      const violation = violationDoc.data();
+      return String(violation.student_id || '') === String(docId)
+        || (studentNumber && String(violation.student_id || '') === String(studentNumber))
+        || (studentNumber && String(violation.student_number || '') === String(studentNumber));
+    });
+    if (relatedViolationDocs.length + 1 > 500) {
+      throw new Error('This student has more linked records than Firestore allows in one safe operation. Contact an administrator for help.');
+    }
+
+    return { studentSnapshot, relatedViolationDocs };
+  };
+
+  const handleMoveStudentToTrash = async (docId) => {
+    if (!docId) return false;
     try {
-      const [studentsSnapshot, violationsSnapshot] = await Promise.all([
-        getDocs(queryForUserScope(collection(db, 'students'), userProfile)),
-        getDocs(queryForUserScope(collection(db, 'violations'), userProfile)),
-      ]);
+      const { studentSnapshot, relatedViolationDocs } = await getStudentTrashContext(docId);
+      if (isRecordInTrash(studentSnapshot.data())) {
+        throw new Error('This student is already in Trash. Refresh the list and try again.');
+      }
 
-      const targetStudent = studentsSnapshot.docs.find((studentDoc) => studentDoc.id === docId);
-      const targetStudentNumber = targetStudent?.data()?.student_number || '';
-
-      const relatedViolationIds = violationsSnapshot.docs
-        .filter((violationDoc) => {
-          const violationData = violationDoc.data();
-          return String(violationData.student_id || '') === String(docId)
-            || String(violationData.student_id || '') === String(targetStudentNumber)
-            || String(violationData.student_number || '') === String(targetStudentNumber);
-        })
-        .map((violationDoc) => violationDoc.id);
-
-      await Promise.all([
-        deleteDoc(doc(db, 'students', docId)),
-        ...relatedViolationIds.map((violationId) => deleteDoc(doc(db, 'violations', violationId))),
-      ]);
-      await recordActivity(userProfile, ACTIVITY_ACTIONS.STUDENT_DELETED, 'student', docId);
-
-      setStudents((prev) => prev.filter((student) => student.docId !== docId));
+      const batch = writeBatch(db);
+      batch.update(studentSnapshot.ref, {
+        deleted_at: serverTimestamp(),
+        updated_at: serverTimestamp(),
+      });
+      relatedViolationDocs.forEach((violationDoc) => {
+        batch.update(violationDoc.ref, {
+          deleted_at: serverTimestamp(),
+          updated_at: serverTimestamp(),
+        });
+      });
+      await batch.commit();
+      await recordActivity(userProfile, ACTIVITY_ACTIONS.STUDENT_TRASHED, 'student', docId);
+      await fetchStudents();
       if (selectedStudent?.docId === docId) {
         setSelectedStudent(null);
         setView('list');
       }
+      return true;
     } catch (error) {
-      console.error('Failed to delete student:', error);
-      window.alert('Failed to delete student. Check your Firebase permissions and connection.');
+      console.error('Failed to move student to Trash:', error);
+      window.alert(error.message || 'Failed to move student to Trash. Check your Firebase permissions and connection.');
+      return false;
+    }
+  };
+
+  const handleRestoreStudent = async (docId) => {
+    if (!docId) return;
+    try {
+      const { studentSnapshot, relatedViolationDocs } = await getStudentTrashContext(docId);
+      if (!isRecordInTrash(studentSnapshot.data())) {
+        throw new Error('This student is no longer in Trash. Refresh the list and try again.');
+      }
+
+      const batch = writeBatch(db);
+      batch.update(studentSnapshot.ref, {
+        deleted_at: deleteField(),
+        updated_at: serverTimestamp(),
+      });
+      relatedViolationDocs
+        .filter((violationDoc) => isRecordInTrash(violationDoc.data()))
+        .forEach((violationDoc) => {
+          batch.update(violationDoc.ref, {
+            deleted_at: deleteField(),
+            updated_at: serverTimestamp(),
+          });
+        });
+      await batch.commit();
+      await recordActivity(userProfile, ACTIVITY_ACTIONS.STUDENT_RESTORED, 'student', docId);
+      await fetchStudents();
+    } catch (error) {
+      console.error('Failed to restore student:', error);
+      window.alert(error.message || 'Failed to restore student. Check your Firebase permissions and connection.');
+    }
+  };
+
+  const handlePermanentlyDeleteStudent = async (docId) => {
+    if (!docId) return false;
+    try {
+      const { studentSnapshot, relatedViolationDocs } = await getStudentTrashContext(docId);
+      if (!isRecordInTrash(studentSnapshot.data())) {
+        throw new Error('Only students in Trash can be permanently deleted.');
+      }
+
+      const batch = writeBatch(db);
+      batch.delete(studentSnapshot.ref);
+      relatedViolationDocs.forEach((violationDoc) => batch.delete(violationDoc.ref));
+      await batch.commit();
+      await recordActivity(userProfile, ACTIVITY_ACTIONS.STUDENT_DELETED, 'student', docId);
+      await fetchStudents();
+      return true;
+    } catch (error) {
+      console.error('Failed to permanently delete student:', error);
+      window.alert(error.message || 'Failed to permanently delete student. Check your Firebase permissions and connection.');
+      return false;
     }
   };
 
@@ -1873,9 +2106,13 @@ export default function Students() {
   return (
     <StudentList
       students={students}
+      trashedStudents={trashedStudents}
       onSelect={handleSelectStudent}
       onAddStudent={handleAddStudent}
       onEditStudent={handleEditStudent}
+      onMoveToTrash={handleMoveStudentToTrash}
+      onRestoreStudent={handleRestoreStudent}
+      onPermanentlyDeleteStudent={handlePermanentlyDeleteStudent}
       location={location}
       sidebarOpen={sidebarOpen}
       setSidebarOpen={setSidebarOpen}

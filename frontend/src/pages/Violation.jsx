@@ -4,6 +4,7 @@ import { addDoc, collection, getDocs, serverTimestamp } from 'firebase/firestore
 import { auth, db } from '../firebase'
 import { useAuthProfile } from '../authContext'
 import { queryForUserScope } from '../firestoreAccess'
+import { isRecordInTrash } from '../recordStatus'
 import { getSchoolScopeForYear } from '../schoolScope'
 import { formatIdentifiedSanction } from '../engine/sanctionLabel'
 import { ACTIVITY_ACTIONS, recordActivity } from '../activityLog'
@@ -169,7 +170,7 @@ export default function Violation() {
   const fetchStudents = async () => {
     try {
       const snap = await getDocs(queryForUserScope(collection(db, 'students'), userProfile))
-      setStudents(snap.docs.map(d => {
+      setStudents(snap.docs.filter(d => !isRecordInTrash(d.data())).map(d => {
         const data = d.data()
         const parsedName = splitStudentName(data.full_name || data.name || '')
         return {
@@ -188,7 +189,9 @@ export default function Violation() {
   const fetchViolations = async () => {
     try {
       const snap = await getDocs(queryForUserScope(collection(db, 'violations'), userProfile))
-      const records = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      const records = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(record => !isRecordInTrash(record))
       records.sort((a, b) => {
         const timeA = a.created_at?.seconds || 0
         const timeB = b.created_at?.seconds || 0
@@ -209,6 +212,17 @@ export default function Violation() {
   })
 
   const selectedStudent = students.find(s => String(s.student_id) === String(form.student_id))
+
+  const removeSelectedStudent = (studentId) => {
+    const normalizedStudentId = String(studentId)
+    const remaining = selectedStudents.filter((student) => String(student.student_id) !== normalizedStudentId)
+    setSelectedStudents(remaining)
+    setForm((currentForm) => (
+      String(currentForm.student_id) === normalizedStudentId
+        ? { ...currentForm, student_id: remaining.at(-1)?.student_id || '' }
+        : currentForm
+    ))
+  }
 
   // Compute recommendation when we reach the sanction step
   useEffect(() => {
@@ -502,9 +516,25 @@ export default function Violation() {
                 </div>
                 {selectedStudents.length > 0 && (
                   <div className="v-field" style={{ marginTop: '0.75rem' }}>
-                    <div className="v-review-section" style={{ padding: '12px 14px', border: '1px solid #d8e6f7', borderRadius: '10px', background: '#f8fbff' }}>
+                    <div className="v-selected-students">
                       <strong>Selected students</strong>
-                      <p style={{ margin: '6px 0 0' }}>{selectedStudents.map(s => s.full_name || s.student_id).join(', ')}</p>
+                      <div className="v-selected-student-list">
+                        {selectedStudents.map((student) => (
+                          <span className="v-selected-student" key={student.student_id}>
+                            <span>{student.full_name || student.student_id}</span>
+                            <button
+                              type="button"
+                              className="v-selected-student-remove"
+                              aria-label={`Remove ${student.full_name || student.student_id}`}
+                              title={`Remove ${student.full_name || student.student_id}`}
+                              onMouseDown={(event) => event.preventDefault()}
+                              onClick={() => removeSelectedStudent(student.student_id)}
+                            >
+                              <X size={14} aria-hidden="true" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 )}

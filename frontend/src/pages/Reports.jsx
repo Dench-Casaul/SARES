@@ -17,6 +17,7 @@ import {
 import { auth, db } from "../firebase";
 import { useAuthProfile } from "../authContext";
 import { queryForUserScope } from "../firestoreAccess";
+import { isRecordInTrash } from "../recordStatus";
 import { doesViolationCount } from "../engine/ruleEngine";
 import { formatIdentifiedSanction } from "../engine/sanctionLabel";
 import { ACTIVITY_ACTIONS, recordActivity } from "../activityLog";
@@ -100,7 +101,9 @@ export default function Report() {
     const unsubscribe = onSnapshot(
       queryForUserScope(collection(db, "violations"), userProfile),
       (snapshot) => {
-        const rows = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        const rows = snapshot.docs
+          .map((doc) => ({ id: doc.id, ...doc.data() }))
+          .filter((record) => !isRecordInTrash(record));
         setViolations(rows);
         setError("");
         setLoading(false);
@@ -115,10 +118,10 @@ export default function Report() {
     const unsubscribeStudents = onSnapshot(
       queryForUserScope(collection(db, "students"), userProfile),
       (snapshot) => {
-        const numbers = Object.fromEntries(snapshot.docs.map((studentDoc) => {
-          const student = studentDoc.data();
-          return [studentDoc.id, student.student_number || student.id || ""];
-        }));
+        const numbers = Object.fromEntries(snapshot.docs
+          .map((studentDoc) => ({ id: studentDoc.id, ...studentDoc.data() }))
+          .filter((student) => !isRecordInTrash(student))
+          .map((student) => [student.id, student.student_number || student.id || ""]));
         setStudentNumbers(numbers);
       },
       (fetchError) => console.error("Failed to load student numbers for reports:", fetchError)

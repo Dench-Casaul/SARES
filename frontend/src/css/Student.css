@@ -246,6 +246,50 @@
   margin-top: 3px;
 }
 
+.s-directory-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.s-directory-tabs {
+  display: flex;
+  flex-shrink: 0;
+  gap: 6px;
+  padding: 4px;
+  background: #f1f6fc;
+  border: 1px solid #dce7f4;
+}
+
+.s-directory-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #52627a;
+  font: 600 13px 'DM Sans', sans-serif;
+  cursor: pointer;
+}
+
+.s-directory-tab span {
+  min-width: 20px;
+  padding: 2px 6px;
+  background: #e1ebf6;
+  border-radius: 999px;
+  text-align: center;
+  font-size: 11px;
+}
+
+.s-directory-tab--active {
+  background: #ffffff;
+  border-color: #d8e6f7;
+  color: #006ed0;
+  box-shadow: 0 2px 6px rgba(17, 44, 80, 0.08);
+}
+
 /* Controls */
 .s-controls {
   display: flex;
@@ -410,6 +454,88 @@
 
 .s-action-btn:hover {
   color: #1198e8;
+}
+
+.s-row-actions {
+  position: relative;
+}
+
+.s-action-menu {
+  position: absolute;
+  top: 36px;
+  right: 12px;
+  z-index: 20;
+  min-width: 150px;
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid #dce7ff;
+  box-shadow: 0 8px 24px rgba(12, 39, 95, 0.12);
+}
+
+.s-action-menu-btn {
+  display: block;
+  width: 100%;
+  padding: 9px 12px;
+  border: 0;
+  background: #ffffff;
+  color: #0f2553;
+  text-align: left;
+  font: 600 14px 'DM Sans', sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.s-action-menu-btn:hover {
+  background: #f3f8ff;
+}
+
+.s-action-menu-btn--danger {
+  color: #b42318;
+}
+
+.s-trash-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 220px;
+}
+
+.s-row-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 7px 9px;
+  border: 1px solid #b9d9fb;
+  background: #f1f8ff;
+  color: #07599a;
+  font: 600 12px 'DM Sans', sans-serif;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.s-row-action-btn:hover {
+  background: #e4f2ff;
+}
+
+.s-row-action-btn--danger {
+  border-color: #fecaca;
+  background: #fff7f7;
+  color: #b42318;
+}
+
+.s-row-action-btn--danger:hover {
+  background: #feecec;
+}
+
+.s-status-pill--trashed {
+  border: 1px solid #d7dee8;
+  background: #f1f4f8;
+  color: #596579;
+}
+
+.s-table-row--trashed:hover {
+  cursor: default;
 }
 
 .s-table-footer {
@@ -643,6 +769,46 @@
 .s-btn-submit:hover {
   background: #006ed0;
   transform: translateY(-1px);
+}
+
+.s-confirm-modal {
+  width: 520px;
+}
+
+.s-confirm-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.s-confirm-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  background: #fff4e5;
+  color: #b66a00;
+}
+
+.s-confirm-icon--danger {
+  background: #fff0f0;
+  color: #b42318;
+}
+
+.s-confirm-warning {
+  color: #3d4b60;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.s-btn-submit--danger {
+  background: #b42318;
+}
+
+.s-btn-submit--danger:hover {
+  background: #951b12;
 }
 
 .s-btn-submit--sm {
@@ -1232,10 +1398,25 @@
   }
 
   .s-main-header,
+  .s-directory-header,
   .s-profile-hero,
   .s-vd-hero {
     flex-direction: column;
     gap: 12px;
+  }
+
+  .s-directory-tabs {
+    width: 100%;
+  }
+
+  .s-directory-tab {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .s-trash-actions {
+    min-width: 0;
+    flex-wrap: wrap;
   }
 
   .s-controls,

@@ -4,6 +4,7 @@ import { collection, getDocs } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuthProfile } from '../authContext'
 import { queryForUserScope } from '../firestoreAccess'
+import { isRecordInTrash } from '../recordStatus'
 import { isViolationServed } from '../engine/ruleEngine'
 import { ACTIVITY_ACTIONS, recordActivity } from '../activityLog'
 import '../css/Dashboard.css'
@@ -69,11 +70,15 @@ const Dashboard = () => {
         getDocs(queryForUserScope(collection(db, 'students'), userProfile)),
         getDocs(queryForUserScope(collection(db, 'violations'), userProfile)),
       ]);
-      const studentsData = studentsSnapshot.docs.map((studentDoc) => studentDoc.data());
-      const violationsData = violationsSnapshot.docs.map((violationDoc) => ({
-        violation_id: violationDoc.id,
-        ...violationDoc.data(),
-      }));
+      const studentsData = studentsSnapshot.docs
+        .map((studentDoc) => studentDoc.data())
+        .filter((student) => !isRecordInTrash(student));
+      const violationsData = violationsSnapshot.docs
+        .map((violationDoc) => ({
+          violation_id: violationDoc.id,
+          ...violationDoc.data(),
+        }))
+        .filter((violation) => !isRecordInTrash(violation));
 
       const pendingStudents = getStudentsWithPendingCases(violationsData);
 

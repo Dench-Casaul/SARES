@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
-import { collection, deleteDoc, doc, getDoc, getDocs, limit, orderBy, query, serverTimestamp, setDoc, where, writeBatch } from 'firebase/firestore';
+import { collection, deleteDoc, deleteField, doc, getDoc, getDocs, limit, orderBy, query, serverTimestamp, setDoc, where, writeBatch } from 'firebase/firestore';
 import { ref, uploadBytes } from 'firebase/storage';
 
 const workspaceRoot = resolve(fileURLToPath(new URL('../../', import.meta.url)));
@@ -124,6 +124,19 @@ test('activity logs are append-only, attributed to the caller, and superadmin-re
     source: 'client',
     created_at: serverTimestamp(),
   }));
+  for (const action of ['student_trashed', 'student_restored']) {
+    await assertSucceeds(setDoc(doc(collection(elementaryDb, 'activity_logs'), action), {
+      action,
+      actor_uid: 'elementary',
+      actor_email: 'elementary@ows.edu.ph',
+      actor_role: 'counselor',
+      school_scope: 'elementary',
+      target_type: 'student',
+      target_id: 'elementary-student',
+      source: 'client',
+      created_at: serverTimestamp(),
+    }));
+  }
   await assertFails(getDocs(collection(elementaryDb, 'activity_logs')));
   await assertFails(setDoc(doc(collection(elementaryDb, 'activity_logs')), {
     action: 'login_success',
@@ -155,7 +168,7 @@ test('activity logs are append-only, attributed to the caller, and superadmin-re
     orderBy('created_at', 'desc'),
     limit(30)
   )));
-  assert.equal(logs.size, 1);
+  assert.equal(logs.size, 3);
 });
 
 test('a separately provisioned superadmin UID keeps all-scope access', async () => {
@@ -198,6 +211,22 @@ test('counselor writes must match their level and the linked student scope', asy
   await assertFails(setDoc(doc(firestore, 'violations', 'cross-school'), {
     student_id: 'highschool-student', school_scope: 'high_school', offense_type: 'major',
   }));
+});
+
+test('a student and linked violations can be moved to and restored from Trash together', async () => {
+  const firestore = signedInAs('elementary').firestore();
+  const studentRef = doc(firestore, 'students', 'elementary-student');
+  const violationRef = doc(firestore, 'violations', 'elementary-violation');
+
+  const trashBatch = writeBatch(firestore);
+  trashBatch.update(studentRef, { deleted_at: serverTimestamp() });
+  trashBatch.update(violationRef, { deleted_at: serverTimestamp() });
+  await assertSucceeds(trashBatch.commit());
+
+  const restoreBatch = writeBatch(firestore);
+  restoreBatch.update(studentRef, { deleted_at: deleteField() });
+  restoreBatch.update(violationRef, { deleted_at: deleteField() });
+  await assertSucceeds(restoreBatch.commit());
 });
 
 test('superadmin can read all scopes while counselors can access shared evidence only', async () => {
