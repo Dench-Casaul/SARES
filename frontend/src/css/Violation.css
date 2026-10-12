@@ -434,6 +434,68 @@
   background: transparent;
 }
 
+.v-selected-students {
+  padding: 12px 14px;
+  border: 1px solid #d8e6f7;
+  border-radius: 10px;
+  background: #f8fbff;
+}
+
+.v-selected-students > strong {
+  display: block;
+  margin-bottom: 8px;
+  color: #071f5f;
+  font-size: 14px;
+}
+
+.v-selected-student-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.v-selected-student {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  padding: 4px 6px 4px 10px;
+  border: 1px solid #b9d9fb;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #0b4f8a;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.v-selected-student > span {
+  overflow-wrap: anywhere;
+}
+
+.v-selected-student-remove {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #52627a;
+  cursor: pointer;
+}
+
+.v-selected-student-remove:hover {
+  background: #feecec;
+  color: #b42318;
+}
+
+.v-selected-student-remove:focus-visible {
+  outline: 2px solid #1198e8;
+  outline-offset: 1px;
+}
+
 .v-textarea {
   min-height: 80px;
   resize: vertical;

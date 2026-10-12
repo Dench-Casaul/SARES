@@ -8,6 +8,7 @@ import {
   isValidRoleProfile,
   normalizeYearLevel,
 } from '../src/schoolScope.js';
+import { isRecordInTrash } from '../src/recordStatus.js';
 
 test('school grade mapping separates elementary and high school', () => {
   assert.equal(getSchoolScopeForYear('Kindergarten'), 'elementary');
@@ -50,4 +51,10 @@ test('login account selection must match the provisioned role and school scope',
   assert.equal(isRoleProfileForLoginType(superadmin, 'superadmin'), true);
   assert.equal(isRoleProfileForLoginType(superadmin, 'elementary'), false);
   assert.equal(isRoleProfileForLoginType(elementary, 'superadmin'), false);
+});
+
+test('trash detection distinguishes archived records from active and legacy records', () => {
+  assert.equal(isRecordInTrash({}), false);
+  assert.equal(isRecordInTrash({ deleted_at: null }), false);
+  assert.equal(isRecordInTrash({ deleted_at: { seconds: 1 } }), true);
 });

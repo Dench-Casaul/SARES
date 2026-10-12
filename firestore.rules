@@ -120,7 +120,8 @@ service cloud.firestore {
         && request.resource.data.school_scope == get(userProfilePath()).data.school_scope
         && request.resource.data.action in [
           'login_success', 'logout', 'password_updated', 'case_recorded',
-          'student_created', 'student_updated', 'student_deleted',
+          'student_created', 'student_updated', 'student_trashed',
+          'student_restored', 'student_deleted',
           'violation_recorded', 'violation_updated',
           'violation_status_updated', 'suspension_dates_updated', 'handbook_updated'
         ]
@@ -130,7 +131,10 @@ service cloud.firestore {
         && (
           (request.resource.data.action in ['login_success', 'logout', 'password_updated']
             && request.resource.data.target_type == 'session')
-          || (request.resource.data.action in ['student_created', 'student_updated', 'student_deleted']
+          || (request.resource.data.action in [
+              'student_created', 'student_updated', 'student_trashed',
+              'student_restored', 'student_deleted'
+            ]
             && request.resource.data.target_type == 'student')
           || (request.resource.data.action in [
               'case_recorded', 'violation_recorded', 'violation_updated',

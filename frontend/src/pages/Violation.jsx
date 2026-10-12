@@ -4,6 +4,7 @@ import { addDoc, collection, getDocs, serverTimestamp } from 'firebase/firestore
 import { auth, db } from '../firebase'
 import { useAuthProfile } from '../authContext'
 import { queryForUserScope } from '../firestoreAccess'
+import { isRecordInTrash } from '../recordStatus'
 import { getSchoolScopeForYear } from '../schoolScope'
 import { formatIdentifiedSanction } from '../engine/sanctionLabel'
 import { ACTIVITY_ACTIONS, recordActivity } from '../activityLog'
@@ -82,6 +83,12 @@ const splitStudentName = (fullName = '') => {
   }
 }
 
+const formatStudentName = (student) => [
+  student.first_name,
+  student.middle_name,
+  student.last_name,
+].map((name) => String(name || '').trim()).filter(Boolean).join(' ') || student.full_name || ''
+
 export default function Violation() {
   const { userProfile } = useAuthProfile()
   const location = useLocation()
@@ -114,6 +121,7 @@ export default function Violation() {
     severity_score: 5,      // major: 1-10
     handling_path: 'sanction',
     incident_description: '',
+    parent_contact_notes: '',
     witnesses: '',
     reported_by: '',
     reporter_role: 'staff',
@@ -162,16 +170,17 @@ export default function Violation() {
   const fetchStudents = async () => {
     try {
       const snap = await getDocs(queryForUserScope(collection(db, 'students'), userProfile))
-      setStudents(snap.docs.map(d => {
+      setStudents(snap.docs.filter(d => !isRecordInTrash(d.data())).map(d => {
         const data = d.data()
-        const { first_name, last_name } = splitStudentName(data.full_name || data.name || '')
+        const parsedName = splitStudentName(data.full_name || data.name || '')
         return {
           ...data,
           __docId: d.id,
           student_id: data.student_id || d.id,
           school_scope: data.school_scope || getSchoolScopeForYear(data.year_level || data.year),
-          first_name,
-          last_name,
+          first_name: data.first_name || parsedName.first_name,
+          middle_name: data.middle_name || '',
+          last_name: data.last_name || parsedName.last_name,
         }
       }))
     } catch { alert('Failed to load students.') }
@@ -180,7 +189,9 @@ export default function Violation() {
   const fetchViolations = async () => {
     try {
       const snap = await getDocs(queryForUserScope(collection(db, 'violations'), userProfile))
-      const records = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      const records = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(record => !isRecordInTrash(record))
       records.sort((a, b) => {
         const timeA = a.created_at?.seconds || 0
         const timeB = b.created_at?.seconds || 0
@@ -195,11 +206,23 @@ export default function Violation() {
     if (!q) return true
     return (s.full_name || '').toLowerCase().includes(q) ||
       (s.first_name || '').toLowerCase().includes(q) ||
+      (s.middle_name || '').toLowerCase().includes(q) ||
       (s.last_name || '').toLowerCase().includes(q) ||
       String(s.student_number || '').toLowerCase().includes(q)
   })
 
   const selectedStudent = students.find(s => String(s.student_id) === String(form.student_id))
+
+  const removeSelectedStudent = (studentId) => {
+    const normalizedStudentId = String(studentId)
+    const remaining = selectedStudents.filter((student) => String(student.student_id) !== normalizedStudentId)
+    setSelectedStudents(remaining)
+    setForm((currentForm) => (
+      String(currentForm.student_id) === normalizedStudentId
+        ? { ...currentForm, student_id: remaining.at(-1)?.student_id || '' }
+        : currentForm
+    ))
+  }
 
   // Compute recommendation when we reach the sanction step
   useEffect(() => {
@@ -306,6 +329,9 @@ export default function Violation() {
       const baseIncidentData = {
         incident_date: form.incident_date,
         incident_description: form.incident_description,
+        ...(form.parent_contact_notes.trim()
+          ? { parent_contact_notes: form.parent_contact_notes.trim() }
+          : {}),
         witnesses: form.witnesses,
         reported_by: form.reported_by.trim(),
         reporter_role: form.reporter_role,
@@ -473,14 +499,14 @@ export default function Violation() {
                                     }
                                     return [...prev, {
                                       student_id: String(s.student_id),
-                                      full_name: `${s.first_name || ''} ${s.last_name || ''}`.trim() || s.full_name || '',
+                                      full_name: formatStudentName(s),
                                       student_number: s.student_number || '',
                                       year_level: s.year_level || '',
                                     }]
                                   })
                                   setForm(f => ({ ...f, student_id: String(s.student_id) }))
                                 }}>
-                                <span className="v-student-option-name">{`${s.first_name || ''} ${s.last_name || ''}`.trim() || s.full_name || ''}</span>
+                                <span className="v-student-option-name">{formatStudentName(s)}</span>
                                 {s.student_number && <span className="v-student-option-meta">{s.student_number}</span>}
                               </li>
                             )
@@ -490,9 +516,25 @@ export default function Violation() {
                 </div>
                 {selectedStudents.length > 0 && (
                   <div className="v-field" style={{ marginTop: '0.75rem' }}>
-                    <div className="v-review-section" style={{ padding: '12px 14px', border: '1px solid #d8e6f7', borderRadius: '10px', background: '#f8fbff' }}>
+                    <div className="v-selected-students">
                       <strong>Selected students</strong>
-                      <p style={{ margin: '6px 0 0' }}>{selectedStudents.map(s => s.full_name || s.student_id).join(', ')}</p>
+                      <div className="v-selected-student-list">
+                        {selectedStudents.map((student) => (
+                          <span className="v-selected-student" key={student.student_id}>
+                            <span>{student.full_name || student.student_id}</span>
+                            <button
+                              type="button"
+                              className="v-selected-student-remove"
+                              aria-label={`Remove ${student.full_name || student.student_id}`}
+                              title={`Remove ${student.full_name || student.student_id}`}
+                              onMouseDown={(event) => event.preventDefault()}
+                              onClick={() => removeSelectedStudent(student.student_id)}
+                            >
+                              <X size={14} aria-hidden="true" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -773,6 +815,19 @@ export default function Violation() {
               </div>
 
               <div className="v-field" style={{ marginTop: '1.5rem' }}>
+                <label className="v-label" htmlFor="parent-contact-notes">Parent/Guardian Involvement (optional)</label>
+                <textarea
+                  id="parent-contact-notes"
+                  className="v-input v-textarea"
+                  rows="3"
+                  maxLength={1000}
+                  placeholder="Add any notes about parent/guardian involvement related to this incident..."
+                  value={form.parent_contact_notes}
+                  onChange={e => setForm(f => ({ ...f, parent_contact_notes: e.target.value }))}
+                />
+              </div>
+
+              <div className="v-field" style={{ marginTop: '1.5rem' }}>
                 <label className="v-label">Witnesses (Optional)</label>
                 <textarea className="v-input v-textarea" rows="2"
                   placeholder="List any witnesses to the incident..."
@@ -855,6 +910,12 @@ export default function Violation() {
                   <h4>Incident Description</h4>
                   <p>{form.incident_description || 'Not provided'}</p>
                 </div>
+                {form.parent_contact_notes.trim() && (
+                  <div className="v-review-section v-review-section--full">
+                    <h4>Parent/Guardian Involvement</h4>
+                    <p>{form.parent_contact_notes.trim()}</p>
+                  </div>
+                )}
                 {useAiAssistance && (
                   <div className="v-review-section v-review-section--full v-ai-review">
                     <h4>AI-Assisted Prevention / Alternative Suggestion</h4>

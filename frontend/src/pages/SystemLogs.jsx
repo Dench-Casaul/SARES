@@ -115,10 +115,6 @@ export default function SystemLogs() {
           </label>
         </header>
 
-        <div className="logs-trust-notice" role="note">
-          These entries are append-only and tied to the signed-in account, but are browser-reported and may be incomplete or misreported. Failed sign-in attempts are not included.
-        </div>
-
         <section className="logs-card" aria-label="Recent system activity">
           {loading ? (
             <p className="logs-state">Loading system activity…</p>
@@ -135,7 +131,6 @@ export default function SystemLogs() {
                     <th scope="col">Account</th>
                     <th scope="col">School</th>
                     <th scope="col">Activity</th>
-                    <th scope="col">Record reference</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -143,9 +138,8 @@ export default function SystemLogs() {
                     <tr key={activity.id}>
                       <td>{formatActivityDate(activity.created_at)}</td>
                       <td>{activity.actor_email || 'Unknown account'}</td>
-                      <td>{activity.school_scope === 'high_school' ? 'High school' : activity.school_scope === 'elementary' ? 'Elementary' : activity.school_scope === 'all' ? 'All scopes' : 'Shared'}</td>
+                      <td>{activity.school_scope === 'high_school' ? 'High school' : activity.school_scope === 'elementary' ? 'Elementary' : activity.school_scope === 'all' ? 'Admin' : 'Shared'}</td>
                       <td>{getActivityActionLabel(activity.action)}</td>
-                      <td>{activity.target_id || '—'}</td>
                     </tr>
                   ))}
                 </tbody>

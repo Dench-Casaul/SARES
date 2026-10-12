@@ -221,6 +221,13 @@ export default function CaseAssessment() {
           </section>
         )}
 
+        {caseData.parent_contact_notes && (
+          <section className="ca-card" style={{ marginTop: "16px" }}>
+            <h2>Parent/Guardian Involvement</h2>
+            <p className="ca-paragraph">{caseData.parent_contact_notes}</p>
+          </section>
+        )}
+
         {evidenceFiles.length > 0 && (
           <section className="ca-card" style={{ marginTop: "16px" }}>
             <h2>Supporting Evidence</h2>
@@ -318,6 +325,12 @@ export default function CaseAssessment() {
             </div>
             <h3>Narrative Description of the Incident:</h3>
             <p className="ca-print-narrative">{caseData.incident_description || " "}</p>
+            {caseData.parent_contact_notes && (
+              <>
+                <h3>Parent/Guardian Involvement:</h3>
+                <p className="ca-print-narrative">{caseData.parent_contact_notes}</p>
+              </>
+            )}
             <h3>Evidence / Attachments:</h3>
             <div className="ca-print-natures">
               {["Photos", "CCTV Footage", "Written Statement(s)", "Other"].map((label) => (

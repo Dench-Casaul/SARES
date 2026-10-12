@@ -144,17 +144,6 @@
   font: inherit;
 }
 
-.logs-trust-notice {
-  margin-bottom: 18px;
-  padding: 13px 16px;
-  border-left: 3px solid #f59e0b;
-  border-radius: 6px;
-  background: #fffbeb;
-  color: #713f12;
-  font-size: 13px;
-  line-height: 1.55;
-}
-
 .logs-card {
   overflow: hidden;
   border: 1px solid #d8e6f7;

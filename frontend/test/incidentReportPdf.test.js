@@ -12,6 +12,7 @@ test("generates a PDF containing case details and filing sections", () => {
     group_title: "Academic Dishonesty",
     offense_variety: "Plagiarism",
     incident_description: "Copied text from an unapproved source.",
+    parent_contact_notes: "Called parent and agreed to meet.",
     recommended_sanction: "Written warning",
   });
   const output = pdf.output();
@@ -19,5 +20,7 @@ test("generates a PDF containing case details and filing sections", () => {
   assert.match(output, /^%PDF-/);
   assert.match(output, /INCIDENT REPORT FORM/);
   assert.match(output, /Taylor Kim/);
+  assert.match(output, /Parent\/Guardian Involvement/);
+  assert.match(output, /Called parent and agreed to meet/);
   assert.match(output, /Complainant/);
 });
