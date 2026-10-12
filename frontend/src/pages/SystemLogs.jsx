@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { collection, limit, onSnapshot, orderBy, query } from 'firebase/firestore'
+import { collection, onSnapshot } from 'firebase/firestore'
 import { Activity, BarChart3, ClipboardList, KeyRound, LayoutDashboard, LogOut, ShieldCheck, Users } from 'lucide-react'
 import { db } from '../firebase'
 import { useAuthProfile } from '../authContext'
@@ -33,6 +33,15 @@ function Sidebar({ activePage, onLogout }) {
   )
 }
 
+function getActivityTimestampMs(timestamp) {
+  if (!timestamp) return 0
+  if (typeof timestamp.toMillis === 'function') return timestamp.toMillis()
+  if (typeof timestamp.seconds === 'number') return timestamp.seconds * 1000
+  if (timestamp instanceof Date) return timestamp.getTime()
+  const timeValue = Number(timestamp)
+  return Number.isFinite(timeValue) ? timeValue : 0
+}
+
 function formatActivityDate(timestamp) {
   const date = timestamp?.toDate?.()
   return date ? date.toLocaleString() : 'Time unavailable'
@@ -49,18 +58,20 @@ export default function SystemLogs() {
 
   useEffect(() => {
     if (userProfile?.role !== 'superadmin') return undefined
-    const activityQuery = query(
-      collection(db, 'activity_logs'),
-      orderBy('created_at', 'desc'),
-      limit(200)
-    )
+
+    const activityCollection = collection(db, 'activity_logs')
     return onSnapshot(
-      activityQuery,
+      activityCollection,
       (snapshot) => {
-        setActivityLogs(snapshot.docs.map((activityDoc) => ({
-          id: activityDoc.id,
-          ...activityDoc.data(),
-        })))
+        const logs = snapshot.docs
+          .map((activityDoc) => ({
+            id: activityDoc.id,
+            ...activityDoc.data(),
+          }))
+          .sort((left, right) => getActivityTimestampMs(right.created_at) - getActivityTimestampMs(left.created_at))
+          .slice(0, 200)
+
+        setActivityLogs(logs)
         setError('')
         setLoading(false)
       },
