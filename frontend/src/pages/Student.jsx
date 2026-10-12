@@ -717,6 +717,7 @@ function StudentList({
   const [confirmMode, setConfirmMode] = useState(null);
   const [confirmSaving, setConfirmSaving] = useState(false);
   const [toast, setToast] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const displayedStudents = showTrash ? trashedStudents : students;
   const filtered = displayedStudents.filter((s) => {
@@ -729,6 +730,13 @@ function StudentList({
     const matchYear = yearFilter === 'All Year' || s.year === yearFilter;
     return matchSearch && matchYear;
   });
+  const pageSize = 10;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const visiblePage = Math.min(currentPage, totalPages);
+  const pageStart = (visiblePage - 1) * pageSize;
+  const paginatedStudents = filtered.slice(pageStart, pageStart + pageSize);
+  const firstVisibleStudent = filtered.length === 0 ? 0 : pageStart + 1;
+  const lastVisibleStudent = Math.min(pageStart + pageSize, filtered.length);
 
   const getStudentStatus = (student) => {
     const violations = Array.isArray(student?.violations) ? student.violations : [];
@@ -846,7 +854,7 @@ function StudentList({
                 role="tab"
                 aria-selected={!showTrash}
                 className={`s-directory-tab${!showTrash ? ' s-directory-tab--active' : ''}`}
-                onClick={() => { setShowTrash(false); setOpenActionId(null); }}
+                onClick={() => { setShowTrash(false); setCurrentPage(1); setOpenActionId(null); }}
               >
                 <Users size={16} /> Students <span>{students.length}</span>
               </button>
@@ -855,7 +863,7 @@ function StudentList({
                 role="tab"
                 aria-selected={showTrash}
                 className={`s-directory-tab${showTrash ? ' s-directory-tab--active' : ''}`}
-                onClick={() => { setShowTrash(true); setOpenActionId(null); }}
+                onClick={() => { setShowTrash(true); setCurrentPage(1); setOpenActionId(null); }}
               >
                 <Trash2 size={16} /> Trash <span>{trashedStudents.length}</span>
               </button>
@@ -873,7 +881,7 @@ function StudentList({
                 className="s-search"
                 placeholder="Search by name or student ID..."
                 value={search}
-                onChange={e => setSearch(e.target.value)}
+                onChange={e => { setSearch(e.target.value); setCurrentPage(1); }}
               />
             </div>
             <div className="s-filter-wrap">
@@ -882,7 +890,7 @@ function StudentList({
                 name="year-filter"
                 className="s-filter"
                 value={yearFilter}
-                onChange={e => setYearFilter(e.target.value)}
+                onChange={e => { setYearFilter(e.target.value); setCurrentPage(1); }}
               >
                 {YEARS.map(y => <option key={y}>{y}</option>)}
               </select>
@@ -893,116 +901,143 @@ function StudentList({
           </div>
 
           <div className="s-table-wrap">
-            <table className="s-table">
-              <thead>
-                <tr>
-                  <th>Student</th>
-                  <th>First Name</th>
-                  <th>Middle Name</th>
-                  <th>Last Name</th>
-                  <th>Student ID</th>
-                  <th>Year Level & Section</th>
-                  <th>Total Violations</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {filtered.map((student) => (
-                  <tr
-                    key={student.docId || student.id}
-                    onClick={() => { if (!showTrash) onSelect(student); }}
-                    className={showTrash ? 's-table-row--trashed' : ''}
-                  >
-                    <td className="s-student-name">{student.name}</td>
-                    <td>{student.first_name || ''}</td>
-                    <td>{student.middle_name || ''}</td>
-                    <td>{student.last_name || ''}</td>
-                    <td>{student.id}</td>
-                    <td>{student.year} - {student.section}</td>
-                    <td>{showTrash ? student.recordedViolationCount : student.violationCount}</td>
-                    <td>{showTrash ? (
-                      <span className="s-status-pill s-status-pill--trashed">In Trash</span>
-                    ) : (() => {
-                      const status = getStudentStatus(student);
-                      if (!status) return null;
-                      return <span className={`s-status-pill ${status.tone}`}>{status.text}</span>;
-                    })()}</td>
-                    <td className="s-row-actions">
-                      {showTrash ? (
-                        <div className="s-trash-actions">
-                          <button
-                            type="button"
-                            className="s-row-action-btn"
-                            onClick={() => onRestoreStudent(student.docId)}
-                          >
-                            <RotateCcw size={14} /> Restore
-                          </button>
-                          <button
-                            type="button"
-                            className="s-row-action-btn s-row-action-btn--danger"
-                            onClick={() => { setConfirmStudent(student); setConfirmMode('permanent'); }}
-                          >
-                            <Trash2 size={14} /> Delete permanently
-                          </button>
-                        </div>
-                      ) : (
-                        <>
-                      <button
-                        type="button"
-                        className="s-action-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setOpenActionId((current) => (current === student.docId ? null : student.docId));
-                        }}
-                      >
-                        ⋮
-                      </button>
-                      {openActionId === student.docId && (
-                        <div className="s-action-menu" onClick={(e) => e.stopPropagation()}>
-                          <button
-                            type="button"
-                            className="s-action-menu-btn"
-                            onClick={() => openEdit(student)}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            className="s-action-menu-btn s-action-menu-btn--danger"
-                            onClick={() => {
-                              setConfirmStudent(student);
-                              setConfirmMode('trash');
-                              setOpenActionId(null);
-                            }}
-                          >
-                            Move to Trash
-                          </button>
-                        </div>
-                      )}
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-                {filtered.length === 0 && (
+            <div className="s-table-scroll">
+              <table className="s-table">
+                <thead>
                   <tr>
-                    <td colSpan="9" className="s-empty">
-                      {showTrash ? 'Trash is empty.' : 'No students match your search.'}
-                    </td>
+                    <th>Student</th>
+                    <th>First Name</th>
+                    <th>Middle Name</th>
+                    <th>Last Name</th>
+                    <th>Student ID</th>
+                    <th>Year Level & Section</th>
+                    <th>Total Violations</th>
+                    <th>Status</th>
+                    <th>Actions</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+
+                <tbody>
+                  {paginatedStudents.map((student) => (
+                    <tr
+                      key={student.docId || student.id}
+                      onClick={() => { if (!showTrash) onSelect(student); }}
+                      className={showTrash ? 's-table-row--trashed' : ''}
+                    >
+                      <td className="s-student-name">{student.name}</td>
+                      <td>{student.first_name || ''}</td>
+                      <td>{student.middle_name || ''}</td>
+                      <td>{student.last_name || ''}</td>
+                      <td>{student.id}</td>
+                      <td>{student.year} - {student.section}</td>
+                      <td>{showTrash ? student.recordedViolationCount : student.violationCount}</td>
+                      <td>{showTrash ? (
+                        <span className="s-status-pill s-status-pill--trashed">In Trash</span>
+                      ) : (() => {
+                        const status = getStudentStatus(student);
+                        if (!status) return null;
+                        return <span className={`s-status-pill ${status.tone}`}>{status.text}</span>;
+                      })()}</td>
+                      <td className="s-row-actions">
+                        {showTrash ? (
+                          <div className="s-trash-actions">
+                            <button
+                              type="button"
+                              className="s-row-action-btn"
+                              onClick={() => onRestoreStudent(student.docId)}
+                            >
+                              <RotateCcw size={14} /> Restore
+                            </button>
+                            <button
+                              type="button"
+                              className="s-row-action-btn s-row-action-btn--danger"
+                              onClick={() => { setConfirmStudent(student); setConfirmMode('permanent'); }}
+                            >
+                              <Trash2 size={14} /> Delete permanently
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              className="s-action-btn"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenActionId((current) => (current === student.docId ? null : student.docId));
+                              }}
+                            >
+                              ⋮
+                            </button>
+                            {openActionId === student.docId && (
+                              <div className="s-action-menu" onClick={(e) => e.stopPropagation()}>
+                                <button
+                                  type="button"
+                                  className="s-action-menu-btn"
+                                  onClick={() => openEdit(student)}
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  className="s-action-menu-btn s-action-menu-btn--danger"
+                                  onClick={() => {
+                                    setConfirmStudent(student);
+                                    setConfirmMode('trash');
+                                    setOpenActionId(null);
+                                  }}
+                                >
+                                  Move to Trash
+                                </button>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {filtered.length === 0 && (
+                    <tr>
+                      <td colSpan="9" className="s-empty">
+                        {showTrash ? 'Trash is empty.' : 'No students match your search.'}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
 
             <div className="s-table-footer">
-              <p>Showing {filtered.length === 0 ? 0 : 1} to {filtered.length} of {displayedStudents.length} {showTrash ? 'trashed students' : 'students'}</p>
+              <p>Showing {firstVisibleStudent} to {lastVisibleStudent} of {filtered.length} {showTrash ? 'trashed students' : 'students'}</p>
 
-              <div className="s-pagination">
-                <button type="button">‹</button>
-                <button type="button" className="active">1</button>
-                <button type="button">›</button>
+              <div className="s-pagination" role="navigation" aria-label="Student list pages">
+                <button
+                  type="button"
+                  aria-label="Previous page"
+                  disabled={visiblePage === 1}
+                  onClick={() => setCurrentPage(visiblePage - 1)}
+                >
+                  ‹
+                </button>
+                {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
+                  <button
+                    key={page}
+                    type="button"
+                    className={page === visiblePage ? 'active' : ''}
+                    aria-label={`Page ${page}`}
+                    aria-current={page === visiblePage ? 'page' : undefined}
+                    onClick={() => setCurrentPage(page)}
+                  >
+                    {page}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  aria-label="Next page"
+                  disabled={visiblePage === totalPages}
+                  onClick={() => setCurrentPage(visiblePage + 1)}
+                >
+                  ›
+                </button>
               </div>
             </div>
           </div>
