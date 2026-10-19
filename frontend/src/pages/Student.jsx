@@ -208,7 +208,7 @@ function AddStudentModal({ onClose, onAdd, initialForm, submitLabel = 'Add Stude
               <input className="s-input" name="first_name" value={form.first_name} onChange={handle} placeholder="Juan" />
             </div>
             <div className="s-field">
-              <label className="s-label">Middle Name (Optional)</label>
+              <label className="s-label">M.I.</label>
               <input className="s-input" name="middle_name" value={form.middle_name} onChange={handle} placeholder="Santos" />
             </div>
             <div className="s-field">
