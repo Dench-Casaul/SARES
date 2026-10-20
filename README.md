@@ -61,6 +61,7 @@ npm install
 - Open `frontend/src/firebase.js`
 - Replace the Firebase config object with your Firebase project credentials
 - Make sure Email/Password authentication is enabled in Firebase Console
+- For AI recommendations, set `FIREBASE_WEB_API_KEY` and `GEMINI_API_KEY` in `frontend/.env.local`. Set the same server-side variables in Vercel for deployment; optionally set `FIREBASE_PROJECT_ID` and `GEMINI_MODEL`.
 
 4. Prepare Firestore collections:
 - `users`
@@ -104,7 +105,11 @@ npm run preview
 4. Log a violation in `/sares/violation`:
    - select student
    - select offense category and rule
-   - submit violation
+   - enter the incident narrative and reporter details
+   - automatically receive a read-only, handbook-grounded AI counselor recommendation at review; the rule-engine sanction remains authoritative
+   - optionally enable AI-assisted prevention / alternative suggestions
+   - submit the reviewed incident
+   - AI requests send the anonymized narrative and relevant policy details to Google Gemini. Do not include names, student numbers, contact details, or other identifying information.
 5. Review generated recommendation in `/sares/case-assessment`.
 6. View rule controls in `/sares/rules` and summaries in `/sares/reports`.
 

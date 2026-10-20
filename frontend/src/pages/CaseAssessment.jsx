@@ -214,6 +214,16 @@ export default function CaseAssessment() {
           <p className="ca-paragraph">{caseData.incident_description || "—"}</p>
         </section>
 
+        {caseData.ai_counselor_recommendation && (
+          <section className="ca-card" style={{ marginTop: "16px" }}>
+            <h2>AI Counselor Recommendation</h2>
+            <p className="ca-paragraph">{caseData.ai_counselor_recommendation}</p>
+            <p className="ca-sub">
+              Generated from the selected handbook policy. It does not replace the rule-based sanction or professional judgment.
+            </p>
+          </section>
+        )}
+
         {caseData.witnesses && (
           <section className="ca-card" style={{ marginTop: "16px" }}>
             <h2>Witnesses</h2>
