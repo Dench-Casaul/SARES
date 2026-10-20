@@ -247,7 +247,7 @@ export default function Report() {
         <h1>Reports</h1>
         <p>Quick view of violations and sanction outcomes.</p>
 
-        <section className="report-filter-card">
+        <section className="report-filter-card" data-help-target="report-filters">
           <h2>Quick Filters</h2>
           <div className="report-filter-row">
             <select value={dateRange} onChange={(e) => setDateRange(e.target.value)}>
@@ -272,14 +272,14 @@ export default function Report() {
           </div>
         </section>
 
-        <section className="report-stat-grid">
+        <section className="report-stat-grid" data-help-target="report-summary">
           <article className="report-stat-card"><p>Total Violations</p><h3>{summary.totalViolations}</h3></article>
           <article className="report-stat-card"><p>Unique Students Involved</p><h3>{summary.uniqueStudents}</h3></article>
           <article className="report-stat-card"><p>Most Common Offense</p><h3 className="report-stat-label">{summary.mostCommonOffense}</h3></article>
           <article className="report-stat-card"><p>Pending Cases</p><h3>{summary.pendingCases}</h3></article>
         </section>
 
-        <section className="report-card">
+        <section className="report-card" data-help-target="report-log">
           <div className="report-card-header">
             <h2>Violation Log</h2>
             <p>Date, offense, recommendation, and final action.</p>

@@ -85,10 +85,10 @@ export default function CaseAssessment() {
     return (
       <div className="ca-page">
         <Sidebar activePage="/sares/violation" onLogout={handleLogout} userProfile={userProfile} />
-        <main className="ca-main">
+        <main className="ca-main" data-help-target="assessment-content">
           <section className="ca-card">
             <h1 className="ca-title">Case Assessment</h1>
-            <p className="ca-sub">No submitted case context found.</p>
+            <p className="ca-sub" data-help-target="assessment-summary">No submitted case context found.</p>
             <div className="ca-actions">
               <Link to="/sares/violation" className="ca-btn-primary">Back to Log Violation</Link>
             </div>
@@ -114,8 +114,8 @@ export default function CaseAssessment() {
   return (
     <div className="ca-page">
       <Sidebar activePage="/sares/violation" onLogout={handleLogout} userProfile={userProfile} />
-      <main className="ca-main">
-        <header className="ca-header">
+      <main className="ca-main" data-help-target="assessment-content">
+        <header className="ca-header" data-help-target="assessment-actions">
           <h1 className="ca-title">Case Assessment</h1>
           <button type="button" className="ca-btn-primary ca-print-button" onClick={() => window.print()}>
             <Printer size={16} /> Print Incident Report
@@ -127,7 +127,7 @@ export default function CaseAssessment() {
             <Download size={16} /> Download PDF
           </button>
         </header>
-        <p className="ca-sub">Violation recorded and assessed based on the Student Discipline Handbook.</p>
+        <p className="ca-sub" data-help-target="assessment-summary">Violation recorded and assessed based on the Student Discipline Handbook.</p>
 
         {isMediation && isPending && (
           <div className="ca-mediation-alert">
@@ -147,14 +147,14 @@ export default function CaseAssessment() {
         )}
 
         <section className="ca-grid">
-          <article className="ca-card">
+          <article className="ca-card" data-help-target="assessment-record">
             <h2>Student Profile</h2>
             <div className="ca-row"><span>Student</span><strong>{caseData.student_name || "—"}</strong></div>
             <div className="ca-row"><span>Student Number</span><strong>{caseData.student_number || "—"}</strong></div>
             <div className="ca-row"><span>Year Level</span><strong>{caseData.year_level || "—"}</strong></div>
           </article>
 
-          <article className="ca-card">
+          <article className="ca-card" data-help-target="assessment-violation">
             <h2>Violation Details</h2>
             <div className="ca-row"><span>Date</span><strong>{caseData.incident_date || "—"}</strong></div>
             <div className="ca-row">
@@ -175,7 +175,7 @@ export default function CaseAssessment() {
           </article>
         </section>
 
-        <section className="ca-grid" style={{ marginTop: "16px" }}>
+        <section className="ca-grid" data-help-target="assessment-sanction" style={{ marginTop: "16px" }}>
           {isMinor && (
             <article className="ca-card">
               <h2>Offense Count</h2>
@@ -209,7 +209,7 @@ export default function CaseAssessment() {
           )}
         </section>
 
-        <section className="ca-card" style={{ marginTop: "16px" }}>
+        <section className="ca-card" data-help-target="assessment-description" style={{ marginTop: "16px" }}>
           <h2>Incident Description</h2>
           <p className="ca-paragraph">{caseData.incident_description || "—"}</p>
         </section>

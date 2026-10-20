@@ -88,7 +88,7 @@ export default function SystemLogs() {
     <div className="logs-page">
       <Sidebar activePage={location.pathname === '/sares/system-logs'} onLogout={handleLogout} />
       <main className="logs-content">
-        <header className="logs-page-header">
+        <header className="logs-page-header" data-help-target="system-log-filter">
           <div>
             <p className="logs-eyebrow">Administration</p>
             <h1>System Logs / Recent Activity</h1>
@@ -104,7 +104,7 @@ export default function SystemLogs() {
           </label>
         </header>
 
-        <section className="logs-card" aria-label="Recent system activity">
+        <section className="logs-card" data-help-target="system-log-list" aria-label="Recent system activity">
           {loading ? (
             <p className="logs-state">Loading system activity…</p>
           ) : error ? (

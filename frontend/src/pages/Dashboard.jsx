@@ -251,7 +251,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <nav className="navigation">
+        <nav className="navigation" data-help-target="dashboard-navigation">
           <ul className="nav-list">
             <li>
               <Link to="/sares/dashboard" onClick={() => setSidebarOpen(false)} className={`nav-item${location.pathname === '/sares/dashboard' ? '-active' : ''}`}>
@@ -313,7 +313,7 @@ const Dashboard = () => {
         <div className="content-wrapper">
 
           {/* Welcome Card */}
-          <div className="welcome-card">
+          <div className="welcome-card" data-help-target="dashboard-welcome">
             <div className="welcome-inner">
               <div className="welcome-grid">
                 <div className="welcome-text-section">
@@ -339,7 +339,7 @@ const Dashboard = () => {
           </div>
 
           {/* Stats Cards */}
-          <div className="stats-cards-grid">
+          <div className="stats-cards-grid" data-help-target="dashboard-stats">
             <div className="stat-card">
               <div className="card-header">
                 <h3 className="card-title">Total Violations</h3>
@@ -375,7 +375,7 @@ const Dashboard = () => {
           </div>
 
           {/* Charts */}
-          <div className="charts-grid">
+          <div className="charts-grid" data-help-target="dashboard-charts">
             <div className="chart-card">
               <div className="chart-header">
                 <h3 className="chart-title">Violation Trends</h3>
@@ -462,7 +462,7 @@ const Dashboard = () => {
           </div>
 
           {/* Bottom: Recent Activity + Repeat Offender Alerts */}
-          <div className="bottom-grid">
+          <div className="bottom-grid" data-help-target="dashboard-activity">
 
             {/* Recent Violation Activity */}
             <div className="bottom-card">

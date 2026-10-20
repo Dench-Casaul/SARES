@@ -99,6 +99,7 @@ npm run preview
 
 1. Go to `/login` and sign in with a Firebase Auth account.
 2. Open Dashboard (`/sares/dashboard`) for navigation.
+   - Use the floating `?` button on any signed-in page to start its walkthrough, including detailed guidance for the student Trash and Rule Management panels. Drag it to reposition; focus it and use arrow keys to move it precisely.
 3. Manage students in `/sares/students`.
 4. Log a violation in `/sares/violation`:
    - select student

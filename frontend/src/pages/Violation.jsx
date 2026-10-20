@@ -438,9 +438,9 @@ export default function Violation() {
         </div>
 
         {/* Step indicator */}
-        <div className="v-wizard-steps">
+        <div className="v-wizard-steps" data-help-target="violation-wizard">
           {STEPS.map((label, i) => (
-            <div key={label} className={`v-wizard-step ${i < step ? 'done' : ''} ${i === step ? 'active' : ''}`}>
+            <div key={label} data-help-step={i} className={`v-wizard-step ${i < step ? 'done' : ''} ${i === step ? 'active' : ''}`}>
               <div className="v-wizard-step-circle">
                 {i < step ? <CheckCircle size={16} /> : <span>{i + 1}</span>}
               </div>
@@ -450,7 +450,7 @@ export default function Violation() {
           ))}
         </div>
 
-        <div className="v-directory-card v-form-card">
+        <div className="v-directory-card v-form-card" data-help-target="violation-form">
 
           {/* STEP 0: Student & Date */}
           {step === 0 && (
@@ -458,7 +458,7 @@ export default function Violation() {
               <h2 className="v-directory-title">Step 1: Student & Date</h2>
               <p className="v-directory-sub">Select the student and incident date</p>
 
-              <div className="v-field" style={{ marginTop: '1.5rem' }}>
+              <div className="v-field" data-help-target="violation-student-fields" style={{ marginTop: '1.5rem' }}>
                 <label className="v-label">Students involved *</label>
                 <div className="v-student-combobox">
                   <div className="v-student-combobox-inner">
@@ -540,7 +540,7 @@ export default function Violation() {
                 )}
               </div>
 
-              <div className="v-field" style={{ marginTop: '1rem' }}>
+              <div className="v-field" data-help-target="violation-incident-date" style={{ marginTop: '1rem' }}>
                 <label className="v-label">Date of Incident *</label>
                 <input className="v-input" type="date" value={form.incident_date}
                   onChange={e => setForm(f => ({ ...f, incident_date: e.target.value }))} />

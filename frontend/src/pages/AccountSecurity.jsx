@@ -74,13 +74,13 @@ export default function AccountSecurity() {
             <p>{userProfile?.email || auth.currentUser?.email || ''}</p>
           </div>
         </div>
-        <form className="account-password-form" onSubmit={handleSubmit}>
-          <label>Current password<input type="password" autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} required /></label>
-          <label>New password<input type="password" autoComplete="new-password" minLength={12} value={newPassword} onChange={(event) => setNewPassword(event.target.value)} required /></label>
+        <form className="account-password-form" data-help-target="account-password" onSubmit={handleSubmit}>
+          <label>Current password<input data-help-target="account-current-password" type="password" autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} required /></label>
+          <label>New password<input data-help-target="account-new-password" type="password" autoComplete="new-password" minLength={12} value={newPassword} onChange={(event) => setNewPassword(event.target.value)} required /></label>
           <label>Confirm new password<input type="password" autoComplete="new-password" minLength={12} value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required /></label>
           {error && <p className="account-security-error" role="alert">{error}</p>}
           {message && <p className="account-security-message" role="status">{message}</p>}
-          <button type="submit" disabled={saving}><KeyRound size={16} /> {saving ? 'Updating...' : 'Update password'}</button>
+          <button type="submit" data-help-target="account-password-submit" disabled={saving}><KeyRound size={16} /> {saving ? 'Updating...' : 'Update password'}</button>
         </form>
       </section>
     </main>
