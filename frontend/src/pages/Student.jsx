@@ -1042,7 +1042,6 @@ function StudentList({
             </div>
           </div>
         </div>
-      </div>
 
       {showModal && (
         <AddStudentModal
