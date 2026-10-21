@@ -90,6 +90,22 @@ const formatStudentName = (student) => [
   student.last_name,
 ].map((name) => String(name || '').trim()).filter(Boolean).join(' ') || student.full_name || ''
 
+const formatApplicablePolicyReference = ({
+  handbookNumber,
+  groupTitle,
+  specificViolation,
+  offenseTypeLabel,
+  subcategoryLabel,
+}) => {
+  const number = Number(handbookNumber)
+  const numberLabel = Number.isFinite(number) ? `Handbook Number ${number}` : 'Handbook policy'
+  const policyTitle = [groupTitle, specificViolation].filter(Boolean).join(' – ')
+  const classification = [offenseTypeLabel, subcategoryLabel].filter(Boolean).join(' / ')
+  const details = [policyTitle, classification ? `(${classification})` : ''].filter(Boolean).join(' ')
+
+  return details ? `${numberLabel}: ${details}` : numberLabel
+}
+
 export default function Violation() {
   const { userProfile } = useAuthProfile()
   const location = useLocation()
@@ -313,11 +329,22 @@ export default function Violation() {
           && Number(group.handbookNumber) === Number(form.group_number)
         )
         const offense = offenseGroup?.offenses?.find((item) => item.id === form.offense_id)
+        const offenseTypeLabel = handbookType?.label || form.offense_type
+        const subcategoryLabel = handbookType?.subcategories?.find((item) => item.id === form.subcategory_id)?.label || form.subcategory_id
+        const offenseGroupTitle = offenseGroup?.groupTitle || form.group_title
+        const specificViolationTitle = offense?.title || form.offense_title
+        const applicablePolicyReference = formatApplicablePolicyReference({
+          handbookNumber: offenseGroup?.handbookNumber ?? form.group_number,
+          groupTitle: offenseGroupTitle,
+          specificViolation: specificViolationTitle,
+          offenseTypeLabel,
+          subcategoryLabel,
+        })
         const handbookPolicy = {
-          offenseType: handbookType?.label || form.offense_type,
-          subcategory: handbookType?.subcategories?.find((item) => item.id === form.subcategory_id)?.label || form.subcategory_id,
-          offenseGroup: offenseGroup?.groupTitle || form.group_title,
-          specificViolation: offense?.title || form.offense_title,
+          offenseType: offenseTypeLabel,
+          subcategory: subcategoryLabel,
+          offenseGroup: offenseGroupTitle,
+          specificViolation: specificViolationTitle,
           handbookNumber: offenseGroup?.handbookNumber ?? form.group_number,
           ...(form.offense_type === 'minor'
             ? {
@@ -340,10 +367,11 @@ export default function Violation() {
           },
           body: JSON.stringify({
             incidentDescription: form.incident_description.trim(),
-            offenseType: form.offense_type,
-            subcategory: form.subcategory_id,
-            offenseGroup: form.group_title,
-            specificViolation: form.offense_title,
+            offenseType: offenseTypeLabel,
+            subcategory: subcategoryLabel,
+            offenseGroup: offenseGroupTitle,
+            specificViolation: specificViolationTitle,
+            applicablePolicyReference,
             ruleBasedSanction: recommendation?.recommendedSanction || '',
             handlingPath: form.handling_path,
             handbookPolicy: JSON.stringify(handbookPolicy),

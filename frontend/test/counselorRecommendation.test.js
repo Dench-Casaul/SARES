@@ -75,6 +75,7 @@ const authorizedRequest = {
     subcategory: "Less Serious",
     offenseGroup: "Disruption of Class",
     specificViolation: "Disturbing classmates",
+    applicablePolicyReference: "Handbook Number 7: Tardiness and Attendance Violations – Tardiness (Minor Offenses / Less Serious)",
     ruleBasedSanction: "Written warning communicated to the student and parent/guardian notice.",
     handlingPath: "sanction",
     handbookPolicy: JSON.stringify({
@@ -94,11 +95,13 @@ test("counselor guidance endpoint uses supplied handbook policy and keeps the sa
 
   assert.equal(response.statusCode, 200);
   assert.equal(response.body.source, "gemini");
+  assert.match(response.body.recommendation, /^Applicable Policy Reference:\nHandbook Number 7: Tardiness and Attendance Violations – Tardiness \(Minor Offenses \/ Less Serious\)\n\n/);
   assert.match(response.body.recommendation, /Draft:/);
   const geminiCall = calls.at(-1);
   const prompt = JSON.parse(geminiCall.options.body).contents[0].parts[0].text;
   assert.match(prompt, /Minor offenses are counted cumulatively/);
   assert.match(prompt, /Written warning communicated/);
+  assert.match(prompt, /Configured applicable-policy reference/);
   assert.match(prompt, /Anonymized incident narrative/);
   assert.match(prompt, /must not be changed/);
   assert.doesNotMatch(prompt, /edit the recommendation/i);
