@@ -16,6 +16,7 @@ import {
   getSubcategories,
   listOffenseGroups,
   listOffensesByGroup,
+  getHandbook,
   getMinorSanctionSchedule,
   getMajorSanctionMap,
 } from '../data/handbookIndex'
@@ -89,6 +90,22 @@ const formatStudentName = (student) => [
   student.last_name,
 ].map((name) => String(name || '').trim()).filter(Boolean).join(' ') || student.full_name || ''
 
+const formatApplicablePolicyReference = ({
+  handbookNumber,
+  groupTitle,
+  specificViolation,
+  offenseTypeLabel,
+  subcategoryLabel,
+}) => {
+  const number = Number(handbookNumber)
+  const numberLabel = Number.isFinite(number) ? `Handbook Number ${number}` : 'Handbook policy'
+  const policyTitle = [groupTitle, specificViolation].filter(Boolean).join(' – ')
+  const classification = [offenseTypeLabel, subcategoryLabel].filter(Boolean).join(' / ')
+  const details = [policyTitle, classification ? `(${classification})` : ''].filter(Boolean).join(' ')
+
+  return details ? `${numberLabel}: ${details}` : numberLabel
+}
+
 export default function Violation() {
   const { userProfile } = useAuthProfile()
   const location = useLocation()
@@ -105,6 +122,10 @@ export default function Violation() {
   const [aiSuggestionSource, setAiSuggestionSource] = useState('')
   const [aiSuggestionLoading, setAiSuggestionLoading] = useState(false)
   const [aiSuggestionError, setAiSuggestionError] = useState('')
+  const [aiCounselorRecommendation, setAiCounselorRecommendation] = useState('')
+  const [aiCounselorRecommendationSource, setAiCounselorRecommendationSource] = useState('')
+  const [aiCounselorRecommendationLoading, setAiCounselorRecommendationLoading] = useState(false)
+  const [aiCounselorRecommendationError, setAiCounselorRecommendationError] = useState('')
 
   const today = new Date().toISOString().split('T')[0]
 
@@ -291,6 +312,95 @@ export default function Violation() {
         setAiSuggestionLoading(false)
       }
     }
+    if (step === 4) {
+      setAiCounselorRecommendation('')
+      setAiCounselorRecommendationSource('')
+      setAiCounselorRecommendationError('')
+      setAiCounselorRecommendationLoading(true)
+      try {
+        const idToken = await auth.currentUser?.getIdToken()
+        if (!idToken) throw new Error('Sign in again to use AI assistance.')
+
+        const handbook = getHandbook()
+        const handbookType = handbook.offenseTypes?.find((type) => type.id === form.offense_type)
+        const offenseGroup = handbook.offenseGroups?.find((group) =>
+          group.categoryId === form.offense_type
+          && group.subcategoryId === form.subcategory_id
+          && Number(group.handbookNumber) === Number(form.group_number)
+        )
+        const offense = offenseGroup?.offenses?.find((item) => item.id === form.offense_id)
+        const offenseTypeLabel = handbookType?.label || form.offense_type
+        const subcategoryLabel = handbookType?.subcategories?.find((item) => item.id === form.subcategory_id)?.label || form.subcategory_id
+        const offenseGroupTitle = offenseGroup?.groupTitle || form.group_title
+        const specificViolationTitle = offense?.title || form.offense_title
+        const applicablePolicyReference = formatApplicablePolicyReference({
+          handbookNumber: offenseGroup?.handbookNumber ?? form.group_number,
+          groupTitle: offenseGroupTitle,
+          specificViolation: specificViolationTitle,
+          offenseTypeLabel,
+          subcategoryLabel,
+        })
+        const handbookPolicy = {
+          offenseType: offenseTypeLabel,
+          subcategory: subcategoryLabel,
+          offenseGroup: offenseGroupTitle,
+          specificViolation: specificViolationTitle,
+          handbookNumber: offenseGroup?.handbookNumber ?? form.group_number,
+          ...(form.offense_type === 'minor'
+            ? {
+                countingNote: handbookType?.countingNote || '',
+                sanctionSchedule: handbookType?.sanctionSchedule || [],
+                selectedOffenseNumber: recommendation?.cumulativeOffenseNumber || recommendation?.offenseNumber,
+              }
+            : {
+                scoringNote: handbookType?.scoringNote || '',
+                authorityNote: handbookType?.authorityNote || '',
+                severitySanctionMap: handbookType?.severitySanctionMap || [],
+                selectedSeverityScore: form.severity_score,
+              }),
+        }
+        const response = await fetch('/api/generate-counselor-recommendation', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify({
+            incidentDescription: form.incident_description.trim(),
+            offenseType: offenseTypeLabel,
+            subcategory: subcategoryLabel,
+            offenseGroup: offenseGroupTitle,
+            specificViolation: specificViolationTitle,
+            applicablePolicyReference,
+            ruleBasedSanction: recommendation?.recommendedSanction || '',
+            handlingPath: form.handling_path,
+            handbookPolicy: JSON.stringify(handbookPolicy),
+          }),
+        })
+        const responseText = await response.text()
+        let result
+        try {
+          result = responseText ? JSON.parse(responseText) : null
+        } catch (parseError) {
+          throw new Error(response.ok
+            ? 'AI recommendation service returned an invalid response.'
+            : `AI recommendation service failed (${response.status}).`)
+        }
+        if (!response.ok || !result?.recommendation) {
+          throw new Error(result?.error || `AI recommendation service returned no recommendation (${response.status}).`)
+        }
+        setAiCounselorRecommendation(result.recommendation)
+        setAiCounselorRecommendationSource(result.source || 'gemini')
+      } catch (error) {
+        console.error('Failed to generate AI counselor recommendation:', error)
+        setAiCounselorRecommendationError(
+          error instanceof Error ? error.message : 'AI counselor guidance is currently unavailable.'
+        )
+        setAiCounselorRecommendationSource('unavailable')
+      } finally {
+        setAiCounselorRecommendationLoading(false)
+      }
+    }
     setStep(s => s + 1)
   }
 
@@ -356,6 +466,8 @@ export default function Violation() {
         ai_assisted_solution_source: useAiAssistance
           ? (aiSuggestion ? aiSuggestionSource : 'unavailable')
           : 'not_requested',
+        ai_counselor_recommendation: aiCounselorRecommendation.trim(),
+        ai_counselor_recommendation_source: aiCounselorRecommendationSource || 'unavailable',
         suggest_authorities: recommendation.suggestAuthorities,
         status: isMediation ? 'pending' : 'recorded',
         created_by: userProfile.user_id,
@@ -438,9 +550,9 @@ export default function Violation() {
         </div>
 
         {/* Step indicator */}
-        <div className="v-wizard-steps">
+        <div className="v-wizard-steps" data-help-target="violation-wizard">
           {STEPS.map((label, i) => (
-            <div key={label} className={`v-wizard-step ${i < step ? 'done' : ''} ${i === step ? 'active' : ''}`}>
+            <div key={label} data-help-step={i} className={`v-wizard-step ${i < step ? 'done' : ''} ${i === step ? 'active' : ''}`}>
               <div className="v-wizard-step-circle">
                 {i < step ? <CheckCircle size={16} /> : <span>{i + 1}</span>}
               </div>
@@ -450,7 +562,7 @@ export default function Violation() {
           ))}
         </div>
 
-        <div className="v-directory-card v-form-card">
+        <div className="v-directory-card v-form-card" data-help-target="violation-form">
 
           {/* STEP 0: Student & Date */}
           {step === 0 && (
@@ -458,7 +570,7 @@ export default function Violation() {
               <h2 className="v-directory-title">Step 1: Student & Date</h2>
               <p className="v-directory-sub">Select the student and incident date</p>
 
-              <div className="v-field" style={{ marginTop: '1.5rem' }}>
+              <div className="v-field" data-help-target="violation-student-fields" style={{ marginTop: '1.5rem' }}>
                 <label className="v-label">Students involved *</label>
                 <div className="v-student-combobox">
                   <div className="v-student-combobox-inner">
@@ -540,7 +652,7 @@ export default function Violation() {
                 )}
               </div>
 
-              <div className="v-field" style={{ marginTop: '1rem' }}>
+              <div className="v-field" data-help-target="violation-incident-date" style={{ marginTop: '1rem' }}>
                 <label className="v-label">Date of Incident *</label>
                 <input className="v-input" type="date" value={form.incident_date}
                   onChange={e => setForm(f => ({ ...f, incident_date: e.target.value }))} />
@@ -775,9 +887,9 @@ export default function Violation() {
               </div>
 
               <div className="v-ai-privacy-notice" role="note">
-                <strong>Privacy warning — do not enter confidential or identifying information.</strong>
+                <strong>Privacy warning — do not enter confidential or identifying information in AI requests.</strong>
                 <p>
-                  If AI assistance is enabled, the incident description and selected violation category/type are sent to Google Gemini using its free tier. Google may use free-tier content to improve its services. Do not include names, student numbers, contact details, health information, or other private details. Describe the incident in general, anonymous terms.
+                  Counselor recommendations are generated automatically when you continue to review. If you provide a narrative, it and the selected handbook details are sent to Google Gemini using its free tier. The optional prevention suggestion uses the same narrative. Google may use free-tier content to improve its services. Do not include names, student numbers, contact details, health information, or other private details. Describe the incident in general, anonymous terms.
                 </p>
               </div>
 
@@ -809,6 +921,11 @@ export default function Violation() {
                     : 'Optional. Leave blank if you do not want to provide a narrative...'}
                   value={form.incident_description}
                   onChange={e => setForm(f => ({ ...f, incident_description: e.target.value }))} />
+                {!useAiAssistance && (
+                  <p className="v-ai-character-count">
+                    Optional for the report. If entered, this anonymous narrative is used for the automatic counselor recommendation.
+                  </p>
+                )}
                 {useAiAssistance && (
                   <p className="v-ai-character-count">{form.incident_description.length} / 3000 characters</p>
                 )}
@@ -931,6 +1048,26 @@ export default function Violation() {
                     )}
                   </div>
                 )}
+                <div className="v-review-section v-review-section--full v-ai-review">
+                  <h4>AI-Generated Counselor Recommendation</h4>
+                    <p className="v-review-meta">
+                      Generated from the selected handbook policy and incident details. This recommendation does not change the formal rule-based sanction.
+                    </p>
+                    {aiCounselorRecommendationLoading ? (
+                      <p role="status">Generating recommendation from the handbook…</p>
+                    ) : (
+                      <>
+                        {aiCounselorRecommendationError && (
+                          <p className="v-review-meta" role="alert">
+                            {aiCounselorRecommendationError}
+                          </p>
+                        )}
+                        {aiCounselorRecommendation && (
+                          <p className="v-ai-recommendation-text">{aiCounselorRecommendation}</p>
+                        )}
+                      </>
+                    )}
+                </div>
                 {form.witnesses && (
                   <div className="v-review-section v-review-section--full">
                     <h4>Witnesses</h4>
@@ -971,8 +1108,10 @@ export default function Violation() {
             {step === 0 && <Link to="/sares/dashboard" className="v-btn-cancel v-link-btn">Cancel</Link>}
 
             {step < 5 && step !== 1 && step !== 2 && (
-              <button className="v-btn-submit" onClick={goNext} disabled={aiSuggestionLoading}>
-                {aiSuggestionLoading ? 'Generating suggestion…' : <>Next <ChevronRight size={16} /></>}
+              <button className="v-btn-submit" onClick={goNext} disabled={aiSuggestionLoading || aiCounselorRecommendationLoading}>
+                {aiSuggestionLoading || aiCounselorRecommendationLoading
+                  ? 'Generating guidance…'
+                  : <>Next <ChevronRight size={16} /></>}
               </button>
             )}
             {step === 5 && (

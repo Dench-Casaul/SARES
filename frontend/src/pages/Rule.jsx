@@ -429,14 +429,14 @@ export default function Rule() {
         userProfile={userProfile}
       />
 
-      <main className="rule-main">
+      <main className="rule-main" data-help-target="rule-content">
         <h1>Rule Management</h1>
         <p>Review handbook rules, update sanctions, and maintain incident records</p>
 
-        <div className="rm-tabs" role="tablist" aria-label="Rule and violation management">
-          <button type="button" role="tab" aria-selected={activePanel === 'browse'} className={activePanel === 'browse' ? 'active' : ''} onClick={() => setActivePanel('browse')}>Handbook</button>
-          <button type="button" role="tab" aria-selected={activePanel === 'rules'} className={activePanel === 'rules' ? 'active' : ''} onClick={() => setActivePanel('rules')}>Update Rules</button>
-          <button type="button" role="tab" aria-selected={activePanel === 'violations'} className={activePanel === 'violations' ? 'active' : ''} onClick={() => setActivePanel('violations')}>Update Violations</button>
+        <div className="rm-tabs" data-help-target="rule-tabs" role="tablist" aria-label="Rule and violation management">
+          <button type="button" data-help-control="rule-tab-handbook" role="tab" aria-selected={activePanel === 'browse'} className={activePanel === 'browse' ? 'active' : ''} onClick={() => setActivePanel('browse')}>Handbook</button>
+          <button type="button" data-help-control="rule-tab-rules" role="tab" aria-selected={activePanel === 'rules'} className={activePanel === 'rules' ? 'active' : ''} onClick={() => setActivePanel('rules')}>Update Rules</button>
+          <button type="button" data-help-control="rule-tab-violations" role="tab" aria-selected={activePanel === 'violations'} className={activePanel === 'violations' ? 'active' : ''} onClick={() => setActivePanel('violations')}>Update Violations</button>
         </div>
 
         {panelMessage && <p className="rm-panel-message" role="status">{panelMessage}</p>}
@@ -444,7 +444,7 @@ export default function Rule() {
 
         {activePanel === 'browse' && <>
         {/* Search and Filters Bar */}
-        <div className="rm-filter-bar">
+        <div className="rm-filter-bar" data-help-target="rule-filters">
           <div className="rm-search-wrap">
             <svg className="rm-search-icon" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
@@ -511,7 +511,7 @@ export default function Rule() {
 
 
         {/* Offense Groups */}
-        <div className="rm-groups">
+        <div className="rm-groups" data-help-target="rule-groups">
           {filteredGroups.length === 0 ? (
             <div className="rm-empty">No offenses found matching your current filters.</div>
           ) : (
@@ -590,25 +590,29 @@ export default function Rule() {
           <form className="rm-editor-panel" onSubmit={saveSanctionRules}>
             <div className="rm-editor-heading">
               <div><h2>Sanction Rules</h2><p>Saved values apply to new recommendations. Existing case records are not rewritten.</p></div>
-              <button className="rm-apply-btn rm-save-btn" type="submit" disabled={savingPanel}><Save size={16} /> {savingPanel ? 'Saving...' : 'Save Rules'}</button>
+              <button className="rm-apply-btn rm-save-btn" data-help-target="rule-save-rules" type="submit" disabled={savingPanel}><Save size={16} /> {savingPanel ? 'Saving...' : 'Save Rules'}</button>
             </div>
-            <h3>Minor offense schedule</h3>
-            <div className="rm-sanction-edit-grid">
-              {sanctionDraft.minorSanctionSchedule.map((rule, index) => (
-                <label key={rule.offenseNumber}>
-                  <span>{rule.label}</span>
-                  <textarea rows="3" required value={rule.sanction} onChange={(event) => updateSanctionDraft('minorSanctionSchedule', index, event.target.value)} />
-                </label>
-              ))}
+            <div data-help-target="rule-sanction-schedule">
+              <h3>Minor offense schedule</h3>
+              <div className="rm-sanction-edit-grid">
+                {sanctionDraft.minorSanctionSchedule.map((rule, index) => (
+                  <label key={rule.offenseNumber}>
+                    <span>{rule.label}</span>
+                    <textarea rows="3" required value={rule.sanction} onChange={(event) => updateSanctionDraft('minorSanctionSchedule', index, event.target.value)} />
+                  </label>
+                ))}
+              </div>
             </div>
-            <h3>Major offense severity map</h3>
-            <div className="rm-sanction-edit-grid rm-major-edit-grid">
-              {sanctionDraft.majorSeveritySanctionMap.map((rule, index) => (
-                <label key={rule.min}>
-                  <span>Severity {rule.min}–{rule.max}</span>
-                  <textarea rows="3" required value={rule.sanction} onChange={(event) => updateSanctionDraft('majorSeveritySanctionMap', index, event.target.value)} />
-                </label>
-              ))}
+            <div data-help-target="rule-severity-map">
+              <h3>Major offense severity map</h3>
+              <div className="rm-sanction-edit-grid rm-major-edit-grid">
+                {sanctionDraft.majorSeveritySanctionMap.map((rule, index) => (
+                  <label key={rule.min}>
+                    <span>Severity {rule.min}–{rule.max}</span>
+                    <textarea rows="3" required value={rule.sanction} onChange={(event) => updateSanctionDraft('majorSeveritySanctionMap', index, event.target.value)} />
+                  </label>
+                ))}
+              </div>
             </div>
           </form>
         )}
@@ -617,17 +621,17 @@ export default function Rule() {
           <section className="rm-editor-panel">
             <div className="rm-editor-heading">
               <div><h2>Violation Catalog</h2><p>Add or remove handbook violations and assign the offense type and severity that governs them.</p></div>
-              <button type="button" className="rm-apply-btn" onClick={saveViolationCatalog} disabled={savingPanel}><Save size={16} /> {savingPanel ? 'Saving...' : 'Save Catalog'}</button>
+              <button type="button" className="rm-apply-btn" data-help-target="rule-save-catalog" onClick={saveViolationCatalog} disabled={savingPanel}><Save size={16} /> {savingPanel ? 'Saving...' : 'Save Catalog'}</button>
             </div>
 
-            <div className="rm-class-toolbar">
+            <div className="rm-class-toolbar" data-help-target="rule-class-toolbar">
               <h3>Offense Class</h3>
               <button type="button" className="rm-icon-action" aria-label="Add offense class" title="Add offense class" onClick={() => openClassEditor()}>
                 <Plus size={17} />
               </button>
             </div>
 
-            <div className="rm-violation-catalog">
+            <div className="rm-violation-catalog" data-help-target="rule-violation-catalog">
               {(handbookDraft.offenseGroups || [])
                 .slice()
                 .sort((left, right) => {

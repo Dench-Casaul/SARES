@@ -840,7 +840,7 @@ function StudentList({
             <h1 className="s-page-title">Student Profile</h1>
             <p className="s-page-sub">Manage student profiles and disciplinary records</p>
           </div>
-          {!showTrash && <button className="s-add-btn" onClick={() => setShowModal(true)}>
+          {!showTrash && <button className="s-add-btn" data-help-target="add-student" onClick={() => setShowModal(true)}>
             <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
               <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
             </svg>
@@ -856,7 +856,7 @@ function StudentList({
                 {showTrash ? 'Restore students or permanently delete their records' : 'Search and filter student records'}
               </p>
             </div>
-            <div className="s-directory-tabs" role="tablist" aria-label="Student records">
+            <div className="s-directory-tabs" data-help-target="student-tabs" role="tablist" aria-label="Student records">
               <button
                 type="button"
                 role="tab"
@@ -870,6 +870,7 @@ function StudentList({
                 type="button"
                 role="tab"
                 aria-selected={showTrash}
+                data-help-control="student-trash-tab"
                 className={`s-directory-tab${showTrash ? ' s-directory-tab--active' : ''}`}
                 onClick={() => { setShowTrash(true); setCurrentPage(1); setOpenActionId(null); }}
               >
@@ -878,7 +879,7 @@ function StudentList({
             </div>
           </div>
 
-          <div className="s-controls">
+          <div className="s-controls" data-help-target="student-list">
             <div className="s-search-wrap">
               <svg className="s-search-icon" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
@@ -909,21 +910,20 @@ function StudentList({
           </div>
 
           <div className="s-table-wrap">
-            <div className="s-table-scroll">
-              <table className="s-table">
-                <thead>
-                  <tr>
-                    <th>Student</th>
-                    <th>First Name</th>
-                    <th>Middle Name</th>
-                    <th>Last Name</th>
-                    <th>Student ID</th>
-                    <th>Year Level & Section</th>
-                    <th>Total Violations</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
+            <table className="s-table">
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>First Name</th>
+                  <th>Middle Name</th>
+                  <th>Last Name</th>
+                  <th>Student ID</th>
+                  <th>Year Level & Section</th>
+                  <th>Total Violations</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
 
                 <tbody>
                   {paginatedStudents.map((student) => (
@@ -1050,7 +1050,6 @@ function StudentList({
             </div>
           </div>
         </div>
-      </div>
 
       {showModal && (
         <AddStudentModal

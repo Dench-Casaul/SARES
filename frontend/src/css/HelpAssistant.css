@@ -1,0 +1,125 @@
+.help-assistant-button {
+  position: fixed;
+  z-index: 1200;
+  right: 24px;
+  bottom: 24px;
+  display: grid;
+  width: 54px;
+  height: 54px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  background: linear-gradient(145deg, #4f8fff, #2472df);
+  box-shadow: 0 8px 24px rgba(15, 47, 101, 0.35);
+  color: #fff;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.help-assistant-button:active {
+  cursor: grabbing;
+}
+
+.help-assistant-button:focus-visible,
+.help-tour-popover button:focus-visible {
+  outline: 3px solid #f7c948;
+  outline-offset: 3px;
+}
+
+.help-assistant-button--active {
+  z-index: 1202;
+}
+
+.help-tour-backdrop {
+  position: fixed;
+  z-index: 1190;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: auto;
+}
+
+.help-tour-popover {
+  position: fixed;
+  z-index: 1201;
+  max-width: calc(100vw - 32px);
+  padding: 18px;
+  border: 1px solid rgba(157, 194, 255, 0.3);
+  border-radius: 16px;
+  background: #101d35;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.4);
+  color: #f3f5ff;
+}
+
+.help-tour-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.help-tour-close {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #dce7fb;
+  cursor: pointer;
+}
+
+.help-tour-popover > p {
+  margin: 12px 0 18px;
+  color: #c6d2e6;
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.help-tour-footer,
+.help-tour-footer > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.help-tour-footer > span {
+  color: #98aac7;
+  font-size: 0.8rem;
+}
+
+.help-tour-footer button {
+  min-height: 36px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.help-tour-secondary {
+  border: 1px solid rgba(204, 219, 245, 0.25);
+  background: transparent;
+  color: #e0eaff;
+}
+
+.help-tour-primary {
+  border: 1px solid #5fa8ff;
+  background: #347fdf;
+  color: #fff;
+}
+
+@media (max-width: 600px) {
+  .help-assistant-button {
+    right: 16px;
+    bottom: 16px;
+  }
+}

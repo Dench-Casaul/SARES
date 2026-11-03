@@ -17,6 +17,7 @@ import { auth, db } from "./firebase";
 import { isAllowedLoginEmail } from "./authPolicy";
 import { isValidRoleProfile } from "./schoolScope";
 import { AuthProfileContext } from "./authContext";
+import HelpAssistant from "./HelpAssistant";
 
 class AppErrorBoundary extends React.Component {
   constructor(props) {
@@ -157,6 +158,7 @@ function App() {
             <Route path="/system-logs" element={<RequireAuth isAuthenticated={Boolean(userProfile)} authReady={authReady}><RequireSuperadmin userProfile={userProfile}><SystemLogs /></RequireSuperadmin></RequireAuth>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          <HelpAssistant />
         </AppErrorBoundary>
       </AuthProfileContext.Provider>
     </div>
