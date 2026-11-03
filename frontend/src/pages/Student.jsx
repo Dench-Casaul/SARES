@@ -22,6 +22,14 @@ const normalizeViolationStatus = (status) => {
 const isNoReadmissionSanction = (sanctionText) =>
   String(sanctionText || '').toLowerCase().includes('no-readmission');
 
+const toMillis = (value) => {
+  if (!value) return 0;
+  if (typeof value?.toDate === 'function') return value.toDate().getTime();
+  if (typeof value?.seconds === 'number') return value.seconds * 1000;
+  const parsed = new Date(value).getTime();
+  return Number.isNaN(parsed) ? 0 : parsed;
+};
+
 const YEARS = ["All Year", "Kindergarten", "1st Grade", "2nd Grade", "3rd Grade", "4th Grade", "5th Grade", "6th Grade", "7th Grade", "8th Grade", "9th Grade", "10th Grade"]
 const YEAR_LEVELS = ["Kindergarten", "1st Grade", "2nd Grade", "3rd Grade", "4th Grade", "5th Grade", "6th Grade", "7th Grade", "8th Grade", "9th Grade", "10th Grade"]
 
@@ -1689,6 +1697,26 @@ export default function Students() {
         id: violationDoc.id,
         ...violationDoc.data(),
       }));
+      const nowMs = Date.now();
+      const oneDayMs = 24 * 60 * 60 * 1000;
+      const expiredServed = allViolations.filter((violation) => {
+        if (normalizeViolationStatus(violation.status) !== 'served') return false;
+        const statusSetAt = toMillis(violation.status_updated_at) || toMillis(violation.updated_at) || toMillis(violation.created_at);
+        if (!statusSetAt) return false;
+        return nowMs - statusSetAt >= oneDayMs;
+      });
+
+      if (expiredServed.length > 0) {
+        await Promise.all(
+          expiredServed.map((violation) =>
+            updateDoc(doc(db, 'violations', violation.id), {
+              status: 'pending',
+              updated_at: serverTimestamp(),
+              status_updated_at: serverTimestamp(),
+            })
+          )
+        );
+      }
 
       const allStudents = studentsSnapshot.docs.map((studentDoc) => ({
         ...studentDoc.data(),
@@ -2101,6 +2129,7 @@ export default function Students() {
       await updateDoc(doc(db, 'violations', violationId), {
         ...nextPatch,
         updated_at: serverTimestamp(),
+        status_updated_at: serverTimestamp(),
       });
       await recordActivity(userProfile, ACTIVITY_ACTIONS.VIOLATION_STATUS_UPDATED, 'violation', violationId);
     } catch (error) {
