@@ -910,20 +910,21 @@ function StudentList({
           </div>
 
           <div className="s-table-wrap">
-            <table className="s-table">
-              <thead>
-                <tr>
-                  <th>Student</th>
-                  <th>First Name</th>
-                  <th>Middle Name</th>
-                  <th>Last Name</th>
-                  <th>Student ID</th>
-                  <th>Year Level & Section</th>
-                  <th>Total Violations</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
+            <div className="s-table-scroll">
+              <table className="s-table">
+                <thead>
+                  <tr>
+                    <th>Student</th>
+                    <th>First Name</th>
+                    <th>Middle Name</th>
+                    <th>Last Name</th>
+                    <th>Student ID</th>
+                    <th>Year Level & Section</th>
+                    <th>Total Violations</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
 
                 <tbody>
                   {paginatedStudents.map((student) => (
@@ -1050,6 +1051,7 @@ function StudentList({
             </div>
           </div>
         </div>
+      </div>
 
       {showModal && (
         <AddStudentModal
