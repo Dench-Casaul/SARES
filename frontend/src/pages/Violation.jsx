@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { addDoc, collection, getDocs, serverTimestamp } from 'firebase/firestore'
+import { collection, getDocs, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 import { useAuthProfile } from '../authContext'
 import { queryForUserScope } from '../firestoreAccess'
@@ -12,6 +12,7 @@ import {
   buildViolationRecordsForStudents,
   evaluateSaresRecommendation,
 } from '../engine/ruleEngine'
+import { saveViolationsWithCaseNumbers } from '../engine/incidentCaseNumber'
 import {
   getSubcategories,
   listOffenseGroups,
@@ -495,11 +496,7 @@ export default function Violation() {
         evidence_urls: [],
       }))
 
-      const savedDocs = []
-      for (const payload of payloads) {
-        const saved = await addDoc(collection(db, 'violations'), payload)
-        savedDocs.push({ ...payload, id: saved.id })
-      }
+      const savedDocs = await saveViolationsWithCaseNumbers(db, payloads)
       await Promise.all(savedDocs.map((violation) => (
         recordActivity(userProfile, ACTIVITY_ACTIONS.VIOLATION_RECORDED, 'violation', violation.id)
       )))

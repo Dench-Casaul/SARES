@@ -18,16 +18,28 @@ function safeText(value, fallback = "") {
   }).join("").trim();
 }
 
-function drawCell(doc, x, y, width, height, label, value = "") {
-  doc.setDrawColor(130);
-  doc.rect(x, y, width, height);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(8.5);
-  doc.text(label, x + 2, y + 5);
+function cellHeight(doc, width, label, value, minimumHeight) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   const lines = doc.splitTextToSize(safeText(value), width - 4);
-  doc.text(lines.slice(0, Math.max(1, Math.floor((height - 8) / 4))), x + 2, y + 10);
+  const firstLineHeight = label ? 13 : 10;
+  const textHeight = value ? firstLineHeight + Math.max(0, lines.length - 1) * 4 : (label ? 8 : 0);
+  return Math.max(minimumHeight, textHeight);
+}
+
+function drawCell(doc, x, y, width, height, label, value = "") {
+  doc.setDrawColor(130);
+  doc.rect(x, y, width, height);
+  if (label) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.5);
+    doc.text(label, x + 2, y + 4.5);
+  }
+  if (!value) return;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  const lines = doc.splitTextToSize(safeText(value), width - 4);
+  doc.text(lines, x + 2, y + (label ? 9 : 6));
 }
 
 export function createIncidentReportPdf(caseData, groupMembers = [caseData]) {
@@ -36,6 +48,7 @@ export function createIncidentReportPdf(caseData, groupMembers = [caseData]) {
   const margin = 13;
   const contentWidth = pageWidth - margin * 2;
   const halfWidth = contentWidth / 2;
+  const pageHeight = doc.internal.pageSize.getHeight();
   let y = 14;
 
   const section = (title) => {
@@ -50,16 +63,36 @@ export function createIncidentReportPdf(caseData, groupMembers = [caseData]) {
   };
 
   const addParagraph = (label, value, minimumHeight = 15) => {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    const lines = doc.splitTextToSize(safeText(value), contentWidth - 4);
+    const height = Math.max(minimumHeight, 13 + Math.max(0, lines.length - 1) * 4);
+    if (y + height > pageHeight - 16) {
+      doc.addPage();
+      y = 16;
+    }
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8.5);
     doc.text(label, margin, y + 4);
-    const lines = doc.splitTextToSize(safeText(value), contentWidth - 4);
-    const height = Math.max(minimumHeight, lines.length * 4 + 7);
     doc.setDrawColor(145);
     doc.line(margin, y + height, pageWidth - margin, y + height);
     doc.setFont("helvetica", "normal");
-    doc.text(lines, margin + 1, y + 10);
+    doc.text(lines, margin + 1, y + 9);
     y += height + 2;
+  };
+
+  const drawRow = (cells, minimumHeight = 10) => {
+    const height = Math.max(
+      minimumHeight,
+      ...cells.map((cell) => cellHeight(doc, cell.width, cell.label, cell.value, minimumHeight))
+    );
+    if (y + height > pageHeight - 16) {
+      doc.addPage();
+      y = 16;
+    }
+    cells.forEach((cell) => drawCell(doc, cell.x, y, cell.width, height, cell.label, cell.value));
+    y += height;
+    return height;
   };
 
   doc.setFont("helvetica", "bold");
@@ -70,49 +103,58 @@ export function createIncidentReportPdf(caseData, groupMembers = [caseData]) {
   doc.setFontSize(9);
   doc.text("Student Discipline / Guidance Office", pageWidth / 2, y, { align: "center" });
   y += 5;
-  drawCell(doc, margin, y, halfWidth, 11, "Case No.", caseData.id || "");
-  drawCell(doc, margin + halfWidth, y, halfWidth, 11, "Date Filed", caseData.created_at?.toDate?.()?.toLocaleDateString() || new Date().toLocaleDateString());
-  y += 11;
+  drawRow([
+    { x: margin, width: halfWidth, label: "Case No.", value: caseData.case_number || "Not Assigned" },
+    { x: margin + halfWidth, width: halfWidth, label: "Date Filed", value: caseData.created_at?.toDate?.()?.toLocaleDateString() || new Date().toLocaleDateString() },
+  ], 11);
 
   section("I. Reporting Party / Complainant");
-  drawCell(doc, margin, y, halfWidth, 15, "Full Name", caseData.reported_by);
-  drawCell(doc, margin + halfWidth, y, halfWidth, 15, "Date & Time of Report", "");
-  y += 15;
-  drawCell(doc, margin, y, halfWidth, 19, "Role", caseData.reporter_role);
-  drawCell(doc, margin + halfWidth, y, halfWidth, 19, "Grade/Section & Contact No.", [caseData.reporter_grade_section, caseData.reporter_contact].filter(Boolean).join(" / "));
-  y += 19;
+  drawRow([
+    { x: margin, width: halfWidth, label: "Full Name", value: caseData.reported_by },
+    { x: margin + halfWidth, width: halfWidth, label: "Date & Time of Report", value: "" },
+  ], 15);
+  drawRow([
+    { x: margin, width: halfWidth, label: "Role", value: caseData.reporter_role },
+    { x: margin + halfWidth, width: halfWidth, label: "Grade/Section & Contact No.", value: [caseData.reporter_grade_section, caseData.reporter_contact].filter(Boolean).join(" / ") },
+  ], 19);
 
   section("II. Persons Involved");
   const peopleHeaders = ["Name", "Grade / Section", "Role in Incident", "Contact Information"];
   const peopleWidths = [0.25, 0.22, 0.25, 0.28].map((fraction) => contentWidth * fraction);
   let x = margin;
-  peopleHeaders.forEach((header, index) => {
-    drawCell(doc, x, y, peopleWidths[index], 9, header);
+  drawRow(peopleHeaders.map((header, index) => {
+    const cell = { x, width: peopleWidths[index], label: header, value: "" };
     x += peopleWidths[index];
-  });
-  y += 9;
+    return cell;
+  }), 9);
   const people = groupMembers.length ? groupMembers : [caseData];
   people.forEach((person) => {
     x = margin;
     const values = [person.student_name, person.year_level, "Respondent", person.student_contact];
-    values.forEach((value, index) => {
-      drawCell(doc, x, y, peopleWidths[index], 10, "", value);
+    drawRow(values.map((value, index) => {
+      const cell = { x, width: peopleWidths[index], label: "", value };
       x += peopleWidths[index];
-    });
-    y += 10;
+      return cell;
+    }), 10);
   });
   doc.setFont("helvetica", "italic");
   doc.setFontSize(7.5);
   doc.text("Role in Incident: Respondent, Involved Party, Aggrieved Party, or Other.", margin, y + 4);
   y += 6;
 
+  if (y + 65 > pageHeight - 16) {
+    doc.addPage();
+    y = 16;
+  }
   section("III. Incident Details");
-  drawCell(doc, margin, y, halfWidth, 13, "Date of Incident", caseData.incident_date);
-  drawCell(doc, margin + halfWidth, y, halfWidth, 13, "Time of Incident", caseData.incident_time);
-  y += 13;
-  drawCell(doc, margin, y, halfWidth, 13, "Location", caseData.incident_location);
-  drawCell(doc, margin + halfWidth, y, halfWidth, 13, "Reported By (if different from complainant)", caseData.reported_by);
-  y += 13;
+  drawRow([
+    { x: margin, width: halfWidth, label: "Date of Incident", value: caseData.incident_date },
+    { x: margin + halfWidth, width: halfWidth, label: "Time of Incident", value: caseData.incident_time },
+  ], 13);
+  drawRow([
+    { x: margin, width: halfWidth, label: "Location", value: caseData.incident_location },
+    { x: margin + halfWidth, width: halfWidth, label: "Reported By (if different from complainant)", value: caseData.reported_by },
+  ], 13);
 
   const incidentText = [caseData.group_title, caseData.offense_variety, caseData.incident_description].join(" ").toLowerCase();
   doc.setFont("helvetica", "bold");
@@ -129,8 +171,9 @@ export function createIncidentReportPdf(caseData, groupMembers = [caseData]) {
       const selected = terms.some((term) => incidentText.includes(term));
       return `${selected ? "[x]" : "[ ]"} ${label}`;
     });
-    doc.text(labels.join("     "), margin, y + 4, { maxWidth: contentWidth });
-    y += 5;
+    const wrappedLabels = doc.splitTextToSize(labels.join("     "), contentWidth);
+    doc.text(wrappedLabels, margin, y + 4);
+    y += wrappedLabels.length * 4;
   });
   y += 2;
   addParagraph("Narrative Description of the Incident", caseData.incident_description, 24);
@@ -151,45 +194,64 @@ export function createIncidentReportPdf(caseData, groupMembers = [caseData]) {
     return `${selected ? "[x]" : "[ ]"} ${label}`;
   });
   doc.setFont("helvetica", "normal");
-  doc.text(evidenceLabels.join("     "), margin, y + 3, { maxWidth: contentWidth });
-  y += 6;
+  const wrappedEvidenceLabels = doc.splitTextToSize(evidenceLabels.join("     "), contentWidth);
+  doc.text(wrappedEvidenceLabels, margin, y + 3);
+  y += wrappedEvidenceLabels.length * 4;
   if (evidenceFiles.length) addParagraph("Attached Files", evidenceFiles.map((file) => file.name).join(", "), 9);
 
-  if (y > 225) {
-    doc.addPage();
-    y = 16;
-  } else {
-    y += 2;
-  }
-  section("IV. Witnesses");
+  y += 2;
   const witnessNames = String(caseData.witnesses || "").split(/\n|;/).map((name) => name.trim()).filter(Boolean);
   const witnessHeaders = ["Name", "Grade / Section", "Contact Information", "Statement Attached"];
   const witnessWidths = [0.25, 0.24, 0.30, 0.21].map((fraction) => contentWidth * fraction);
+  const witnessRows = Array.from({ length: Math.max(3, witnessNames.length) }, (_, index) => [
+    witnessNames[index] || "",
+    "",
+    "",
+    witnessNames[index] ? "[ ]" : "",
+  ]);
+  const witnessHeaderHeight = Math.max(9, ...witnessHeaders.map((header, index) => cellHeight(doc, witnessWidths[index], header, "", 9)));
+  const witnessTotalHeight = witnessHeaderHeight + witnessRows.reduce((total, values) => (
+    total + Math.max(10, ...values.map((value, index) => cellHeight(doc, witnessWidths[index], "", value, 10)))
+  ), 0);
+  if (y + 13 + witnessTotalHeight + 8 > pageHeight - 15) {
+    doc.addPage();
+    y = 16;
+  }
+  section("IV. Witnesses");
   x = margin;
-  witnessHeaders.forEach((header, index) => {
-    drawCell(doc, x, y, witnessWidths[index], 9, header);
+  drawRow(witnessHeaders.map((header, index) => {
+    const cell = { x, width: witnessWidths[index], label: header, value: "" };
     x += witnessWidths[index];
-  });
-  y += 9;
-  Array.from({ length: Math.max(3, witnessNames.length) }, (_, index) => {
+    return cell;
+  }), 9);
+  witnessRows.forEach((values) => {
     x = margin;
-    [witnessNames[index] || "", "", "", witnessNames[index] ? "[ ]" : ""].forEach((value, column) => {
-      drawCell(doc, x, y, witnessWidths[column], 10, "", value);
+    drawRow(values.map((value, column) => {
+      const cell = { x, width: witnessWidths[column], label: "", value };
       x += witnessWidths[column];
-    });
-    y += 10;
+      return cell;
+    }), 10);
   });
 
-  doc.addPage();
-  y = 16;
-  section("V. Action Taken");
   const actionText = caseData.action_taken || caseData.recommended_sanction ||
     (String(caseData.intervention_type).toLowerCase() === "mediation" ? "Referred for mediation." : "");
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  const actionLines = doc.splitTextToSize(safeText(actionText), contentWidth - 4);
+  const actionParagraphHeight = Math.max(38, 13 + Math.max(0, actionLines.length - 1) * 4) + 2;
+  doc.setFontSize(9);
+  const certification = "I certify that the information provided in this report is true and accurate to the best of my knowledge.";
+  const certificationLines = doc.splitTextToSize(certification, contentWidth);
+  const actionSectionHeight = 13 + actionParagraphHeight + 22 + 29;
+  if (y + actionSectionHeight > pageHeight - 15) {
+    doc.addPage();
+    y = 16;
+  }
+  section("V. Action Taken");
   addParagraph("Immediate Action Taken", actionText, 38);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
-  const certification = "I certify that the information provided in this report is true and accurate to the best of my knowledge.";
-  doc.text(doc.splitTextToSize(certification, contentWidth), margin, y + 9);
+  doc.text(certificationLines, margin, y + 9);
   y += 22;
 
   const signatureWidth = halfWidth - 7;
@@ -220,5 +282,8 @@ export function createIncidentReportPdf(caseData, groupMembers = [caseData]) {
 
 export function generateIncidentReportPdf(caseData, groupMembers = [caseData]) {
   const doc = createIncidentReportPdf(caseData, groupMembers);
-  doc.save(`incident-report-${safeText(caseData.id, "case")}.pdf`);
+  const caseNumber = safeText(caseData.case_number);
+  doc.save(caseNumber
+    ? `SARES-Incident-Report-${caseNumber}.pdf`
+    : "SARES-Incident-Report.pdf");
 }

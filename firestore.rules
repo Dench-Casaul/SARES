@@ -90,6 +90,22 @@ service cloud.firestore {
       allow delete: if isProvisioned() && canReadScope(resource.data.school_scope);
     }
 
+    match /system_counters/{counterId} {
+      allow get: if isProvisioned() && counterId == 'incident-report-sequence';
+      allow create: if isProvisioned()
+        && counterId == 'incident-report-sequence'
+        && request.resource.data.keys().hasOnly(['last_sequence'])
+        && request.resource.data.last_sequence is int
+        && request.resource.data.last_sequence >= 1;
+      allow update: if isProvisioned()
+        && counterId == 'incident-report-sequence'
+        && request.resource.data.keys().hasOnly(['last_sequence'])
+        && request.resource.data.last_sequence is int
+        && request.resource.data.last_sequence > resource.data.last_sequence
+        && request.resource.data.last_sequence <= resource.data.last_sequence + 499;
+      allow list, delete: if false;
+    }
+
     match /rules/{ruleId} {
       allow get, list, create, update, delete: if isProvisioned();
     }

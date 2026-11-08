@@ -7,6 +7,7 @@ import { queryForUserScope } from '../firestoreAccess'
 import { isRecordInTrash } from '../recordStatus'
 import { canAccessSchoolScope, getSchoolScopeForYear } from '../schoolScope'
 import { doesViolationCount, evaluateSaresRecommendation, isViolationServed } from '../engine/ruleEngine'
+import { saveViolationsWithCaseNumbers } from '../engine/incidentCaseNumber'
 import '../css/Student.css'
 import wesleyLogo from '../assets/wesley-logo.png'
 import { Activity, AlertTriangle, LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X, Calendar, Download, KeyRound, Trash2, RotateCcw } from 'lucide-react'
@@ -170,6 +171,7 @@ function AddStudentModal({ onClose, onAdd, initialForm, submitLabel = 'Add Stude
     section: initialForm?.section || '',
     email: initialForm?.email || '',
     phone: initialForm?.phone || '',
+    parent_guardian_contact: initialForm?.parent_guardian_contact || '',
   });
 
   const handle = (e) => setForm({ ...form, [e.target.name]: e.target.value });
@@ -216,7 +218,7 @@ function AddStudentModal({ onClose, onAdd, initialForm, submitLabel = 'Add Stude
               <input className="s-input" name="first_name" value={form.first_name} onChange={handle} placeholder="Juan" />
             </div>
             <div className="s-field">
-              <label className="s-label">M.I.</label>
+              <label className="s-label">Middle Name</label>
               <input className="s-input" name="middle_name" value={form.middle_name} onChange={handle} placeholder="Santos" />
             </div>
             <div className="s-field">
@@ -247,6 +249,11 @@ function AddStudentModal({ onClose, onAdd, initialForm, submitLabel = 'Add Stude
           <div className="s-field">
             <label className="s-label">Phone Number</label>
             <input className="s-input" name="phone" value={form.phone} onChange={handle} placeholder="+63 912 345 6789" />
+          </div>
+
+          <div className="s-field">
+            <label className="s-label">Parent/Guardian Contact Number</label>
+            <input className="s-input" name="parent_guardian_contact" value={form.parent_guardian_contact} onChange={handle} placeholder="+63 912 345 6789" />
           </div>
         </div>
 
@@ -566,13 +573,14 @@ function CaseManagementModal({ student, violationDraft, onClose, onSaved }) {
         created_at: serverTimestamp(),
       };
 
-      const savedViolation = await addDoc(collection(db, 'violations'), payload);
+      const [savedViolation] = await saveViolationsWithCaseNumbers(db, [payload]);
       await recordActivity(userProfile, ACTIVITY_ACTIONS.VIOLATION_RECORDED, 'violation', savedViolation.id);
 
       const studentViolationEntry = {
         id: `${Date.now()}`,
         recorded_at_ms: Date.now(),
         category: violationDraft.group_title,
+        case_number: savedViolation.case_number,
         variety: violationDraft.offense_title,
         description: violationDraft.incident_description,
         date: today,
@@ -1077,6 +1085,7 @@ function StudentList({
             section: editingStudent.section,
             email: editingStudent.email,
             phone: editingStudent.phone,
+            parent_guardian_contact: editingStudent.parent_guardian_contact,
           }}
           submitLabel="Save Changes"
           title="Edit Student"
@@ -1276,6 +1285,12 @@ function StudentProfile({ student, onBack, onSelectViolation, onUpdateViolationS
                 Phone
               </div>
               <span className="s-info-value">{student.phone}</span>
+            </div>
+            <div className="s-divider" />
+
+            <div className="s-info-field">
+              <span className="s-info-label">Parent/Guardian Contact Number</span>
+              <span className="s-info-value">{student.parent_guardian_contact || '—'}</span>
             </div>
             <div className="s-divider" />
 
@@ -1679,6 +1694,7 @@ export default function Students() {
       section: student.section || '',
       email: student.email || '',
       phone: student.phone_number || student.phone || '',
+      parent_guardian_contact: student.parent_guardian_contact || '',
       violationCount,
       recordedViolationCount: violationList.length,
       repeatOffender: student.repeat_offender || false,
@@ -1853,6 +1869,7 @@ export default function Students() {
       section: form.section,
       email: form.email,
       phone_number: form.phone,
+      parent_guardian_contact: form.parent_guardian_contact,
       violation_count: 0,
       violations: [],
       repeat_offender: false,
@@ -1893,6 +1910,7 @@ export default function Students() {
       section: form.section,
       email: form.email,
       phone_number: form.phone,
+      parent_guardian_contact: form.parent_guardian_contact,
     };
     if (previousScope !== nextScope) {
       const violationsSnapshot = await getDocs(queryForUserScope(collection(db, 'violations'), userProfile));
@@ -1936,6 +1954,7 @@ export default function Students() {
               section: payload.section,
               email: payload.email,
               phone: payload.phone_number,
+              parent_guardian_contact: payload.parent_guardian_contact,
             }
           : student
       )

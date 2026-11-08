@@ -407,6 +407,7 @@
 }
 
 .s-table th {
+  border-radius: 0;
   padding: 14px 16px;
   text-align: left;
   font-size: 13px;

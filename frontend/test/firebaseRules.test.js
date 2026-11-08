@@ -4,8 +4,9 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
-import { collection, deleteDoc, deleteField, doc, getDoc, getDocs, limit, orderBy, query, serverTimestamp, setDoc, where, writeBatch } from 'firebase/firestore';
+import { collection, deleteDoc, deleteField, doc, getDoc, getDocs, limit, orderBy, query, serverTimestamp, setDoc, updateDoc, where, writeBatch } from 'firebase/firestore';
 import { ref, uploadBytes } from 'firebase/storage';
+import { saveViolationsWithCaseNumbers } from '../src/engine/incidentCaseNumber.js';
 
 const workspaceRoot = resolve(fileURLToPath(new URL('../../', import.meta.url)));
 let testEnvironment;
@@ -87,6 +88,50 @@ test('counselors cannot read another school level or promote their own profile',
   await assertFails(setDoc(doc(firestore, 'users', 'elementary'), {
     role: 'superadmin', school_scope: 'all',
   }));
+});
+
+test('provisioned counselors can atomically advance only the incident report sequence', async () => {
+  const firestore = signedInAs('elementary').firestore();
+  const sequenceRef = doc(firestore, 'system_counters', 'incident-report-sequence');
+  await assertSucceeds(getDoc(sequenceRef));
+  await assertSucceeds(setDoc(sequenceRef, { last_sequence: 1 }));
+  await assertSucceeds(updateDoc(sequenceRef, { last_sequence: 3 }));
+  await assertFails(updateDoc(sequenceRef, { last_sequence: 2 }));
+  await assertFails(getDoc(doc(firestore, 'system_counters', 'other-counter')));
+});
+
+test('incident case numbers use one atomic sequence across offense types and school scopes', async () => {
+  const recordedAt = new Date(2026, 10, 8);
+  const elementaryDb = signedInAs('elementary').firestore();
+  const highSchoolDb = signedInAs('highschool').firestore();
+  const superadminDb = signedInAs('superadmin').firestore();
+  const [minorCases, majorCases] = await Promise.all([
+    saveViolationsWithCaseNumbers(elementaryDb, [{
+      student_id: 'elementary-student',
+      school_scope: 'elementary',
+      offense_type: 'minor',
+    }], recordedAt),
+    saveViolationsWithCaseNumbers(highSchoolDb, [{
+      student_id: 'highschool-student',
+      school_scope: 'high_school',
+      offense_type: 'major',
+    }], recordedAt),
+  ]);
+  const cases = [...minorCases, ...majorCases].sort((left, right) => (
+    left.case_recording_order - right.case_recording_order
+  ));
+
+  assert.deepEqual(cases.map((record) => record.case_recording_order), [1, 2]);
+  assert.deepEqual(cases.map((record) => record.case_number), cases.map((record) => (
+    `2026-${record.offense_type === 'minor' ? '01' : '02'}-${String(record.case_recording_order).padStart(5, '0')}`
+  )));
+  const storedRecords = await Promise.all(cases.map((record) => (
+    getDoc(doc(superadminDb, 'violations', record.id))
+  )));
+  assert.deepEqual(storedRecords.map((record) => record.data()?.case_number).sort(), [
+    '2026-01-00001',
+    '2026-02-00002',
+  ]);
 });
 
 test('school transfers move a student and linked violation together', async () => {

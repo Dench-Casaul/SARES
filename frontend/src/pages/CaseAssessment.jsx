@@ -282,7 +282,7 @@ export default function CaseAssessment() {
             <h1>INCIDENT REPORT FORM</h1>
             <p>Student Discipline / Guidance Office</p>
             <div className="ca-print-meta">
-              <strong>Case No.: {caseData.id || "________________"}</strong>
+              <strong>Case No.: {caseData.case_number || "Not Assigned"}</strong>
               <strong>Date Filed: {dateFiled || "________________"}</strong>
             </div>
           </header>
