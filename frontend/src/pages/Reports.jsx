@@ -22,6 +22,7 @@ import { doesViolationCount } from "../engine/ruleEngine";
 import { formatIdentifiedSanction } from "../engine/sanctionLabel";
 import { ACTIVITY_ACTIONS, recordActivity } from "../activityLog";
 import "../css/Reports.css";
+import saresLogo from "../assets/sares-logo.png";
 import wesleyLogo from "../assets/wesley-logo.png";
 
 function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar, userProfile }) {
@@ -91,6 +92,7 @@ export default function Report() {
   const [studentNumbers, setStudentNumbers] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [exportError, setExportError] = useState("");
 
   const [dateRange, setDateRange] = useState("all");
   const [gradeSection, setGradeSection] = useState("all");
@@ -199,34 +201,48 @@ export default function Report() {
   }, [filteredViolations]);
 
   const exportDocx = async () => {
-    const { generateReportsDocx } = await import("../engine/reportsXlsx");
-    const headers = [
-      "Date",
-      "Student Number",
-      "Student Name",
-      "Grade Level",
-      "Offense Classification",
-      "Specific Violation",
-      "Offense Number",
-      "Sanction Recommended",
-      "Status",
-    ];
-    const rows = filteredViolations.map((v) => {
-      const recordDate = pickDate(v);
-      return [
-        recordDate ? recordDate.toISOString().slice(0, 10) : "N/A",
-        v.student_number || studentNumbers[String(v.student_id)] || "N/A",
-        v.student_name || "Unknown",
-        v.student_year || v.year_level || v.year || "N/A",
-        v.offense_type || "Unspecified",
-        v.offense_variety || v.rule_name || "Unspecified",
-        v.cumulative_offense_number || v.offense_number || "N/A",
-        v.recommended_sanction || "N/A",
-        v.status || "N/A",
+    setExportError("");
+    try {
+      const { generateReportsDocx } = await import("../engine/reportsXlsx");
+      const headers = [
+        "Date",
+        "Student Number",
+        "Student Name",
+        "Grade Level",
+        "Offense Classification",
+        "Specific Violation",
+        "Offense Number",
+        "Sanction Recommended",
+        "Status",
       ];
-    });
+      const rows = filteredViolations.map((v) => {
+        const recordDate = pickDate(v);
+        return [
+          recordDate ? recordDate.toISOString().slice(0, 10) : "N/A",
+          v.student_number || studentNumbers[String(v.student_id)] || "N/A",
+          v.student_name || "Unknown",
+          v.student_year || v.year_level || v.year || "N/A",
+          v.offense_type || "Unspecified",
+          v.offense_variety || v.rule_name || "Unspecified",
+          v.cumulative_offense_number || v.offense_number || "N/A",
+          v.recommended_sanction || "N/A",
+          v.status || "N/A",
+          v.subcategory_id || "",
+        ];
+      });
+      const logoResponse = await fetch(saresLogo);
+      if (!logoResponse.ok) throw new Error(`Failed to load SARES logo (${logoResponse.status}).`);
+      const logoData = new Uint8Array(await logoResponse.arrayBuffer());
 
-    await generateReportsDocx(headers, rows, "sares-reports.docx");
+      await generateReportsDocx(headers, rows, "sares-reports.docx", {
+        dateRange,
+        generatedAt: new Date(),
+        logoData,
+      });
+    } catch (exportFailure) {
+      console.error("Failed to export report:", exportFailure);
+      setExportError("Failed to export report. Please try again.");
+    }
   };
 
   return (
@@ -270,6 +286,7 @@ export default function Report() {
             </select>
             <button type="button" className="report-secondary-btn" onClick={exportDocx}>Export DOCX</button>
           </div>
+          {exportError && <p className="report-empty report-empty--error" role="alert">{exportError}</p>}
         </section>
 
         <section className="report-stat-grid" data-help-target="report-summary">
