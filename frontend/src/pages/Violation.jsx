@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { collection, getDocs, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from '../firebase'
@@ -18,8 +18,6 @@ import {
   listOffenseGroups,
   listOffensesByGroup,
   getHandbook,
-  getMinorSanctionSchedule,
-  getMajorSanctionMap,
 } from '../data/handbookIndex'
 import '../css/Violation.css'
 import wesleyLogo from '../assets/wesley-logo.png'
@@ -74,8 +72,6 @@ function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar, userProfile 
 }
 
 const STEPS = ['Student & Date', 'Offense Type', 'Subcategory', 'Violation', 'Description', 'Review']
-const MINOR_SANCTIONS = getMinorSanctionSchedule()
-const MAJOR_SANCTIONS = getMajorSanctionMap()
 
 const splitStudentName = (fullName = '') => {
   const parts = String(fullName || '').trim().split(/\s+/).filter(Boolean)
@@ -139,8 +135,6 @@ export default function Violation() {
     group_title: '',
     offense_id: '',         // e.g. "m-l-1-1"
     offense_title: '',
-    offense_number: 1,      // minor: 1/2/3
-    severity_score: 5,      // major: 1-10
     handling_path: 'sanction',
     incident_description: '',
     parent_contact_notes: '',
@@ -234,6 +228,32 @@ export default function Violation() {
   })
 
   const selectedStudent = students.find(s => String(s.student_id) === String(form.student_id))
+  const selectedStudentRecommendations = useMemo(() => {
+    const targets = selectedStudents.length > 0
+      ? selectedStudents
+      : selectedStudent ? [selectedStudent] : [];
+    return targets.map((target) => {
+      const student = students.find((item) => String(item.student_id) === String(target.student_id))
+      const yearLevel = student?.year_level || target.year_level || student?.year
+      const schoolScope = student?.school_scope || getSchoolScopeForYear(yearLevel)
+      return {
+        studentId: target.student_id,
+        studentName: target.full_name || student?.full_name || '',
+        yearLevel,
+        ...evaluateSaresRecommendation({
+          offenseType: form.offense_type,
+          offenseId: form.offense_id,
+          studentId: target.student_id,
+          incidentDate: form.incident_date,
+          subcategoryId: form.subcategory_id,
+          schoolScope,
+          yearLevel,
+          existingViolations,
+          currentIncident: { incident_date: form.incident_date },
+        }),
+      }
+    })
+  }, [selectedStudents, selectedStudent, students, form.offense_type, form.offense_id, form.incident_date, form.subcategory_id, existingViolations])
 
   const removeSelectedStudent = (studentId) => {
     const normalizedStudentId = String(studentId)
@@ -254,17 +274,14 @@ export default function Violation() {
       offenseId: form.offense_id,
       studentId: form.student_id,
       incidentDate: form.incident_date,
-      severityScore: form.severity_score,
+      subcategoryId: form.subcategory_id,
+      schoolScope: selectedStudent?.school_scope || getSchoolScopeForYear(selectedStudent?.year_level || selectedStudent?.year),
+      yearLevel: selectedStudent?.year_level || selectedStudent?.year,
       existingViolations,
       currentIncident: { incident_date: form.incident_date },
     })
     setRecommendation(rec)
-
-    // Auto-set the offense number for minor violations based on history
-    if (form.offense_type === 'minor' && rec.offenseNumber && form.offense_number !== rec.offenseNumber) {
-      setForm(f => ({ ...f, offense_number: rec.offenseNumber }))
-    }
-  }, [form.offense_id, form.offense_type, form.incident_date, form.student_id, form.severity_score, existingViolations])
+  }, [form.offense_id, form.offense_type, form.subcategory_id, form.incident_date, form.student_id, selectedStudent?.school_scope, selectedStudent?.year_level, selectedStudent?.year, existingViolations])
 
   const goNext = async () => {
     if (step === 0) {
@@ -334,6 +351,11 @@ export default function Violation() {
         const subcategoryLabel = handbookType?.subcategories?.find((item) => item.id === form.subcategory_id)?.label || form.subcategory_id
         const offenseGroupTitle = offenseGroup?.groupTitle || form.group_title
         const specificViolationTitle = offense?.title || form.offense_title
+        const selectedSchoolScope = selectedStudent?.school_scope
+          || getSchoolScopeForYear(selectedStudent?.year_level || selectedStudent?.year)
+        const selectedSanctionSchedule = (handbookType?.sanctionSchedule || []).filter((rule) =>
+          rule.subcategoryId === form.subcategory_id && rule.schoolScope === selectedSchoolScope
+        )
         const applicablePolicyReference = formatApplicablePolicyReference({
           handbookNumber: offenseGroup?.handbookNumber ?? form.group_number,
           groupTitle: offenseGroupTitle,
@@ -344,21 +366,15 @@ export default function Violation() {
         const handbookPolicy = {
           offenseType: offenseTypeLabel,
           subcategory: subcategoryLabel,
+          schoolScope: selectedSchoolScope,
           offenseGroup: offenseGroupTitle,
           specificViolation: specificViolationTitle,
           handbookNumber: offenseGroup?.handbookNumber ?? form.group_number,
-          ...(form.offense_type === 'minor'
-            ? {
-                countingNote: handbookType?.countingNote || '',
-                sanctionSchedule: handbookType?.sanctionSchedule || [],
-                selectedOffenseNumber: recommendation?.cumulativeOffenseNumber || recommendation?.offenseNumber,
-              }
-            : {
-                scoringNote: handbookType?.scoringNote || '',
-                authorityNote: handbookType?.authorityNote || '',
-                severitySanctionMap: handbookType?.severitySanctionMap || [],
-                selectedSeverityScore: form.severity_score,
-              }),
+          countingNote: handbookType?.countingNote || '',
+          sanctionSchedule: selectedSanctionSchedule,
+          selectedOffenseNumber: recommendation?.offenseNumber,
+          selectedSanction: recommendation?.recommendedSanction,
+          authorityNote: handbookType?.authorityNote || '',
         }
         const response = await fetch('/api/generate-counselor-recommendation', {
           method: 'POST',
@@ -456,10 +472,8 @@ export default function Violation() {
         offense_id: form.offense_id,
         offense_variety: form.offense_title,
         category_name: form.group_title,
-        offense_number: form.offense_type === 'minor' ? recommendation.cumulativeOffenseNumber || recommendation.offenseNumber : null,
-        cumulative_offense_number: form.offense_type === 'minor' ? recommendation.cumulativeOffenseNumber || recommendation.offenseNumber : null,
-        suspension_eligible: form.offense_type === 'minor' ? Boolean(recommendation.suspensionEligible) : false,
-        severity_score: form.offense_type === 'major' ? form.severity_score : null,
+        offense_number: recommendation.offenseNumber,
+        cumulative_offense_number: recommendation.offenseNumber,
         recommended_sanction: recommendation.recommendedSanction,
         generated_explanation: '',
         explanation_source: 'not_generated',
@@ -477,9 +491,10 @@ export default function Violation() {
         created_at: serverTimestamp(),
         identified_sanction: formatIdentifiedSanction({
           offense_type: form.offense_type,
-          offense_number: form.offense_type === 'minor' ? recommendation.offenseNumber : null,
+          subcategory_id: form.subcategory_id,
+          school_scope: recommendation.schoolScope,
+          offense_number: recommendation.offenseNumber,
           school_year_key: recommendation.schoolYearKey,
-          severity_score: form.offense_type === 'major' ? form.severity_score : null,
           recommended_sanction: recommendation.recommendedSanction,
           intervention_type: isMediation ? 'mediation' : 'sanction',
           status: isMediation ? 'pending' : 'recorded',
@@ -520,9 +535,6 @@ export default function Violation() {
   const offenseGroups = (form.offense_type && form.subcategory_id)
     ? listOffenseGroups(form.offense_type, form.subcategory_id)
     : []
-  const isMajor = form.offense_type === 'major'
-  const suggestAuthorities = recommendation?.suggestAuthorities || false
-
   return (
     <div className="v-page">
       {/* Mobile bar */}
@@ -676,7 +688,7 @@ export default function Violation() {
                   onClick={() => pickOffenseType('major')}>
                   <span className="v-offense-type-badge v-offense-type-badge--major">Major</span>
                   <h3>Major Offense</h3>
-                  <p>Acts of serious misconduct. Sanctions are based on a severity score (1–10) assessed by the admin/counselor.</p>
+                  <p>Acts of serious misconduct. Sanctions progress by offense level, school level, and the number of prior incidents in the same level.</p>
                   <div className="v-offense-type-sub-labels">
                     <span>Serious</span><span>Very Serious</span>
                   </div>
@@ -743,91 +755,11 @@ export default function Violation() {
             </div>
           )}
 
-          {/* STEP 4: Sanction */}
-          {step === 999 && (
-            <div className="v-step-content">
-              <h2 className="v-directory-title">Step 5: Sanction</h2>
-
-              {!isMajor ? (
-                /* MINOR — pick offense number */
-                <div>
-                  <p className="v-directory-sub">Select which offense number this is for this student</p>
-                  <div className="v-offense-number-grid">
-                    {MINOR_SANCTIONS.map(s => (
-                      <button key={s.offenseNumber}
-                        className={`v-offense-number-card ${form.offense_number === s.offenseNumber ? 'selected' : ''}`}
-                        onClick={() => setForm(f => ({ ...f, offense_number: s.offenseNumber }))}>
-                        <span className="v-offense-number-label">{s.label}</span>
-                        <p className="v-offense-number-sanction">{s.sanction}</p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                /* MAJOR — enter severity score */
-                <div>
-                  <p className="v-directory-sub">Assess a severity score (1–10) based on the gravity of this incident</p>
-                  <div className="v-severity-map">
-                    {MAJOR_SANCTIONS.map(s => (
-                      <div key={s.label} className={`v-severity-band ${form.severity_score >= s.min && form.severity_score <= s.max ? 'active' : ''}`}>
-                        <span className="v-severity-band-score">{s.label}</span>
-                        <span className="v-severity-band-sanction">{s.sanction}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="v-severity-slider-wrap">
-                    <label className="v-label">Severity Score: <strong>{form.severity_score}</strong> / 10</label>
-                    <input type="range" min="1" max="10" step="1" value={form.severity_score}
-                      onChange={e => setForm(f => ({ ...f, severity_score: Number(e.target.value) }))}
-                      className="v-severity-slider" />
-                    <div className="v-severity-slider-ticks">
-                      {[1,2,3,4,5,6,7,8,9,10].map(n => <span key={n}>{n}</span>)}
-                    </div>
-                  </div>
-                  {recommendation && (
-                    <div className="v-sanction-result">
-                      <h4>Recommended Sanction</h4>
-                      <p>{recommendation.recommendedSanction}</p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {suggestAuthorities && (
-                <div className="v-authority-alert">
-                  <AlertTriangle size={18} />
-                  <div>
-                    <strong>Authority Involvement Suggested</strong>
-                    <p>This violation may involve illegal activity. Consider referral to proper authorities (police/security) at school discretion.</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
           {/* STEP 5: Description */}
           {step === 4 && (
             <div className="v-step-content">
               <h2 className="v-directory-title">Step 5: Incident Report</h2>
               <p className="v-directory-sub">Optionally describe the incident for AI-assisted prevention or alternative suggestions, and provide who reported it.</p>
-
-              {form.offense_type === 'major' && (
-                <div className="v-field" style={{ marginTop: '1.2rem' }}>
-                  <label className="v-label">Severity Score: <strong>{form.severity_score}</strong> / 10</label>
-                  <input
-                    type="range"
-                    min="1"
-                    max="10"
-                    step="1"
-                    value={form.severity_score}
-                    onChange={e => setForm(f => ({ ...f, severity_score: Number(e.target.value) }))}
-                    className="v-severity-slider"
-                  />
-                  <div className="v-severity-slider-ticks">
-                    {[1,2,3,4,5,6,7,8,9,10].map(n => <span key={n}>{n}</span>)}
-                  </div>
-                </div>
-              )}
 
               <div className="v-field" style={{ marginTop: '1.2rem' }}>
                 <label className="v-label">Handling Path</label>
@@ -981,18 +913,14 @@ export default function Violation() {
                   <p className="v-review-group">{form.group_title}</p>
                   <p>{form.offense_title}</p>
                 </div>
-                {form.offense_type === 'minor' && (
-                  <div className="v-review-section">
-                    <h4>Offense Number</h4>
-                    <p>{recommendation.offenseLabel}</p>
-                  </div>
-                )}
-                {form.offense_type === 'major' && (
-                  <div className="v-review-section">
-                    <h4>Severity Score</h4>
-                    <p>{form.severity_score} / 10</p>
-                  </div>
-                )}
+                <div className="v-review-section">
+                  <h4>Offense Number</h4>
+                  <p>{recommendation.offenseLabel}</p>
+                </div>
+                <div className="v-review-section">
+                  <h4>School Level</h4>
+                  <p>{recommendation.schoolScope === 'elementary' ? 'Elementary' : recommendation.schoolScope === 'high_school' ? 'High School' : 'Not specified'}</p>
+                </div>
                 <div className="v-review-section v-review-section--full">
                   <h4>Handling Path</h4>
                   <p className="v-review-sanction">
@@ -1001,19 +929,43 @@ export default function Violation() {
                 </div>
                 <div className="v-review-section v-review-section--full">
                   <h4>Recommended Sanction</h4>
-                  <p className="v-review-sanction">{recommendation.recommendedSanction}</p>
+                  {selectedStudentRecommendations.length > 1
+                    ? selectedStudentRecommendations.map((studentRec) => (
+                      <p className="v-review-sanction" key={studentRec.studentId}>
+                        <strong>{studentRec.studentName || studentRec.studentId} · {studentRec.schoolScope === 'elementary' ? 'Elementary' : studentRec.schoolScope === 'high_school' ? 'High School' : 'School level not specified'} · {studentRec.offenseLabel}:</strong>{' '}
+                        {studentRec.recommendedSanction}
+                      </p>
+                    ))
+                    : <p className="v-review-sanction">{recommendation.recommendedSanction}</p>}
                 </div>
                 <div className="v-review-section v-review-section--full">
                   <h4>Identified Sanction</h4>
-                  <p className="v-review-sanction">
-                    {formatIdentifiedSanction({
-                      offense_type: form.offense_type,
-                      offense_number: recommendation.offenseNumber,
-                      school_year_key: recommendation.schoolYearKey,
-                      severity_score: form.severity_score,
-                      recommended_sanction: recommendation.recommendedSanction,
-                    })}
-                  </p>
+                  {selectedStudentRecommendations.length > 1
+                    ? selectedStudentRecommendations.map((studentRec) => (
+                      <p className="v-review-sanction" key={studentRec.studentId}>
+                        <strong>{studentRec.studentName || studentRec.studentId}:</strong>{' '}
+                        {formatIdentifiedSanction({
+                          offense_type: studentRec.offenseType,
+                          subcategory_id: studentRec.subcategoryId,
+                          school_scope: studentRec.schoolScope,
+                          offense_number: studentRec.offenseNumber,
+                          school_year_key: studentRec.schoolYearKey,
+                          recommended_sanction: studentRec.recommendedSanction,
+                        })}
+                      </p>
+                    ))
+                    : (
+                      <p className="v-review-sanction">
+                        {formatIdentifiedSanction({
+                          offense_type: form.offense_type,
+                          subcategory_id: form.subcategory_id,
+                          school_scope: recommendation.schoolScope,
+                          offense_number: recommendation.offenseNumber,
+                          school_year_key: recommendation.schoolYearKey,
+                          recommended_sanction: recommendation.recommendedSanction,
+                        })}
+                      </p>
+                    )}
                 </div>
                 <div className="v-review-section">
                   <h4>Reported by</h4>

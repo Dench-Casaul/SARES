@@ -1,17 +1,9 @@
 /**
- * SARES Rule Engine v2 — Handbook-based sanctions only.
- *
- * Sanctions are now strictly derived from the handbook:
- *  - Minor offenses: 1st / 2nd / 3rd offense → fixed sanction text
- *  - Major offenses: admin-selected severity score (1–10) → mapped sanction text
- *
- * The previous contextual severity / modifier engine has been replaced per
- * technical adviser recommendation (May 2026 consultation).
+ * SARES Rule Engine — progressive handbook sanctions by offense level and school.
  */
 
 import {
-  getMinorSanctionByOffenseNumber,
-  getMajorSanctionByScore,
+  getSanctionByOffenseNumber,
   isIllegalActivityOffense,
   getOffenseById,
 } from '../data/handbookIndex.js';
@@ -20,10 +12,6 @@ import { getSchoolScopeForYear } from '../schoolScope.js';
 
 /** Month (1–12) when the school year label rolls over. Default 6 = June (PH). */
 export const SCHOOL_YEAR_START_MONTH = 6;
-
-function clamp(n, lo, hi) {
-  return Math.min(hi, Math.max(lo, n));
-}
 
 export function doesViolationCount(violation) {
   const interventionType = String(violation?.intervention_type || '').toLowerCase();
@@ -54,14 +42,7 @@ export function getSchoolYearKey(isoDate) {
   return `${start}-${start + 1}`;
 }
 
-/**
- * Counts how many minor violations this student has already committed in the
- * current school year (across ALL minor categories — cumulative counting).
- *
- * @param {string} studentId
- * @param {string} schoolYearKey
- * @param {object[]} existingViolations — raw Firestore violation payloads
- */
+/** Counts prior incidents in the same offense level and school year. */
 export function getRecordTimeMs(record, { treatMissingAsLatest = false } = {}) {
   const created = record?.created_at;
   if (created?.seconds) return created.seconds * 1000;
@@ -97,9 +78,10 @@ export function isViolationEarlierThan(prior, current = {}) {
   return Boolean(priorId);
 }
 
-export function countPriorMinorOffenses(
+export function countPriorOffenses(
   studentId,
   schoolYearKey,
+  subcategoryId,
   existingViolations = [],
   currentIncident = {}
 ) {
@@ -107,95 +89,79 @@ export function countPriorMinorOffenses(
     (v) =>
       String(v?.student_id) === String(studentId) &&
       String(v?.school_year_key) === String(schoolYearKey) &&
-      String(v?.offense_type).toLowerCase() === 'minor' &&
+      String(v?.subcategory_id) === String(subcategoryId) &&
       doesViolationCount(v) &&
       isViolationEarlierThan(v, currentIncident)
   ).length;
 }
 
 /**
- * Evaluates handbook-based sanction for a MINOR offense.
+ * Evaluates handbook-based sanction for an offense at any level.
  *
  * @param {object} params
+ * @param {'minor'|'major'} params.offenseType
  * @param {string} params.studentId
  * @param {string} params.incidentDate — YYYY-MM-DD
- * @param {string} params.offenseId — e.g. "m-l-1-1"
- * @param {object[]} params.existingViolations
+ * @param {string} params.offenseId
+ * @param {string} params.subcategoryId
+ * @param {string} params.schoolScope
+ * @param {object[]} [params.existingViolations]
  * @returns {object} recommendation payload
  */
-export function evaluateMinorOffense({
+export function evaluateOffense({
+  offenseType,
   studentId,
   incidentDate,
   offenseId,
+  subcategoryId,
+  schoolScope,
   existingViolations = [],
   currentIncident = {},
 }) {
   const schoolYearKey = getSchoolYearKey(incidentDate);
-  const priorCount = countPriorMinorOffenses(studentId, schoolYearKey, existingViolations, {
+  const offenseData = getOffenseById(offenseId);
+  const level = subcategoryId || offenseData?.group?.subcategoryId || '';
+  const resolvedOffenseType = offenseData?.group?.categoryId || offenseType || '';
+  const priorCount = countPriorOffenses(studentId, schoolYearKey, level, existingViolations, {
     incident_date: incidentDate,
     created_at: currentIncident.created_at,
     id: currentIncident.id,
   });
-  const cumulativeOffenseNumber = priorCount + 1;
-  const offenseNumber = clamp(cumulativeOffenseNumber, 1, 3);
-  const suspensionEligible = cumulativeOffenseNumber > 3;
-
-  const tier = getMinorSanctionByOffenseNumber(offenseNumber);
-  const offenseData = getOffenseById(offenseId);
+  const offenseNumber = priorCount + 1;
+  const resolvedSchoolScope = schoolScope || getSchoolScopeForYear(currentIncident.year_level || currentIncident.year);
+  const tier = getSanctionByOffenseNumber(
+    resolvedOffenseType,
+    level,
+    resolvedSchoolScope,
+    offenseNumber
+  );
   const suggestAuthorities = isIllegalActivityOffense(offenseId);
+  const levelLabel = {
+    light: 'Light',
+    less_serious: 'Less Serious',
+    serious: 'Serious',
+    very_serious: 'Very Serious',
+  }[level] || 'selected';
+  const schoolLabel = resolvedSchoolScope === 'elementary'
+    ? 'Elementary'
+    : resolvedSchoolScope === 'high_school' ? 'High School' : 'selected school';
 
   return {
-    offenseType: 'minor',
+    offenseType: resolvedOffenseType,
     offenseNumber,
-    cumulativeOffenseNumber,
-    suspensionEligible,
+    cumulativeOffenseNumber: offenseNumber,
     offenseLabel: tier?.label ?? `${offenseNumber} Offense`,
-    recommendedSanction: tier?.sanction ?? '— (sanction not found)',
+    recommendedSanction: tier?.sanction
+      ?? `No additional sanction is listed for ${levelLabel} offenses in the ${schoolLabel} schedule.`,
     suggestAuthorities,
     schoolYearKey,
-    priorMinorCount: priorCount,
+    priorOffenseCount: priorCount,
     offenseTitle: offenseData?.title ?? offenseId,
-    handbookSection: 'Minor Offense Sanction Schedule',
+    subcategoryId: level,
+    schoolScope: resolvedSchoolScope,
+    handbookSection: 'Progressive Discipline Table',
     notes: [
-      `Cumulative minor offense count for school year ${schoolYearKey}: ${priorCount} prior, this is #${cumulativeOffenseNumber}.`,
-      ...(suspensionEligible
-        ? ['Eligible for counselor suspension action (beyond 3rd minor offense).']
-        : []),
-      ...(suggestAuthorities
-        ? ['⚠ This violation may involve illegal activity. Consider referral to proper authorities.']
-        : []),
-    ],
-  };
-}
-
-/**
- * Evaluates handbook-based sanction for a MAJOR offense.
- *
- * @param {object} params
- * @param {string} params.offenseId — e.g. "M-s-1-1"
- * @param {number} params.severityScore — admin-selected integer 1–10
- * @param {string} params.incidentDate — YYYY-MM-DD
- * @returns {object} recommendation payload
- */
-export function evaluateMajorOffense({ offenseId, severityScore, incidentDate }) {
-  const schoolYearKey = getSchoolYearKey(incidentDate);
-  const score = clamp(Math.round(severityScore), 1, 10);
-
-  const tier = getMajorSanctionByScore(score);
-  const offenseData = getOffenseById(offenseId);
-  const suggestAuthorities = isIllegalActivityOffense(offenseId);
-
-  return {
-    offenseType: 'major',
-    severityScore: score,
-    scoreTierLabel: tier?.label ?? `Score ${score}`,
-    recommendedSanction: tier?.sanction ?? '— (sanction not found)',
-    suggestAuthorities,
-    schoolYearKey,
-    offenseTitle: offenseData?.title ?? offenseId,
-    handbookSection: 'Major Offense Severity-Sanction Map',
-    notes: [
-      `Severity score assessed: ${score}/10 → ${tier?.sanction ?? 'unknown sanction'}.`,
+      `Cumulative ${levelLabel.toLowerCase()} offense count for school year ${schoolYearKey}: ${priorCount} prior, this is #${offenseNumber} for ${schoolLabel}.`,
       ...(suggestAuthorities
         ? ['⚠ This violation may involve illegal activity. Consider referral to proper authorities.']
         : []),
@@ -205,34 +171,28 @@ export function evaluateMajorOffense({ offenseId, severityScore, incidentDate })
 
 /**
  * Unified entry point for Violation page.
- *
- * @param {object} params
- * @param {'minor'|'major'} params.offenseType
- * @param {string} params.offenseId
- * @param {string} params.studentId
- * @param {string} params.incidentDate
- * @param {number} [params.severityScore] — required if offenseType === 'major'
- * @param {object[]} [params.existingViolations]
  */
 export function evaluateSaresRecommendation({
   offenseType,
   offenseId,
   studentId,
   incidentDate,
-  severityScore = 1,
+  subcategoryId,
+  schoolScope,
+  yearLevel,
   existingViolations = [],
   currentIncident = {},
 }) {
-  if (offenseType === 'minor') {
-    return evaluateMinorOffense({
-      studentId,
-      incidentDate,
-      offenseId,
-      existingViolations,
-      currentIncident,
-    });
-  }
-  return evaluateMajorOffense({ offenseId, severityScore, incidentDate });
+  return evaluateOffense({
+    offenseType,
+    studentId,
+    incidentDate,
+    offenseId,
+    subcategoryId,
+    schoolScope: schoolScope || getSchoolScopeForYear(yearLevel),
+    existingViolations,
+    currentIncident,
+  });
 }
 
 export function buildViolationRecordsForStudents({
@@ -242,7 +202,6 @@ export function buildViolationRecordsForStudents({
   existingViolations = [],
 }) {
   const groupIncidentId = `group-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const offenseNumber = incidentData.offense_type === 'minor' ? (recommendation?.offenseNumber ?? 1) : null;
 
   return selectedStudents.map((student, index) => {
     const studentRec = evaluateSaresRecommendation({
@@ -250,16 +209,15 @@ export function buildViolationRecordsForStudents({
       offenseId: incidentData.offense_id,
       studentId: student.student_id,
       incidentDate: incidentData.incident_date,
-      severityScore: incidentData.severity_score,
+      subcategoryId: incidentData.subcategory_id,
+      schoolScope: student.school_scope || getSchoolScopeForYear(student.year_level || student.year),
+      yearLevel: student.year_level || student.year,
       existingViolations,
       currentIncident: incidentData,
     });
 
     const recommendedSanction = studentRec.recommendedSanction || recommendation?.recommendedSanction || incidentData.recommended_sanction;
-    const offenseNumberForRecord = incidentData.offense_type === 'minor' ? studentRec.offenseNumber : null;
-    const cumulativeOffenseNumber = incidentData.offense_type === 'minor'
-      ? studentRec.cumulativeOffenseNumber
-      : null;
+    const offenseNumberForRecord = studentRec.offenseNumber;
 
     return {
       ...incidentData,
@@ -269,15 +227,13 @@ export function buildViolationRecordsForStudents({
       year_level: student.year_level || '',
       school_scope: student.school_scope || getSchoolScopeForYear(student.year_level || student.year),
       offense_number: offenseNumberForRecord,
-      cumulative_offense_number: cumulativeOffenseNumber,
-      severity_score: incidentData.offense_type === 'major' ? incidentData.severity_score : null,
+      cumulative_offense_number: offenseNumberForRecord,
       recommended_sanction: recommendedSanction,
       identified_sanction: formatIdentifiedSanction({
         offense_type: incidentData.offense_type,
         offense_number: offenseNumberForRecord,
-        cumulative_offense_number: cumulativeOffenseNumber,
+        cumulative_offense_number: offenseNumberForRecord,
         school_year_key: studentRec.schoolYearKey || incidentData.school_year_key,
-        severity_score: incidentData.severity_score,
         recommended_sanction: recommendedSanction,
         intervention_type: incidentData.intervention_type,
         status: incidentData.status,
@@ -297,7 +253,6 @@ export function buildViolationRecordsForStudents({
       group_size: selectedStudents.length,
       group_index: index + 1,
       group_role: selectedStudents.length > 1 ? 'group-member' : 'single',
-      offense_number_for_display: offenseNumber,
     };
   });
 }

@@ -246,7 +246,7 @@
 .ca-type-badge--minor { background: #dbeafe; color: #1d4ed8; }
 .ca-type-badge--major { background: #fef3c7; color: #d97706; }
 
-/* ── Highlight value (offense number / score) ──────── */
+/* ── Highlight offense number ───────────────────────── */
 .ca-highlight {
   font-size: 18px;
   font-weight: 800;

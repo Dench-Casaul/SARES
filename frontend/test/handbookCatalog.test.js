@@ -1,8 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { addHandbookOffense, applyHandbookOverrides, removeHandbookOffense, getHandbook } from '../src/data/handbookIndex.js';
+import {
+  addHandbookOffense,
+  applyHandbookOverrides,
+  applySanctionOverrides,
+  getHandbook,
+  getSanctionOverrides,
+  removeHandbookOffense,
+  toSchoolSanctionOverrides,
+} from '../src/data/handbookIndex.js';
 
-test('addHandbookOffense inserts a new violation into the correct offense type and severity bucket', () => {
+test('addHandbookOffense inserts a new violation into the correct offense type and level bucket', () => {
   const base = structuredClone(getHandbook().offenseGroups);
 
   const updated = addHandbookOffense(base, {
@@ -42,4 +50,70 @@ test('clearing handbook overrides restores the base catalog', () => {
 
   applyHandbookOverrides();
   assert.equal(getHandbook().offenseGroups.length, defaultGroups.length);
+});
+
+test('progressive sanctions are scoped by offense level, school level, and offense number', () => {
+  const handbook = getHandbook();
+  const minorRules = handbook.offenseTypes.find((type) => type.id === 'minor').sanctionSchedule;
+  const majorRules = handbook.offenseTypes.find((type) => type.id === 'major').sanctionSchedule;
+
+  assert.equal(minorRules.filter((rule) => rule.subcategoryId === 'light' && rule.schoolScope === 'elementary').length, 4);
+  assert.equal(minorRules.filter((rule) => rule.subcategoryId === 'less_serious' && rule.schoolScope === 'high_school').length, 4);
+  assert.equal(majorRules.filter((rule) => rule.subcategoryId === 'serious' && rule.schoolScope === 'elementary').length, 3);
+  assert.equal(majorRules.filter((rule) => rule.subcategoryId === 'serious' && rule.schoolScope === 'high_school').length, 2);
+
+  const originalOverrides = getSanctionOverrides();
+  const targetRule = originalOverrides.offenseSanctionSchedule.find((rule) =>
+    rule.offenseTypeId === 'minor'
+    && rule.subcategoryId === 'light'
+    && rule.schoolScope === 'elementary'
+    && rule.offenseNumber === 1
+  );
+  applySanctionOverrides({
+    offenseSanctionSchedule: originalOverrides.offenseSanctionSchedule.map((rule) =>
+      rule === targetRule ? { ...rule, sanction: 'Updated test sanction' } : rule
+    ),
+  });
+  assert.equal(
+    getHandbook().offenseTypes.find((type) => type.id === 'minor').sanctionSchedule
+      .find((rule) => rule.subcategoryId === 'light' && rule.schoolScope === 'elementary' && rule.offenseNumber === 1).sanction,
+    'Updated test sanction'
+  );
+  applySanctionOverrides(originalOverrides);
+});
+
+test('school sanction overrides update only their matching school schedule', () => {
+  const originalOverrides = getSanctionOverrides();
+  const elementarySchedule = toSchoolSanctionOverrides(originalOverrides.offenseSanctionSchedule, 'elementary');
+  const originalHighSchoolRule = originalOverrides.offenseSanctionSchedule.find((rule) =>
+    rule.offenseTypeId === 'minor'
+    && rule.subcategoryId === 'light'
+    && rule.schoolScope === 'high_school'
+    && rule.offenseNumber === 1
+  );
+  const originalElementaryRule = originalOverrides.offenseSanctionSchedule.find((rule) =>
+    rule.offenseTypeId === 'minor'
+    && rule.subcategoryId === 'light'
+    && rule.schoolScope === 'elementary'
+    && rule.offenseNumber === 1
+  );
+
+  applySanctionOverrides({
+    elementarySanctionOverrides: {
+      ...elementarySchedule,
+      'minor-light-1': 'Updated elementary sanction',
+    },
+  });
+
+  const updatedOverrides = getSanctionOverrides().offenseSanctionSchedule;
+  assert.equal(updatedOverrides.find((rule) =>
+    rule.offenseTypeId === 'minor' && rule.subcategoryId === 'light' && rule.schoolScope === 'elementary' && rule.offenseNumber === 1
+  ).sanction, 'Updated elementary sanction');
+  assert.equal(updatedOverrides.find((rule) =>
+    rule.offenseTypeId === 'minor' && rule.subcategoryId === 'light' && rule.schoolScope === 'high_school' && rule.offenseNumber === 1
+  ).sanction, originalHighSchoolRule.sanction);
+  applySanctionOverrides(originalOverrides);
+  assert.equal(getSanctionOverrides().offenseSanctionSchedule.find((rule) =>
+    rule.offenseTypeId === 'minor' && rule.subcategoryId === 'light' && rule.schoolScope === 'elementary' && rule.offenseNumber === 1
+  ).sanction, originalElementaryRule.sanction);
 });

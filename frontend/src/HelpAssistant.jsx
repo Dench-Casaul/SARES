@@ -84,12 +84,12 @@ const TOURS = {
     {
       target: '[data-help-step="1"]',
       title: "Step 2: Offense type",
-      content: "Choose Minor or Major using the handbook classification. Minor offenses use repeat-offense counts; major offenses use a severity score.",
+      content: "Choose Minor or Major and the offense level. The next offense number is counted within that same level for the school year.",
     },
     {
       target: '[data-help-step="2"]',
       title: "Step 3: Subcategory",
-      content: "Choose the severity band within the offense type: Light or Less Serious for minor; Serious or Very Serious for major.",
+      content: "Choose the offense level: Light or Less Serious for minor; Serious or Very Serious for major.",
     },
     {
       target: '[data-help-step="3"]',
@@ -131,7 +131,7 @@ const TOURS = {
     {
       target: '[data-help-target="assessment-sanction"]',
       title: "Understand the assessment",
-      content: "Review the offense count or severity score and the recommended and identified sanctions. For mediation cases, the handbook sanction may be retained as an escalation option.",
+      content: "Review the offense number, school-level schedule, and recommended and identified sanctions. For mediation cases, the handbook sanction may be retained as an escalation option.",
     },
     {
       target: '[data-help-target="assessment-description"]',
@@ -148,12 +148,12 @@ const TOURS = {
     {
       target: '[data-help-target="rule-filters"]',
       title: "Find handbook entries",
-      content: "Search by violation or category, then filter by offense type, severity, and category. Apply the filters to update the matching groups.",
+      content: "Search by violation or category, then filter by offense type, offense level, and category. Apply the filters to update the matching groups.",
     },
     {
       target: '[data-help-target="rule-groups"]',
       title: "Expand an offense group",
-      content: "Open a group to see its specific violations and sanction columns. The displayed schedule depends on whether the group is minor or major.",
+      content: "Open a group to see its violations and sanctions by school level and offense number.",
     },
     {
       target: '[data-help-target="rule-tabs"]',
@@ -163,13 +163,8 @@ const TOURS = {
     },
     {
       target: '[data-help-target="rule-sanction-schedule"]',
-      title: "Minor offense schedule",
-      content: "This schedule maps repeat offense numbers to recommended sanctions. Saved values apply to new recommendations; they do not rewrite existing case records.",
-    },
-    {
-      target: '[data-help-target="rule-severity-map"]',
-      title: "Major offense severity map",
-      content: "These ranges map a severity score to a sanction recommendation. Keep the ranges consistent with approved handbook policy.",
+      title: "Progressive sanction table",
+      content: "Edit sanctions by offense level, school level, and offense number. Counts advance within the same offense level; saved values apply to new cases, not existing records.",
     },
     {
       target: '[data-help-target="rule-save-rules"]',
@@ -185,7 +180,7 @@ const TOURS = {
     {
       target: '[data-help-target="rule-class-toolbar"]',
       title: "Manage offense classes",
-      content: "An offense class groups related handbook violations under a type and severity. Use the add control to create a class or edit an existing class to maintain it.",
+      content: "An offense class groups related handbook violations under a type and offense level. Use the add control to create a class or edit an existing class to maintain it.",
     },
     {
       target: '[data-help-target="rule-violation-catalog"]',
@@ -195,7 +190,7 @@ const TOURS = {
     {
       target: '[data-help-target="rule-save-catalog"]',
       title: "Save the catalog",
-      content: "Save catalog changes after reviewing offense type, severity, class names, and specific violations. These entries feed the violation-recording workflow.",
+      content: "Save catalog changes after reviewing offense type, level, class names, and specific violations. These entries feed the violation-recording workflow.",
     },
   ],
   "/sares/reports": [

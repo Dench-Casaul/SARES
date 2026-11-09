@@ -66,6 +66,28 @@ service cloud.firestore {
         && getAfter(linkedStudentPath(data)).data.school_scope == data.school_scope;
     }
 
+    function validElementarySanctionOverrides(data) {
+      return data.elementarySanctionOverrides is map
+        && data.elementarySanctionOverrides.keys().hasOnly([
+          'minor-light-1', 'minor-light-2', 'minor-light-3', 'minor-light-4',
+          'minor-less_serious-1', 'minor-less_serious-2', 'minor-less_serious-3', 'minor-less_serious-4',
+          'major-serious-1', 'major-serious-2', 'major-serious-3',
+          'major-very_serious-1', 'major-very_serious-2', 'major-very_serious-3'
+        ])
+        && data.updated_at == request.time;
+    }
+
+    function validHighSchoolSanctionOverrides(data) {
+      return data.high_schoolSanctionOverrides is map
+        && data.high_schoolSanctionOverrides.keys().hasOnly([
+          'minor-light-1', 'minor-light-2', 'minor-light-3', 'minor-light-4',
+          'minor-less_serious-1', 'minor-less_serious-2', 'minor-less_serious-3', 'minor-less_serious-4',
+          'major-serious-1', 'major-serious-2',
+          'major-very_serious-1', 'major-very_serious-2'
+        ])
+        && data.updated_at == request.time;
+    }
+
     match /students/{studentId} {
       allow get, list: if isProvisioned() && canReadScope(resource.data.school_scope);
       allow create: if isProvisioned()
@@ -107,7 +129,28 @@ service cloud.firestore {
     }
 
     match /rules/{ruleId} {
-      allow get, list, create, update, delete: if isProvisioned();
+      allow get, list: if isProvisioned();
+      allow create: if isSuperadmin()
+        || (isCounselor()
+          && ruleId == 'handbook_sanctions'
+          && ((get(userProfilePath()).data.school_scope == 'elementary'
+              && request.resource.data.keys().hasOnly(['elementarySanctionOverrides', 'updated_at'])
+              && validElementarySanctionOverrides(request.resource.data))
+            || (get(userProfilePath()).data.school_scope == 'high_school'
+              && request.resource.data.keys().hasOnly(['high_schoolSanctionOverrides', 'updated_at'])
+              && validHighSchoolSanctionOverrides(request.resource.data))));
+      allow update: if isSuperadmin()
+        || (isCounselor()
+          && ruleId == 'handbook_sanctions'
+          && ((get(userProfilePath()).data.school_scope == 'elementary'
+              && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['elementarySanctionOverrides', 'updated_at'])
+              && validElementarySanctionOverrides(request.resource.data))
+            || (get(userProfilePath()).data.school_scope == 'high_school'
+              && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['high_schoolSanctionOverrides', 'updated_at'])
+              && validHighSchoolSanctionOverrides(request.resource.data))));
+      allow delete: if isSuperadmin();
     }
 
     match /offense_categories/{categoryId} {

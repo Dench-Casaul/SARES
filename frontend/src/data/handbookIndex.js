@@ -1,6 +1,6 @@
 /**
- * handbookIndex.js — v2
- * Deterministic indexes over the new 4-tier generalizedHandbook.json.
+ * handbookIndex.js
+ * Deterministic indexes over the generalized handbook and progressive sanctions.
  * Offense hierarchy: Minor > {Light, Less Serious} | Major > {Serious, Very Serious}
  */
 import handbook from './generalizedHandbook.json' with { type: 'json' };
@@ -30,9 +30,21 @@ rebuildIndexes();
 
 export function getSanctionOverrides() {
   return {
-    minorSanctionSchedule: runtimeHandbook.offenseTypes?.find((type) => type.id === 'minor')?.sanctionSchedule?.map((rule) => ({ ...rule })) ?? [],
-    majorSeveritySanctionMap: runtimeHandbook.offenseTypes?.find((type) => type.id === 'major')?.severitySanctionMap?.map((rule) => ({ ...rule })) ?? [],
+    offenseSanctionSchedule: (runtimeHandbook.offenseTypes || []).flatMap((type) =>
+      (type.sanctionSchedule || []).map((rule) => ({ offenseTypeId: type.id, ...rule }))
+    ),
   };
+}
+
+export function toSchoolSanctionOverrides(schedule, schoolScope) {
+  return Object.fromEntries(
+    (schedule || [])
+      .filter((rule) => rule.schoolScope === schoolScope)
+      .map((rule) => [
+        `${rule.offenseTypeId}-${rule.subcategoryId}-${rule.offenseNumber}`,
+        rule.sanction,
+      ])
+  );
 }
 
 export function getHandbook() {
@@ -40,29 +52,31 @@ export function getHandbook() {
 }
 
 export function applySanctionOverrides(overrides = {}) {
-  const minorRuleSource = runtimeHandbook.offenseTypes?.find((type) => type.id === 'minor')?.sanctionSchedule ?? [];
-  const majorRuleSource = runtimeHandbook.offenseTypes?.find((type) => type.id === 'major')?.severitySanctionMap ?? [];
+  const sanctionOverrides = new Map(
+    (overrides.offenseSanctionSchedule || []).map((rule) => [
+      `${rule.offenseTypeId}-${rule.subcategoryId}-${rule.schoolScope}-${rule.offenseNumber}`,
+      rule.sanction,
+    ])
+  );
 
-  const minorSchedule = (minorRuleSource || []).map((rule, index) => ({
-    ...rule,
-    ...(overrides.minorSanctionSchedule?.[index] || {}),
-    offenseNumber: rule.offenseNumber,
-  }));
-
-  const majorSchedule = (majorRuleSource || []).map((rule, index) => ({
-    ...rule,
-    ...(overrides.majorSeveritySanctionMap?.[index] || {}),
-    min: rule.min,
-    max: rule.max,
-  }));
+  for (const schoolScope of ['elementary', 'high_school']) {
+    for (const [key, sanction] of Object.entries(overrides[`${schoolScope}SanctionOverrides`] || {})) {
+      const [offenseTypeId, subcategoryId, offenseNumber] = key.split('-');
+      sanctionOverrides.set(`${offenseTypeId}-${subcategoryId}-${schoolScope}-${offenseNumber}`, sanction);
+    }
+  }
 
   runtimeHandbook = {
     ...runtimeHandbook,
-    offenseTypes: (runtimeHandbook.offenseTypes || []).map((type) => {
-      if (type.id === 'minor') return { ...type, sanctionSchedule: minorSchedule };
-      if (type.id === 'major') return { ...type, severitySanctionMap: majorSchedule };
-      return type;
-    }),
+    offenseTypes: (runtimeHandbook.offenseTypes || []).map((type) => ({
+      ...type,
+      sanctionSchedule: (type.sanctionSchedule || []).map((rule) => ({
+        ...rule,
+        sanction: sanctionOverrides.get(
+          `${type.id}-${rule.subcategoryId}-${rule.schoolScope}-${rule.offenseNumber}`
+        ) ?? rule.sanction,
+      })),
+    })),
   };
 
   rebuildIndexes();
@@ -84,12 +98,24 @@ export function applyHandbookOverrides(overrides = {}) {
   if (overrides.offenseTypes) {
     runtimeHandbook = {
       ...runtimeHandbook,
-      offenseTypes: overrides.offenseTypes.map((type) => ({
-        ...type,
-        subcategories: Array.isArray(type.subcategories) ? type.subcategories.map((sub) => ({ ...sub })) : [],
-        sanctionSchedule: Array.isArray(type.sanctionSchedule) ? type.sanctionSchedule.map((rule) => ({ ...rule })) : [],
-        severitySanctionMap: Array.isArray(type.severitySanctionMap) ? type.severitySanctionMap.map((rule) => ({ ...rule })) : [],
-      })),
+      offenseTypes: baseHandbook.offenseTypes.map((baseType) => {
+        const type = overrides.offenseTypes.find((override) => override.id === baseType.id);
+        const typeOverrides = { ...(type || {}) };
+        delete typeOverrides.severitySanctionMap;
+        delete typeOverrides.scoringNote;
+        const hasProgressiveSchedule = Array.isArray(type?.sanctionSchedule)
+          && type.sanctionSchedule.some((rule) => rule.subcategoryId && rule.schoolScope);
+        return {
+          ...baseType,
+          ...typeOverrides,
+          subcategories: Array.isArray(type?.subcategories)
+            ? type.subcategories.map((subcategory) => ({ ...subcategory }))
+            : baseType.subcategories,
+          sanctionSchedule: hasProgressiveSchedule
+            ? type.sanctionSchedule.map((rule) => ({ ...rule }))
+            : baseType.sanctionSchedule.map((rule) => ({ ...rule })),
+        };
+      }),
     };
   }
 
@@ -238,42 +264,13 @@ export function isIllegalActivityOffense(offenseId) {
   return offenseIndex[offenseId]?.isIllegal === true;
 }
 
-/**
- * Returns the handbook sanction for a MINOR offense based on offense number.
- * @param {1|2|3} offenseNumber
- * @returns {{ label: string, sanction: string } | null}
- */
-export function getMinorSanctionByOffenseNumber(offenseNumber) {
-  const minor = runtimeHandbook.offenseTypes?.find((type) => type.id === 'minor');
-  if (!minor) return null;
-  const clamped = Math.min(Math.max(offenseNumber, 1), 3);
-  return minor.sanctionSchedule.find((rule) => rule.offenseNumber === clamped) ?? null;
-}
-
-/**
- * Returns the handbook sanction for a MAJOR offense based on admin severity score (1-10).
- * @param {number} score — integer 1 to 10
- * @returns {{ label: string, sanction: string } | null}
- */
-export function getMajorSanctionByScore(score) {
-  const major = runtimeHandbook.offenseTypes?.find((type) => type.id === 'major');
-  if (!major) return null;
-  const clamped = Math.min(Math.max(score, 1), 10);
-  return major.severitySanctionMap.find((rule) => clamped >= rule.min && clamped <= rule.max) ?? null;
-}
-
-/**
- * Returns the full sanctionSchedule array for minor offenses.
- */
-export function getMinorSanctionSchedule() {
-  return runtimeHandbook.offenseTypes?.find((type) => type.id === 'minor')?.sanctionSchedule ?? [];
-}
-
-/**
- * Returns the full severitySanctionMap array for major offenses.
- */
-export function getMajorSanctionMap() {
-  return runtimeHandbook.offenseTypes?.find((type) => type.id === 'major')?.severitySanctionMap ?? [];
+export function getSanctionByOffenseNumber(offenseTypeId, subcategoryId, schoolScope, offenseNumber) {
+  const offenseType = runtimeHandbook.offenseTypes?.find((type) => type.id === offenseTypeId);
+  return offenseType?.sanctionSchedule?.find((rule) =>
+    rule.subcategoryId === subcategoryId &&
+    rule.schoolScope === schoolScope &&
+    rule.offenseNumber === offenseNumber
+  ) ?? null;
 }
 
 /**

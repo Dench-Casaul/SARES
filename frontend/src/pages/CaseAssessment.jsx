@@ -103,7 +103,7 @@ export default function CaseAssessment() {
   const subcategoryLabel = SUBCATEGORY_LABELS[caseData.subcategory_id] || caseData.subcategory_id || "—";
   const isMediation = String(caseData.intervention_type || "").toLowerCase() === "mediation";
   const isPending = String(caseData.status || "").toLowerCase() === "pending";
-  const identifiedSanction = caseData.identified_sanction || formatIdentifiedSanction(caseData);
+  const identifiedSanction = formatIdentifiedSanction(caseData);
   const evidenceFiles = Array.isArray(caseData.evidence_urls) ? caseData.evidence_urls : [];
   const groupMembers = Array.isArray(location.state?.groupCaseData) ? location.state.groupCaseData : [caseData];
   const incidentNatureText = [caseData.group_title, caseData.offense_variety, caseData.incident_description].join(" ").toLowerCase();
@@ -176,20 +176,13 @@ export default function CaseAssessment() {
         </section>
 
         <section className="ca-grid" data-help-target="assessment-sanction" style={{ marginTop: "16px" }}>
-          {isMinor && (
-            <article className="ca-card">
-              <h2>Offense Count</h2>
-              <div className="ca-row"><span>This is offense</span><strong className="ca-highlight">{caseData.offense_number ? `#${caseData.offense_number}` : "—"}</strong></div>
-              <p className="ca-sub" style={{ marginTop: "8px" }}>Counted cumulatively across all minor violations for this school year.</p>
-            </article>
-          )}
-          {isMajor && (
-            <article className="ca-card">
-              <h2>Severity Assessment</h2>
-              <div className="ca-row"><span>Severity Score</span><strong className="ca-highlight">{caseData.severity_score !== null && caseData.severity_score !== undefined ? `${caseData.severity_score} / 10` : "—"}</strong></div>
-              <p className="ca-sub" style={{ marginTop: "8px" }}>Score assessed by the admin/counselor based on gravity of incident.</p>
-            </article>
-          )}
+          <article className="ca-card">
+            <h2>Offense Count</h2>
+            <div className="ca-row"><span>This is offense</span><strong className="ca-highlight">{caseData.offense_number ? `#${caseData.offense_number}` : "—"}</strong></div>
+            <p className="ca-sub" style={{ marginTop: "8px" }}>
+              Counted by offense level for this school year using the {caseData.school_scope === "elementary" ? "Elementary" : caseData.school_scope === "high_school" ? "High School" : "applicable"} schedule.
+            </p>
+          </article>
 
           {!(isMediation && (caseData.status === 'resolved' || caseData.mediation_status === 'resolved')) && (
             <article className="ca-card">
@@ -203,7 +196,7 @@ export default function CaseAssessment() {
               </div>
               <div className="ca-row" style={{ marginTop: "10px" }}>
                 <span>Handbook Section</span>
-                <strong>Student Discipline Handbook — {isMinor ? "Minor Offense Schedule" : "Major Offense Severity Map"}</strong>
+                <strong>Student Discipline Handbook — Progressive Discipline Table</strong>
               </div>
             </article>
           )}

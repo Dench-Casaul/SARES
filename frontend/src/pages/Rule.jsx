@@ -4,7 +4,7 @@ import { doc, onSnapshot, serverTimestamp, setDoc, updateDoc } from 'firebase/fi
 import '../css/Rule.css'
 import wesleyLogo from '../assets/wesley-logo.png'
 import { Activity, LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X, ChevronDown, ChevronRight, Save, Plus, Pencil, Trash2, KeyRound } from 'lucide-react'
-import { applyHandbookOverrides, applySanctionOverrides, getHandbook, getSanctionOverrides } from '../data/handbookIndex'
+import { applyHandbookOverrides, applySanctionOverrides, getHandbook, getSanctionOverrides, toSchoolSanctionOverrides } from '../data/handbookIndex'
 import { db } from '../firebase'
 import { formatIdentifiedSanction } from '../engine/sanctionLabel'
 import { useAuthProfile } from '../authContext'
@@ -101,7 +101,20 @@ const SUBCATEGORY_LABELS = {
   very_serious: 'Very Serious',
 }
 
-const SEVERITY_OPTIONS = [
+const SCHOOL_LEVELS = [
+  { id: 'elementary', label: 'Elementary' },
+  { id: 'high_school', label: 'High School' },
+]
+
+const OFFENSE_NUMBERS = [1, 2, 3, 4]
+const OFFENSE_NUMBER_LABELS = {
+  1: '1st Offense',
+  2: '2nd Offense',
+  3: '3rd Offense',
+  4: '4th Offense',
+}
+
+const OFFENSE_LEVELS = [
   { id: 'light', label: 'Light', category: 'minor' },
   { id: 'less_serious', label: 'Less Serious', category: 'minor' },
   { id: 'serious', label: 'Serious', category: 'major' },
@@ -157,19 +170,44 @@ export default function Rule() {
     setPanelError('');
     setPanelMessage('');
     try {
-      await setDoc(doc(db, 'rules', 'handbook_sanctions'), {
-        ...sanctionDraft,
-        offenseGroups: handbookDraft.offenseGroups,
-        offenseTypes: handbookDraft.offenseTypes,
-        updated_at: serverTimestamp(),
-      });
+      if (userProfile?.role === 'superadmin') {
+        await setDoc(doc(db, 'rules', 'handbook_sanctions'), {
+          ...sanctionDraft,
+          elementarySanctionOverrides: toSchoolSanctionOverrides(sanctionDraft.offenseSanctionSchedule, 'elementary'),
+          high_schoolSanctionOverrides: toSchoolSanctionOverrides(sanctionDraft.offenseSanctionSchedule, 'high_school'),
+          offenseGroups: handbookDraft.offenseGroups,
+          offenseTypes: handbookDraft.offenseTypes,
+          updated_at: serverTimestamp(),
+        });
+      } else if (userProfile?.role === 'counselor' && ['elementary', 'high_school'].includes(userProfile.school_scope)) {
+        const field = `${userProfile.school_scope}SanctionOverrides`;
+        await setDoc(doc(db, 'rules', 'handbook_sanctions'), {
+          [field]: toSchoolSanctionOverrides(sanctionDraft.offenseSanctionSchedule, userProfile.school_scope),
+          updated_at: serverTimestamp(),
+        }, { merge: true });
+      } else {
+        throw new Error('This account is not permitted to edit sanction rules.');
+      }
       await recordActivity(userProfile, ACTIVITY_ACTIONS.HANDBOOK_UPDATED, 'handbook', 'handbook_sanctions');
-      applyHandbookOverrides({
-        offenseGroups: handbookDraft.offenseGroups,
-        offenseTypes: handbookDraft.offenseTypes,
+      if (userProfile.role === 'superadmin') {
+        applyHandbookOverrides({
+          offenseGroups: handbookDraft.offenseGroups,
+          offenseTypes: handbookDraft.offenseTypes,
+        });
+      }
+      applySanctionOverrides({
+        ...sanctionDraft,
+        ...(userProfile.role === 'superadmin' ? {
+          elementarySanctionOverrides: toSchoolSanctionOverrides(sanctionDraft.offenseSanctionSchedule, 'elementary'),
+          high_schoolSanctionOverrides: toSchoolSanctionOverrides(sanctionDraft.offenseSanctionSchedule, 'high_school'),
+        } : {
+          [`${userProfile.school_scope}SanctionOverrides`]: toSchoolSanctionOverrides(sanctionDraft.offenseSanctionSchedule, userProfile.school_scope),
+        }),
       });
-      applySanctionOverrides(sanctionDraft);
-      setPanelMessage('Sanction rules saved. New recommendations will use these values.');
+      setHandbookDraft(structuredClone(getHandbook()));
+      setPanelMessage(userProfile.role === 'superadmin'
+        ? 'Sanction rules saved. New recommendations will use these values.'
+        : `${userProfile.school_scope === 'elementary' ? 'Elementary' : 'High School'} sanction rules saved. New recommendations will use these values.`);
     } catch (error) {
       console.error('Failed to save sanction rules:', error);
       setPanelError('Could not save sanction rules. Check your access and try again.');
@@ -273,6 +311,7 @@ export default function Rule() {
 
   const saveClassDraft = (event) => {
     event.preventDefault();
+    if (userProfile?.role !== 'superadmin') return;
     if (!classEditor) return;
     const groupTitle = classEditor.groupTitle.trim();
     const offenses = classEditor.offenses
@@ -296,7 +335,7 @@ export default function Rule() {
       group.groupTitle.trim().toLowerCase() === groupTitle.toLowerCase()
     );
     if (duplicateClass) {
-      setPanelError('An offense class with that name already exists for this offense type and severity.');
+      setPanelError('An offense class with that name already exists for this offense type and level.');
       return;
     }
 
@@ -327,6 +366,7 @@ export default function Rule() {
   };
 
   const deleteClassDraft = (group) => {
+    if (userProfile?.role !== 'superadmin') return;
     setHandbookDraft({
       ...handbookDraft,
       offenseGroups: handbookDraft.offenseGroups.filter((item) => item !== group),
@@ -336,6 +376,10 @@ export default function Rule() {
   };
 
   const saveViolationCatalog = async () => {
+    if (userProfile?.role !== 'superadmin') {
+      setPanelError('Only a superadmin can edit the shared violation catalog.');
+      return;
+    }
     setSavingPanel(true);
     setPanelError('');
     setPanelMessage('');
@@ -352,6 +396,8 @@ export default function Rule() {
         offenseGroups: handbookDraft.offenseGroups,
         offenseTypes: handbookDraft.offenseTypes,
       });
+      applySanctionOverrides(sanctionDraft);
+      setHandbookDraft(structuredClone(getHandbook()));
       setPanelMessage('Violation catalog saved successfully.');
     } catch (error) {
       console.error('Failed to save violation catalog:', error);
@@ -379,7 +425,6 @@ export default function Rule() {
   };
 
   const offenseTypes = handbookDraft.offenseTypes;
-  const currentType = offenseTypes.find(t => t.id === activeType);
 
   const toggleGroup = (num) => {
     setExpandedGroup(expandedGroup === num ? null : num);
@@ -398,11 +443,13 @@ export default function Rule() {
 
     return matchType && matchSub && matchCat && matchSearch;
   });
-  const updateSanctionDraft = (key, index, value) => {
+  const updateSanctionDraft = (key, value) => {
     setSanctionDraft((previous) => ({
       ...previous,
-      [key]: previous[key].map((rule, ruleIndex) =>
-        ruleIndex === index ? { ...rule, sanction: value } : rule
+      offenseSanctionSchedule: previous.offenseSanctionSchedule.map((rule) =>
+        `${rule.offenseTypeId}-${rule.subcategoryId}-${rule.schoolScope}-${rule.offenseNumber}` === key
+          ? { ...rule, sanction: value }
+          : rule
       ),
     }));
   };
@@ -436,7 +483,7 @@ export default function Rule() {
         <div className="rm-tabs" data-help-target="rule-tabs" role="tablist" aria-label="Rule and violation management">
           <button type="button" data-help-control="rule-tab-handbook" role="tab" aria-selected={activePanel === 'browse'} className={activePanel === 'browse' ? 'active' : ''} onClick={() => setActivePanel('browse')}>Handbook</button>
           <button type="button" data-help-control="rule-tab-rules" role="tab" aria-selected={activePanel === 'rules'} className={activePanel === 'rules' ? 'active' : ''} onClick={() => setActivePanel('rules')}>Update Rules</button>
-          <button type="button" data-help-control="rule-tab-violations" role="tab" aria-selected={activePanel === 'violations'} className={activePanel === 'violations' ? 'active' : ''} onClick={() => setActivePanel('violations')}>Update Violations</button>
+          {userProfile?.role === 'superadmin' && <button type="button" data-help-control="rule-tab-violations" role="tab" aria-selected={activePanel === 'violations'} className={activePanel === 'violations' ? 'active' : ''} onClick={() => setActivePanel('violations')}>Update Violations</button>}
         </div>
 
         {panelMessage && <p className="rm-panel-message" role="status">{panelMessage}</p>}
@@ -477,13 +524,13 @@ export default function Rule() {
             </div>
 
             <div className="rm-filter-item">
-              <label>Severity</label>
+              <label>Offense Level</label>
               <select value={tempSubcategory || 'all'} onChange={(e) => {
                 setTempSubcategory(e.target.value);
                 setTempCategoryFilter('all');
               }}>
-                <option value="all">All Severities</option>
-                {SEVERITY_OPTIONS.filter(s => tempType === 'all' || s.category === tempType).map(s => (
+                <option value="all">All Levels</option>
+                {OFFENSE_LEVELS.filter(s => tempType === 'all' || s.category === tempType).map(s => (
                   <option key={s.id} value={s.id}>{s.label}</option>
                 ))}
               </select>
@@ -518,6 +565,7 @@ export default function Rule() {
             filteredGroups.map(group => {
               const isExpanded = expandedGroup === group.handbookNumber;
               const subColors = SUBCATEGORY_COLORS[group.subcategoryId] || {};
+              const groupType = offenseTypes.find((type) => type.id === group.categoryId);
               return (
                 <div className={`rm-group${isExpanded ? ' rm-group--open' : ''}`} key={`${group.categoryId}-${group.subcategoryId}-${group.handbookNumber}`}>
                   <button className="rm-group-header" onClick={() => toggleGroup(group.handbookNumber)}>
@@ -545,36 +593,26 @@ export default function Rule() {
                           <tr>
                             <th style={{ width: '50px' }}>#</th>
                             <th>Violation</th>
-                            {activeType === 'minor' && (
-                              <>
-                                <th>1st Offense</th>
-                                <th>2nd Offense</th>
-                                <th>3rd Offense</th>
-                              </>
-                            )}
-                            {activeType === 'major' && (
-                              <>
-                                <th>Score 1–3</th>
-                                <th>Score 4–6</th>
-                                <th>Score 7–8</th>
-                                <th>Score 9–10</th>
-                              </>
-                            )}
+                            <th>School Level</th>
+                            {OFFENSE_NUMBERS.map((number) => <th key={number}>{OFFENSE_NUMBER_LABELS[number]}</th>)}
                           </tr>
                         </thead>
                         <tbody>
-                          {group.offenses.map((offense, idx) => (
-                            <tr key={offense.id}>
-                              <td className="rm-offense-idx">{idx + 1}</td>
+                          {group.offenses.flatMap((offense, index) => SCHOOL_LEVELS.map((schoolLevel) => (
+                            <tr key={`${offense.id}-${schoolLevel.id}`}>
+                              <td className="rm-offense-idx">{index + 1}</td>
                               <td className="rm-offense-title">{offense.title}</td>
-                              {activeType === 'minor' && currentType?.sanctionSchedule?.map((s) => (
-                                <td key={s.offenseNumber} className="rm-sanction-cell">{s.sanction}</td>
-                              ))}
-                              {activeType === 'major' && currentType?.severitySanctionMap?.map((s, i) => (
-                                <td key={i} className="rm-sanction-cell">{s.sanction}</td>
-                              ))}
+                              <td>{schoolLevel.label}</td>
+                              {OFFENSE_NUMBERS.map((offenseNumber) => {
+                                const rule = groupType?.sanctionSchedule?.find((item) =>
+                                  item.subcategoryId === group.subcategoryId
+                                  && item.schoolScope === schoolLevel.id
+                                  && item.offenseNumber === offenseNumber
+                                );
+                                return <td key={offenseNumber} className="rm-sanction-cell">{rule?.sanction || '—'}</td>;
+                              })}
                             </tr>
-                          ))}
+                          )))}
                         </tbody>
                       </table>
                     </div>
@@ -590,29 +628,43 @@ export default function Rule() {
           <form className="rm-editor-panel" onSubmit={saveSanctionRules}>
             <div className="rm-editor-heading">
               <div><h2>Sanction Rules</h2><p>Saved values apply to new recommendations. Existing case records are not rewritten.</p></div>
-              <button className="rm-apply-btn rm-save-btn" data-help-target="rule-save-rules" type="submit" disabled={savingPanel}><Save size={16} /> {savingPanel ? 'Saving...' : 'Save Rules'}</button>
+              <button className="rm-apply-btn rm-save-btn" data-help-target="rule-save-rules" type="submit" disabled={savingPanel}><Save size={16} /> {savingPanel ? 'Saving...' : userProfile?.role === 'superadmin' ? 'Save Rules' : `Save ${userProfile?.school_scope === 'elementary' ? 'Elementary' : 'High School'} Rules`}</button>
             </div>
             <div data-help-target="rule-sanction-schedule">
-              <h3>Minor offense schedule</h3>
-              <div className="rm-sanction-edit-grid">
-                {sanctionDraft.minorSanctionSchedule.map((rule, index) => (
-                  <label key={rule.offenseNumber}>
-                    <span>{rule.label}</span>
-                    <textarea rows="3" required value={rule.sanction} onChange={(event) => updateSanctionDraft('minorSanctionSchedule', index, event.target.value)} />
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div data-help-target="rule-severity-map">
-              <h3>Major offense severity map</h3>
-              <div className="rm-sanction-edit-grid rm-major-edit-grid">
-                {sanctionDraft.majorSeveritySanctionMap.map((rule, index) => (
-                  <label key={rule.min}>
-                    <span>Severity {rule.min}–{rule.max}</span>
-                    <textarea rows="3" required value={rule.sanction} onChange={(event) => updateSanctionDraft('majorSeveritySanctionMap', index, event.target.value)} />
-                  </label>
-                ))}
-              </div>
+              <p>Offense counts advance within the same level for each student in the school year.</p>
+              {userProfile?.role !== 'superadmin' && <p>You can edit only the sanction rules for your school level.</p>}
+              {OFFENSE_LEVELS.map((level) => (
+                <section key={level.id} className="rm-sanction-level">
+                  <h3>{level.label} Offenses</h3>
+                  {SCHOOL_LEVELS.filter((schoolLevel) => userProfile?.role === 'superadmin' || schoolLevel.id === userProfile?.school_scope).map((schoolLevel) => {
+                    const rules = sanctionDraft.offenseSanctionSchedule
+                      .filter((rule) => rule.subcategoryId === level.id && rule.schoolScope === schoolLevel.id)
+                      .sort((left, right) => left.offenseNumber - right.offenseNumber);
+                    return (
+                      <div key={schoolLevel.id} className="rm-sanction-school-level">
+                        <h4>{schoolLevel.label}</h4>
+                        <div className="rm-sanction-edit-grid">
+                          {rules.map((rule) => (
+                            <label key={`${rule.offenseTypeId}-${rule.subcategoryId}-${rule.schoolScope}-${rule.offenseNumber}`}>
+                              <span>{OFFENSE_NUMBER_LABELS[rule.offenseNumber]}</span>
+                              <textarea
+                                rows="3"
+                                required
+                                value={rule.sanction}
+                                readOnly={userProfile?.role !== 'superadmin' && schoolLevel.id !== userProfile?.school_scope}
+                                onChange={(event) => updateSanctionDraft(
+                                  `${rule.offenseTypeId}-${rule.subcategoryId}-${rule.schoolScope}-${rule.offenseNumber}`,
+                                  event.target.value
+                                )}
+                              />
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </section>
+              ))}
             </div>
           </form>
         )}
@@ -620,7 +672,7 @@ export default function Rule() {
         {activePanel === 'violations' && (
           <section className="rm-editor-panel">
             <div className="rm-editor-heading">
-              <div><h2>Violation Catalog</h2><p>Add or remove handbook violations and assign the offense type and severity that governs them.</p></div>
+              <div><h2>Violation Catalog</h2><p>Add or remove handbook violations and assign the offense type and level that governs them.</p></div>
               <button type="button" className="rm-apply-btn" data-help-target="rule-save-catalog" onClick={saveViolationCatalog} disabled={savingPanel}><Save size={16} /> {savingPanel ? 'Saving...' : 'Save Catalog'}</button>
             </div>
 
@@ -680,7 +732,7 @@ export default function Rule() {
               <div className="rm-editor-heading">
                 <div>
                   <h2>{classEditor.originalGroup ? 'Edit Offense Class' : 'Add Offense Class'}</h2>
-                  <p>Set the class and severity, then manage the violations it contains.</p>
+                  <p>Set the offense class and level, then manage the violations it contains.</p>
                 </div>
                 <button type="button" className="rm-modal-close" aria-label="Close editor" onClick={() => setClassEditor(null)}>×</button>
               </div>
@@ -701,7 +753,7 @@ export default function Rule() {
                   </select>
                 </label>
                 <label>
-                  Severity
+                  Offense Level
                   <select
                     value={classEditor.subcategoryId}
                     onChange={(event) => setClassEditor((previous) => ({ ...previous, subcategoryId: event.target.value }))}

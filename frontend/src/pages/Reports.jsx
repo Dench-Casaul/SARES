@@ -332,7 +332,7 @@ export default function Report() {
                         <td>{v.student_name || v.student_id || "Unknown"}</td>
                         <td>{v.offense_variety || v.rule_name || v.category_name || v.offense_type || "Unspecified"}</td>
                         <td>{v.reported_by || "N/A"}</td>
-                        <td>{!(v.intervention_type === 'mediation' && (v.status === 'resolved' || v.mediation_status === 'resolved')) ? (v.identified_sanction || formatIdentifiedSanction(v)) : "—"}</td>
+                        <td>{!(v.intervention_type === 'mediation' && (v.status === 'resolved' || v.mediation_status === 'resolved')) ? formatIdentifiedSanction(v) : "—"}</td>
                         <td>{Array.isArray(v.evidence_urls) ? v.evidence_urls.length : 0}</td>
                       </tr>
                     );

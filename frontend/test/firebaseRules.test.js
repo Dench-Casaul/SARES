@@ -32,6 +32,10 @@ beforeEach(async () => {
       setDoc(doc(firestore, 'users', 'superadmin'), { role: 'superadmin', school_scope: 'all' }),
       setDoc(doc(firestore, 'users', 'elementary'), { role: 'counselor', school_scope: 'elementary' }),
       setDoc(doc(firestore, 'users', 'highschool'), { role: 'counselor', school_scope: 'high_school' }),
+      setDoc(doc(firestore, 'rules', 'handbook_sanctions'), {
+        offenseGroups: [],
+        offenseTypes: [],
+      }),
       setDoc(doc(firestore, 'students', 'elementary-student'), {
         year_level: '6th Grade', school_scope: 'elementary', student_number: 'E-1',
       }),
@@ -88,6 +92,55 @@ test('counselors cannot read another school level or promote their own profile',
   await assertFails(setDoc(doc(firestore, 'users', 'elementary'), {
     role: 'superadmin', school_scope: 'all',
   }));
+});
+
+test('counselors can edit only their own school sanction overrides', async () => {
+  const elementaryDb = signedInAs('elementary').firestore();
+  const highSchoolDb = signedInAs('highschool').firestore();
+  const rulesDocument = (firestore) => doc(firestore, 'rules', 'handbook_sanctions');
+  const elementarySchedule = {
+    'minor-light-1': 'Elementary rule',
+  };
+  const highSchoolSchedule = {
+    'minor-light-1': 'High School rule',
+  };
+
+  await assertSucceeds(setDoc(rulesDocument(elementaryDb), {
+    elementarySanctionOverrides: elementarySchedule,
+    updated_at: serverTimestamp(),
+  }, { merge: true }));
+  await assertFails(setDoc(rulesDocument(elementaryDb), {
+    high_schoolSanctionOverrides: highSchoolSchedule,
+    updated_at: serverTimestamp(),
+  }, { merge: true }));
+  await assertFails(setDoc(rulesDocument(elementaryDb), {
+    elementarySanctionOverrides: { 'major-serious-4': 'Invalid offense number' },
+    updated_at: serverTimestamp(),
+  }, { merge: true }));
+  await assertFails(setDoc(rulesDocument(elementaryDb), {
+    elementarySanctionOverrides: elementarySchedule,
+    offenseGroups: [{ groupTitle: 'Unauthorized catalog edit' }],
+    updated_at: serverTimestamp(),
+  }, { merge: true }));
+
+  await assertSucceeds(setDoc(rulesDocument(highSchoolDb), {
+    high_schoolSanctionOverrides: highSchoolSchedule,
+    updated_at: serverTimestamp(),
+  }, { merge: true }));
+  await assertFails(setDoc(rulesDocument(highSchoolDb), {
+    elementarySanctionOverrides: { 'minor-light-1': 'Unauthorized change' },
+    updated_at: serverTimestamp(),
+  }, { merge: true }));
+});
+
+test('superadmins can update both school schedules and the shared violation catalog', async () => {
+  const firestore = signedInAs('superadmin').firestore();
+  await assertSucceeds(setDoc(doc(firestore, 'rules', 'handbook_sanctions'), {
+    elementarySanctionOverrides: { 'minor-light-1': 'Elementary rule' },
+    high_schoolSanctionOverrides: { 'minor-light-1': 'High School rule' },
+    offenseGroups: [{ groupTitle: 'Updated catalog' }],
+    updated_at: serverTimestamp(),
+  }, { merge: true }));
 });
 
 test('provisioned counselors can atomically advance only the incident report sequence', async () => {

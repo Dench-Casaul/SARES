@@ -7,6 +7,7 @@ import { queryForUserScope } from '../firestoreAccess'
 import { isRecordInTrash } from '../recordStatus'
 import { canAccessSchoolScope, getSchoolScopeForYear } from '../schoolScope'
 import { doesViolationCount, evaluateSaresRecommendation, isViolationServed } from '../engine/ruleEngine'
+import { formatIdentifiedSanction } from '../engine/sanctionLabel'
 import { saveViolationsWithCaseNumbers } from '../engine/incidentCaseNumber'
 import '../css/Student.css'
 import wesleyLogo from '../assets/wesley-logo.png'
@@ -274,7 +275,6 @@ function AddViolationModal({ onClose, onSubmit, initialForm }) {
     offense_id: initialForm?.offense_id || '',
     offense_title: initialForm?.offense_title || '',
     group_title: initialForm?.group_title || '',
-    severity_score: initialForm?.severity_score ?? 5,
     handling_path: initialForm?.handling_path || 'sanction',
     incident_description: initialForm?.incident_description || '',
   });
@@ -326,12 +326,10 @@ function AddViolationModal({ onClose, onSubmit, initialForm }) {
   };
 
   const submit = () => {
-    if (form.offense_type === 'major' && (!form.severity_score || Number(form.severity_score) < 1 || Number(form.severity_score) > 10)) return;
     if (!form.offense_type || !form.subcategory_id || !form.offense_id || !form.incident_description.trim()) return;
     onSubmit({
       ...form,
       group_number: Number(form.group_number),
-      severity_score: form.offense_type === 'major' ? Number(form.severity_score) : null,
       incident_description: form.incident_description.trim(),
     });
   };
@@ -394,22 +392,6 @@ function AddViolationModal({ onClose, onSubmit, initialForm }) {
               ))}
             </select>
           </div>
-
-          {form.offense_type === 'major' && (
-            <div className="s-field">
-              <label className="s-label">Severity Score (1-10)</label>
-              <input
-                type="range"
-                min="1"
-                max="10"
-                step="1"
-                className="s-input"
-                value={form.severity_score}
-                onChange={(e) => setForm((prev) => ({ ...prev, severity_score: Number(e.target.value) }))}
-              />
-              <div className="s-modal-sub">Selected score: <strong>{form.severity_score}</strong></div>
-            </div>
-          )}
 
           <div className="s-field">
             <label className="s-label">Handling Path</label>
@@ -536,8 +518,11 @@ function CaseManagementModal({ student, violationDraft, onClose, onSaved }) {
         offenseId: violationDraft.offense_id,
         studentId: student.docId,
         incidentDate: today,
-        severityScore: violationDraft.offense_type === 'major' ? Number(violationDraft.severity_score || 5) : 5,
+        subcategoryId: violationDraft.subcategory_id,
+        schoolScope: student.school_scope || getSchoolScopeForYear(student.year_level || student.year),
+        yearLevel: student.year_level || student.year,
         existingViolations,
+        currentIncident: { incident_date: today },
       });
 
       const recommendedSanction = recommendation?.recommendedSanction || 'No recommendation available.';
@@ -549,7 +534,7 @@ function CaseManagementModal({ student, violationDraft, onClose, onSaved }) {
         student_name: student.name,
         student_number: student.id || '',
         year_level: student.year || '',
-        school_scope: student.school_scope,
+        school_scope: recommendation?.schoolScope || getSchoolScopeForYear(student.year_level || student.year),
         incident_date: today,
         incident_description: violationDraft.incident_description,
         offense_type: violationDraft.offense_type,
@@ -561,11 +546,19 @@ function CaseManagementModal({ student, violationDraft, onClose, onSaved }) {
         offense_id: violationDraft.offense_id,
         offense_variety: violationDraft.offense_title,
         category_name: violationDraft.group_title,
-        offense_number: violationDraft.offense_type === 'minor' ? recommendation?.cumulativeOffenseNumber || recommendation?.offenseNumber || 1 : null,
-        cumulative_offense_number: violationDraft.offense_type === 'minor' ? recommendation?.cumulativeOffenseNumber || recommendation?.offenseNumber || 1 : null,
-        suspension_eligible: violationDraft.offense_type === 'minor' ? Boolean(recommendation?.suspensionEligible) : false,
-        severity_score: violationDraft.offense_type === 'major' ? Number(violationDraft.severity_score || 5) : null,
+        offense_number: recommendation?.offenseNumber || 1,
+        cumulative_offense_number: recommendation?.offenseNumber || 1,
         recommended_sanction: recommendedSanction,
+        identified_sanction: formatIdentifiedSanction({
+          offense_type: violationDraft.offense_type,
+          subcategory_id: violationDraft.subcategory_id,
+          school_scope: recommendation?.schoolScope,
+          offense_number: recommendation?.offenseNumber,
+          school_year_key: recommendation?.schoolYearKey,
+          recommended_sanction: recommendedSanction,
+          intervention_type: isMediation ? 'mediation' : 'sanction',
+          status: isMediation ? 'pending' : 'recorded',
+        }),
         generated_explanation: counselorExplanation,
         explanation_source: 'manual_template',
         school_year_key: recommendation?.schoolYearKey || '',
@@ -584,10 +577,11 @@ function CaseManagementModal({ student, violationDraft, onClose, onSaved }) {
         variety: violationDraft.offense_title,
         description: violationDraft.incident_description,
         date: today,
-        offense_number: violationDraft.offense_type === 'minor' ? recommendation?.cumulativeOffenseNumber || recommendation?.offenseNumber || 1 : null,
-        cumulative_offense_number: violationDraft.offense_type === 'minor' ? recommendation?.cumulativeOffenseNumber || recommendation?.offenseNumber || 1 : null,
-        suspension_eligible: violationDraft.offense_type === 'minor' ? Boolean(recommendation?.suspensionEligible) : false,
-        severity: violationDraft.offense_type === 'major' ? Number(violationDraft.severity_score || 5) : 3,
+        offense_type: violationDraft.offense_type,
+        subcategory_id: violationDraft.subcategory_id,
+        school_scope: recommendation?.schoolScope || getSchoolScopeForYear(student.year_level || student.year),
+        offense_number: recommendation?.offenseNumber || 1,
+        cumulative_offense_number: recommendation?.offenseNumber || 1,
         sanction: recommendedSanction,
         generated_explanation: counselorExplanation,
         intervention_type: isMediation ? 'mediation' : 'sanction',
@@ -1388,14 +1382,6 @@ function StudentProfile({ student, onBack, onSelectViolation, onUpdateViolationS
                         </svg>
                         {v.date}
                       </span>
-                      {String(v.offense_type || '').toLowerCase() === 'major' && (
-                        <span>
-                          <svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12" style={{ marginRight: 4, verticalAlign: 'middle' }}>
-                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                          </svg>
-                          Severity: {v.severity}/10
-                        </span>
-                      )}
                     </div>
                     {!(v.intervention_type === 'mediation' && (v.status === 'resolved' || v.mediation_status === 'resolved')) && (
                       <>
@@ -1438,7 +1424,8 @@ function StudentProfile({ student, onBack, onSelectViolation, onUpdateViolationS
 /* Violation Details*/
 function ViolationDetails({ violation, student, onBack, onSetSuspensionDates, suspensionSaving, location, sidebarOpen, setSidebarOpen }) {
   const [showSuspensionModal, setShowSuspensionModal] = useState(false);
-  const canSetSuspension = String(violation?.offense_type || '').toLowerCase() === 'major'
+  const canSetSuspension = String(violation?.recommended_sanction || violation?.sanction || '').toLowerCase().includes('suspension')
+    || String(violation?.offense_type || '').toLowerCase() === 'major'
     || Boolean(violation?.suspension_eligible)
     || Number(violation?.cumulative_offense_number || 0) > 3;
 
@@ -1781,7 +1768,6 @@ export default function Students() {
             group_members: groupMembers,
             date: violation.incident_date || '',
             offense_type: violation.offense_type || '',
-            severity: violation.severity_score ?? (violation.offense_type === 'major' ? 8 : 3),
             sanction: violation.recommended_sanction || 'N/A',
             generated_explanation: violation.generated_explanation || '',
             status: isNoReadmissionSanction(violation.recommended_sanction)
