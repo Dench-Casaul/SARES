@@ -8,6 +8,7 @@ import { isRecordInTrash } from '../recordStatus'
 import { canAccessSchoolScope, getSchoolScopeForYear } from '../schoolScope'
 import { doesViolationCount, evaluateSaresRecommendation, isViolationServed } from '../engine/ruleEngine'
 import { formatIdentifiedSanction } from '../engine/sanctionLabel'
+import { getViolationDescription } from '../engine/violationDescription';
 import { saveViolationsWithCaseNumbers } from '../engine/incidentCaseNumber'
 import '../css/Student.css'
 import wesleyLogo from '../assets/wesley-logo.png'
@@ -1537,7 +1538,7 @@ function ViolationDetails({ violation, student, onBack, onSetSuspensionDates, su
           <div className="s-divider" />
 
           <div className="s-vd-field s-vd-field--full">
-            <div className="s-vd-field-label">Description</div>
+            <div className="s-vd-field-label">{violation.description_label || 'Description'}</div>
             <div className="s-vd-desc-box">{violation.description}</div>
           </div>
           <div className="s-divider" />
@@ -1754,12 +1755,14 @@ export default function Students() {
               };
             });
             const currentStudent = data.find((item) => String(item.student_id) === String(violation.student_id));
+            const description = getViolationDescription(violation);
             return {
             ...violation,
             id: violation.id,
             category: violation.category_name || violation.group_title || 'Unspecified',
             variety: violation.offense_variety || violation.offense_id || 'Unspecified',
-            description: violation.incident_description || violation.description || '',
+            description: description.text,
+            description_label: description.source ? description.label : 'Description',
             witnesses: violation.witnesses || '',
             student_name: violation.student_name || currentStudent?.full_name || currentStudent?.name || '',
             student_number: violation.student_number || currentStudent?.student_number || '',

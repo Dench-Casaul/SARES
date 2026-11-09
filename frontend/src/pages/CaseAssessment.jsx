@@ -15,6 +15,7 @@ import {
   KeyRound,
 } from "lucide-react";
 import { formatIdentifiedSanction } from "../engine/sanctionLabel";
+import { getViolationDescription } from "../engine/violationDescription";
 import { useAuthProfile } from "../authContext";
 import { ACTIVITY_ACTIONS, recordActivity } from "../activityLog";
 
@@ -104,6 +105,7 @@ export default function CaseAssessment() {
   const isMediation = String(caseData.intervention_type || "").toLowerCase() === "mediation";
   const isPending = String(caseData.status || "").toLowerCase() === "pending";
   const identifiedSanction = formatIdentifiedSanction(caseData);
+  const description = getViolationDescription(caseData);
   const evidenceFiles = Array.isArray(caseData.evidence_urls) ? caseData.evidence_urls : [];
   const groupMembers = Array.isArray(location.state?.groupCaseData) ? location.state.groupCaseData : [caseData];
   const incidentNatureText = [caseData.group_title, caseData.offense_variety, caseData.incident_description].join(" ").toLowerCase();
@@ -203,11 +205,21 @@ export default function CaseAssessment() {
         </section>
 
         <section className="ca-card" data-help-target="assessment-description" style={{ marginTop: "16px" }}>
-          <h2>Incident Description</h2>
-          <p className="ca-paragraph">{caseData.incident_description || "—"}</p>
+          <h2>{description.label}</h2>
+          <p className="ca-paragraph">{description.text || "—"}</p>
+          {description.source === "ai_counselor_recommendation" && (
+            <p className="ca-sub">
+              Generated from the selected handbook policy. It does not replace the rule-based sanction or professional judgment.
+            </p>
+          )}
+          {description.source === "ai_assisted_solution" && (
+            <p className="ca-sub">
+              Source: {caseData.ai_assisted_solution_source || "Gemini"}. AI-generated guidance for counselor review; it does not replace school policy or professional judgment.
+            </p>
+          )}
         </section>
 
-        {caseData.ai_counselor_recommendation && (
+        {caseData.ai_counselor_recommendation && description.source !== "ai_counselor_recommendation" && (
           <section className="ca-card" style={{ marginTop: "16px" }}>
             <h2>AI Counselor Recommendation</h2>
             <p className="ca-paragraph">{caseData.ai_counselor_recommendation}</p>
@@ -244,7 +256,7 @@ export default function CaseAssessment() {
           </section>
         )}
 
-        {caseData.ai_assisted_solution && (
+        {caseData.ai_assisted_solution && description.source !== "ai_assisted_solution" && (
           <section className="ca-card" style={{ marginTop: "16px" }}>
             <h2>AI-Assisted Prevention / Alternative Suggestion</h2>
             <p className="ca-paragraph">{caseData.ai_assisted_solution}</p>

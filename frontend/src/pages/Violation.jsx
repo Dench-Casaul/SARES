@@ -7,6 +7,7 @@ import { queryForUserScope } from '../firestoreAccess'
 import { isRecordInTrash } from '../recordStatus'
 import { getSchoolScopeForYear } from '../schoolScope'
 import { formatIdentifiedSanction } from '../engine/sanctionLabel'
+import { getViolationDescription } from '../engine/violationDescription'
 import { ACTIVITY_ACTIONS, recordActivity } from '../activityLog'
 import {
   buildViolationRecordsForStudents,
@@ -535,6 +536,11 @@ export default function Violation() {
   const offenseGroups = (form.offense_type && form.subcategory_id)
     ? listOffenseGroups(form.offense_type, form.subcategory_id)
     : []
+  const reviewDescription = getViolationDescription({
+    incident_description: form.incident_description,
+    ai_counselor_recommendation: aiCounselorRecommendation,
+    ai_assisted_solution: aiSuggestion,
+  })
   return (
     <div className="v-page">
       {/* Mobile bar */}
@@ -973,8 +979,18 @@ export default function Violation() {
                   {form.reporter_contact && <p className="v-review-meta">{form.reporter_contact}</p>}
                 </div>
                 <div className="v-review-section v-review-section--full">
-                  <h4>Incident Description</h4>
-                  <p>{form.incident_description || 'Not provided'}</p>
+                  <h4>{reviewDescription.label}</h4>
+                  <p>{reviewDescription.text || 'Not provided'}</p>
+                  {reviewDescription.source === 'ai_counselor_recommendation' && (
+                    <p className="v-review-meta">
+                      Generated from the selected handbook policy. It does not change the formal sanction recommendation.
+                    </p>
+                  )}
+                  {reviewDescription.source === 'ai_assisted_solution' && (
+                    <p className="v-review-meta">
+                      Source: {aiSuggestionSource || 'Gemini'} · AI-generated guidance for counselor review.
+                    </p>
+                  )}
                 </div>
                 {form.parent_contact_notes.trim() && (
                   <div className="v-review-section v-review-section--full">
@@ -982,7 +998,7 @@ export default function Violation() {
                     <p>{form.parent_contact_notes.trim()}</p>
                   </div>
                 )}
-                {useAiAssistance && (
+                {useAiAssistance && reviewDescription.source !== 'ai_assisted_solution' && (
                   <div className="v-review-section v-review-section--full v-ai-review">
                     <h4>AI-Assisted Prevention / Alternative Suggestion</h4>
                     {aiSuggestionLoading ? (
@@ -997,7 +1013,7 @@ export default function Violation() {
                     )}
                   </div>
                 )}
-                <div className="v-review-section v-review-section--full v-ai-review">
+                {reviewDescription.source !== 'ai_counselor_recommendation' && <div className="v-review-section v-review-section--full v-ai-review">
                   <h4>AI-Generated Counselor Recommendation</h4>
                     <p className="v-review-meta">
                       Generated from the selected handbook policy and incident details. This recommendation does not change the formal rule-based sanction.
@@ -1016,7 +1032,7 @@ export default function Violation() {
                         )}
                       </>
                     )}
-                </div>
+                </div>}
                 {form.witnesses && (
                   <div className="v-review-section v-review-section--full">
                     <h4>Witnesses</h4>

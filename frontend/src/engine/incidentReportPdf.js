@@ -1,4 +1,5 @@
 import { jsPDF } from "jspdf";
+import { getViolationDescription } from "./violationDescription.js";
 
 const INCIDENT_NATURES = [
   ["Bullying / Harassment", ["bullying", "harassment"]],
@@ -43,6 +44,7 @@ function drawCell(doc, x, y, width, height, label, value = "") {
 }
 
 export function createIncidentReportPdf(caseData, groupMembers = [caseData]) {
+  const description = getViolationDescription(caseData);
   const doc = new jsPDF({ unit: "mm", format: "letter" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 13;
@@ -176,7 +178,7 @@ export function createIncidentReportPdf(caseData, groupMembers = [caseData]) {
     y += wrappedLabels.length * 4;
   });
   y += 2;
-  addParagraph("Narrative Description of the Incident", caseData.incident_description, 24);
+  addParagraph(description.label, description.text, 24);
   if (caseData.parent_contact_notes) {
     addParagraph("Parent/Guardian Involvement", caseData.parent_contact_notes, 15);
   }
