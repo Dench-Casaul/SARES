@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { doc, onSnapshot, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore'
 import '../css/Rule.css'
 import wesleyLogo from '../assets/wesley-logo.png'
-import { Activity, LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X, ChevronDown, ChevronRight, Save, Plus, Pencil, Trash2, KeyRound } from 'lucide-react'
+import { LogOut, Menu, X, ChevronDown, ChevronRight, Save, Plus, Pencil, Trash2 } from 'lucide-react'
 import { applyHandbookOverrides, applySanctionOverrides, getHandbook, getSanctionOverrides, toSchoolSanctionOverrides } from '../data/handbookIndex'
 import { db } from '../firebase'
 import { formatIdentifiedSanction } from '../engine/sanctionLabel'
 import { useAuthProfile } from '../authContext'
 import { ACTIVITY_ACTIONS, recordActivity } from '../activityLog'
-import { endSession } from '../session'
+import { getNavItems } from '../navigation'
+import { useLogout } from '../useLogout'
 
 function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar, userProfile }) {
   return (
@@ -27,54 +28,14 @@ function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar, userProfile 
 
       <nav className="rule-nav">
         <ul className="rule-nav-list">
-          <li>
-            <Link to="/sares/dashboard" onClick={toggleSidebar} className={`rule-nav-item${activePage === '/sares/dashboard' ? ' rule-nav-item--active' : ''}`}>
-              <LayoutDashboard className="rule-nav-icon" />
-                <span>Dashboard</span>
-            </Link>
-          </li>
-
-          <li>
-            <Link to="/sares/students" onClick={toggleSidebar} className={`rule-nav-item${activePage === '/sares/students' ? ' rule-nav-item--active' : ''}`}>
-              <Users className="rule-nav-icon" />
-                <span>Students</span>
-            </Link>
-          </li>
-
-          <li>
-            <Link to="/sares/rules" onClick={toggleSidebar} className={`rule-nav-item${activePage === '/sares/rules' ? ' rule-nav-item--active' : ''}`}>
-              <ShieldCheck className="rule-nav-icon" />
-                <span>Rule Management</span>
-            </Link>
-          </li>
-
-          <li>
-            <Link to="/sares/reports" onClick={toggleSidebar} className={`rule-nav-item${activePage === '/sares/reports' ? ' rule-nav-item--active' : ''}`}>
-              <BarChart3 className="rule-nav-icon" />
-                <span>Reports</span>
-            </Link>
-          </li>
-
-          <li>
-            <Link to="/sares/violation" onClick={toggleSidebar} className={`rule-nav-item${activePage === '/sares/violation' ? ' rule-nav-item--active' : ''}`}>
-              <ClipboardList className="rule-nav-icon" />
-                <span>Log Violation</span>
-            </Link>
-          </li>
-          <li>
-            <Link to="/sares/account" onClick={toggleSidebar} className={`rule-nav-item${activePage === '/sares/account' ? ' rule-nav-item--active' : ''}`}>
-              <KeyRound className="rule-nav-icon" />
-              <span>Account Security</span>
-            </Link>
-          </li>
-          {userProfile?.role === 'superadmin' && (
-            <li>
-              <Link to="/sares/system-logs" onClick={toggleSidebar} className={`rule-nav-item${activePage === '/sares/system-logs' ? ' rule-nav-item--active' : ''}`}>
-                <Activity className="rule-nav-icon" />
-                <span>System Logs</span>
+          {getNavItems(userProfile).map(({ to, label, icon: Icon }) => (
+            <li key={to}>
+              <Link to={to} onClick={toggleSidebar} className={`rule-nav-item${activePage === to ? ' rule-nav-item--active' : ''}`}>
+                <Icon className="rule-nav-icon" />
+                <span>{label}</span>
               </Link>
             </li>
-          )}
+          ))}
         </ul>
       </nav>
 
@@ -125,7 +86,6 @@ const OFFENSE_LEVELS = [
 export default function Rule() {
   const { userProfile } = useAuthProfile();
   const location = useLocation();
-  const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeType, setActiveType] = useState('minor');
   const [activeSubcategory, setActiveSubcategory] = useState(null);
@@ -419,10 +379,7 @@ export default function Rule() {
       .map(g => g.groupTitle)
   )].sort();
 
-  const handleLogout = async () => {
-    await endSession(userProfile);
-    navigate('/login');
-  };
+  const handleLogout = useLogout();
 
   const offenseTypes = handbookDraft.offenseTypes;
 

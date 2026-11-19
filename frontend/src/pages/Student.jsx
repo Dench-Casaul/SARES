@@ -6,33 +6,31 @@ import { useAuthProfile } from '../authContext'
 import { queryForUserScope } from '../firestoreAccess'
 import { isRecordInTrash } from '../recordStatus'
 import { canAccessSchoolScope, getSchoolScopeForYear } from '../schoolScope'
-import { doesViolationCount, evaluateSaresRecommendation, isViolationServed } from '../engine/ruleEngine'
+import { doesViolationCount, evaluateSaresRecommendation, getOffenseNumberReview } from '../engine/ruleEngine'
 import { formatIdentifiedSanction } from '../engine/sanctionLabel'
 import { getViolationDescription } from '../engine/violationDescription';
 import { saveViolationsWithCaseNumbers } from '../engine/incidentCaseNumber'
 import '../css/Student.css'
 import wesleyLogo from '../assets/wesley-logo.png'
-import { Activity, AlertTriangle, LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X, Calendar, Download, KeyRound, Trash2, RotateCcw } from 'lucide-react'
+import { AlertTriangle, Users, LogOut, Menu, X, Calendar, Download, Trash2, RotateCcw } from 'lucide-react'
 import { getSubcategories, listOffenseGroups, listOffensesByGroup } from '../data/handbookIndex'
 import { ACTIVITY_ACTIONS, recordActivity } from '../activityLog'
-import { endSession } from '../session'
-
-const normalizeViolationStatus = (status) => {
-  const normalized = String(status || '').toLowerCase().trim();
-  if (normalized === 'no-readmission') return 'no-readmission';
-  return normalized === 'served' ? 'served' : 'pending';
-};
-
-const isNoReadmissionSanction = (sanctionText) =>
-  String(sanctionText || '').toLowerCase().includes('no-readmission');
-
-const toMillis = (value) => {
-  if (!value) return 0;
-  if (typeof value?.toDate === 'function') return value.toDate().getTime();
-  if (typeof value?.seconds === 'number') return value.seconds * 1000;
-  const parsed = new Date(value).getTime();
-  return Number.isNaN(parsed) ? 0 : parsed;
-};
+import { getNavItems } from '../navigation'
+import { useLogout } from '../useLogout'
+import {
+  CASE_STATUS,
+  canScheduleSuspension,
+  getAllowedTransitions,
+  getCaseStatusLabel,
+  getCaseStatusTone,
+  getEffectiveCaseStatus,
+  getInitialStatusFields,
+  getStatusFields,
+  getSuspensionPhase,
+  getTransitionLabel,
+  isResolvedThroughMediation,
+  parseCalendarDay,
+} from '../caseStatus'
 
 const YEARS = ["All Year", "Kindergarten", "1st Grade", "2nd Grade", "3rd Grade", "4th Grade", "5th Grade", "6th Grade", "7th Grade", "8th Grade", "9th Grade", "10th Grade"]
 const YEAR_LEVELS = ["Kindergarten", "1st Grade", "2nd Grade", "3rd Grade", "4th Grade", "5th Grade", "6th Grade", "7th Grade", "8th Grade", "9th Grade", "10th Grade"]
@@ -46,13 +44,9 @@ const splitStudentName = (fullName = '') => {
 }
 /* sidebar */
 function Sidebar({ activePage, isOpen, toggleSidebar }) {
-  const navigate = useNavigate();
   const { userProfile } = useAuthProfile();
 
-  const handleLogout = async () => {
-    await endSession(userProfile);
-    navigate('/login');
-  };
+  const handleLogout = useLogout();
 
   return (
     <div className={`s-sidebar${isOpen ? ' s-sidebar--open' : ''}`}>
@@ -71,82 +65,18 @@ function Sidebar({ activePage, isOpen, toggleSidebar }) {
 
       <nav className="s-nav">
         <ul className="s-nav-list">
-          <li>
-            <Link
-              to="/sares/dashboard"
-              onClick={toggleSidebar}
-              className={`s-nav-item${activePage === "/sares/dashboard" ? " s-nav-item--active" : ""}`}
-            >
-              <LayoutDashboard className="s-nav-icon" />
-              <span>Dashboard</span>
-            </Link>
-          </li>
-
-          <li>
-            <Link
-              to="/sares/students"
-              onClick={toggleSidebar}
-              className={`s-nav-item${activePage === "/sares/students" ? " s-nav-item--active" : ""}`}
-            >
-              <Users className="s-nav-icon" />
-              <span>Students</span>
-            </Link>
-          </li>
-
-          <li>
-            <Link
-              to="/sares/rules"
-              onClick={toggleSidebar}
-              className={`s-nav-item${activePage === "/sares/rules" ? " s-nav-item--active" : ""}`}
-            >
-              <ShieldCheck className="s-nav-icon" />
-              <span>Rule Management</span>
-            </Link>
-          </li>
-
-          <li>
-            <Link
-              to="/sares/reports"
-              onClick={toggleSidebar}
-              className={`s-nav-item${activePage === "/sares/reports" ? " s-nav-item--active" : ""}`}
-            >
-              <BarChart3 className="s-nav-icon" />
-              <span>Reports</span>
-            </Link>
-          </li>
-
-          <li>
-            <Link
-              to="/sares/violation"
-              onClick={toggleSidebar}
-              className={`s-nav-item${activePage === "/sares/violation" ? " s-nav-item--active" : ""}`}
-            >
-              <ClipboardList className="s-nav-icon" />
-              <span>Log Violation</span>
-            </Link>
-          </li>
-          <li>
-            <Link
-              to="/sares/account"
-              onClick={toggleSidebar}
-              className={`s-nav-item${activePage === "/sares/account" ? " s-nav-item--active" : ""}`}
-            >
-              <KeyRound className="s-nav-icon" />
-              <span>Account Security</span>
-            </Link>
-          </li>
-          {userProfile?.role === 'superadmin' && (
-            <li>
+          {getNavItems(userProfile).map(({ to, label, icon: Icon }) => (
+            <li key={to}>
               <Link
-                to="/sares/system-logs"
+                to={to}
                 onClick={toggleSidebar}
-                className={`s-nav-item${activePage === "/sares/system-logs" ? " s-nav-item--active" : ""}`}
+                className={`s-nav-item${activePage === to ? " s-nav-item--active" : ""}`}
               >
-                <Activity className="s-nav-icon" />
-                <span>System Logs</span>
+                <Icon className="s-nav-icon" />
+                <span>{label}</span>
               </Link>
             </li>
-          )}
+          ))}
         </ul>
       </nav>
 
@@ -563,7 +493,7 @@ function CaseManagementModal({ student, violationDraft, onClose, onSaved }) {
         generated_explanation: counselorExplanation,
         explanation_source: 'manual_template',
         school_year_key: recommendation?.schoolYearKey || '',
-        status: isMediation ? 'pending' : isNoReadmissionSanction(recommendedSanction) ? 'no-readmission' : 'recorded',
+        ...getInitialStatusFields({ intervention_type: isMediation ? 'mediation' : 'sanction', recommended_sanction: recommendedSanction }),
         created_at: serverTimestamp(),
       };
 
@@ -587,7 +517,7 @@ function CaseManagementModal({ student, violationDraft, onClose, onSaved }) {
         generated_explanation: counselorExplanation,
         intervention_type: isMediation ? 'mediation' : 'sanction',
         mediation_status: isMediation ? 'pending' : null,
-        status: isMediation ? 'pending' : isNoReadmissionSanction(recommendedSanction) ? 'no-readmission' : 'recorded',
+        ...getInitialStatusFields({ intervention_type: isMediation ? 'mediation' : 'sanction', recommended_sanction: recommendedSanction }),
       };
 
       await updateDoc(doc(db, 'students', student.docId), {
@@ -754,36 +684,24 @@ function StudentList({
     if (violations.length === 0) return null;
 
     const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const statuses = violations.map((violation) => getEffectiveCaseStatus(violation, now));
+    const count = (status) => statuses.filter((value) => value === status).length;
 
-    const isSuspended = violations.some((violation) => {
-      if (!violation?.suspension_start || !violation?.suspension_end) return false;
-      const start = new Date(violation.suspension_start);
-      const end = new Date(violation.suspension_end);
-      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return false;
-      const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate()).getTime();
-      const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate()).getTime();
-      return today >= startDay && today <= endDay;
-    });
+    if (count(CASE_STATUS.SERVING_SUSPENSION) > 0) return { text: 'In Suspension', tone: 'follow' };
 
-    if (isSuspended) return { text: 'In Suspension', tone: 'follow' };
-
-    const pendingMediationCount = violations.filter((violation) =>
-      String(violation?.status || '').toLowerCase() === 'pending' &&
-      String(violation?.intervention_type || '').toLowerCase() === 'mediation'
-    ).length;
-    if (pendingMediationCount > 0) {
-      return { text: `${pendingMediationCount} Pending Mediation${pendingMediationCount > 1 ? 's' : ''}`, tone: 'monitored' };
+    const pendingMediation = count(CASE_STATUS.PENDING_MEDIATION);
+    if (pendingMediation > 0) {
+      return { text: `${pendingMediation} Pending Mediation${pendingMediation > 1 ? 's' : ''}`, tone: 'monitored' };
     }
 
-    const pendingCount = violations.filter((violation) =>
-      !isViolationServed(violation) && normalizeViolationStatus(violation?.status) === 'pending'
-    ).length;
-    if (pendingCount > 0) {
-      return { text: `${pendingCount} Pending Sanction${pendingCount > 1 ? 's' : ''}`, tone: 'monitored' };
+    const pendingSanction = count(CASE_STATUS.PENDING_SANCTION);
+    if (pendingSanction > 0) {
+      return { text: `${pendingSanction} Pending Sanction${pendingSanction > 1 ? 's' : ''}`, tone: 'monitored' };
     }
 
-    return { text: 'Served', tone: 'good' };
+    if (count(CASE_STATUS.NO_READMISSION) > 0) return { text: 'No-readmission', tone: 'follow' };
+
+    return { text: 'No Open Cases', tone: 'good' };
   };
 
   const handleAdd = async (form) => {
@@ -1116,6 +1034,66 @@ function StudentList({
 }
 
 /* Student Profile */
+/* Case status: current status plus the changes allowed from it (see caseStatus.js). */
+function CaseStatusControl({ violation, onChange, getBusinessDaysLeft }) {
+  const now = new Date();
+  const status = getEffectiveCaseStatus(violation, now);
+  const transitions = getAllowedTransitions(violation, now);
+  const phase = getSuspensionPhase(violation, now);
+  const tone = getCaseStatusTone(status);
+  const toneClass = tone === 'closed'
+    ? 's-status-dropdown--served'
+    : tone === 'final'
+      ? 's-status-dropdown--final'
+      : 's-status-dropdown--pending';
+
+  let suspensionNote = null;
+  if (phase === 'active') {
+    const daysLeft = getBusinessDaysLeft(violation.suspension_start, violation.suspension_end);
+    suspensionNote = daysLeft > 0 ? `${daysLeft} school day${daysLeft > 1 ? 's' : ''} left` : 'Last day of suspension';
+  } else if (phase === 'completed') {
+    suspensionNote = 'Suspension Completed';
+  } else if (phase === 'scheduled') {
+    const start = parseCalendarDay(violation.suspension_start);
+    suspensionNote = `Suspension starts ${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+  }
+
+  return (
+    <span className="s-case-status" onClick={(event) => event.stopPropagation()}>
+      {suspensionNote && <span className="s-suspension-left">{suspensionNote}</span>}
+      {transitions.length === 0 ? (
+        <span className={`s-status-dropdown s-case-status-badge ${toneClass}`}>{getCaseStatusLabel(status)}</span>
+      ) : (
+        <select
+          className={`s-status-dropdown ${toneClass}`}
+          value={status}
+          aria-label="Case status"
+          onChange={(event) => onChange(violation, event.target.value)}
+        >
+          <option value={status}>{getCaseStatusLabel(status)}</option>
+          {transitions.map((next) => (
+            <option key={next} value={next}>{getTransitionLabel(status, next)}</option>
+          ))}
+        </select>
+      )}
+    </span>
+  );
+}
+
+function OffenseReviewNote({ review }) {
+  const ordinal = (n) => {
+    const suffix = n % 100 >= 11 && n % 100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] || 'th');
+    return `${n}${suffix}`;
+  };
+  return (
+    <p className="s-offense-review" role="note">
+      Offense number needs review: recorded as the {ordinal(review.recorded)} offense, but the student's
+      current records make it the {ordinal(review.current)} (an earlier case was resolved through mediation,
+      reopened, or added later). The recorded sanction has not been changed.
+    </p>
+  );
+}
+
 function StudentProfile({ student, onBack, onSelectViolation, onUpdateViolationStatus, location, sidebarOpen, setSidebarOpen }) {
   const [showViolationModal, setShowViolationModal] = useState(false);
   const [showCaseModal, setShowCaseModal] = useState(false);
@@ -1157,22 +1135,6 @@ function StudentProfile({ student, onBack, onSelectViolation, onUpdateViolationS
       : (b?.date ? new Date(b.date).getTime() : 0);
     return timeB - timeA;
   });
-
-  useEffect(() => {
-    const today = new Date();
-    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
-
-    sortedViolations.forEach((violation) => {
-      if (!violation?.suspension_end) return;
-      const end = new Date(violation.suspension_end);
-      const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate()).getTime();
-      const currentStatus = String(violation.status || '').toLowerCase();
-
-      if (todayStart > endDay && currentStatus !== 'served') {
-        onUpdateViolationStatus(violation.id, 'served');
-      }
-    });
-  }, [sortedViolations, onUpdateViolationStatus]);
 
   const getBusinessDaysLeft = (startDate, endDate) => {
     if (!startDate || !endDate) return null;
@@ -1318,63 +1280,14 @@ function StudentProfile({ student, onBack, onSelectViolation, onUpdateViolationS
                           return offenseLabel ? ` [${offenseLabel}]` : "";
                         })()}
                       </span>
-                      {(() => {
-                        const suspensionStarted = !!v.suspension_start && (new Date(v.suspension_start).getTime() <= new Date().getTime());
-                        if (suspensionStarted) {
-                          const daysLeft = getBusinessDaysLeft(v.suspension_start, v.suspension_end);
-                          return (
-                            <span className="s-suspension-left">
-                              {daysLeft > 0 ? `${daysLeft} school day${daysLeft > 1 ? 's' : ''} left` : 'Suspension Completed'}
-                            </span>
-                          );
-                        }
-                        const isMediation = String(v.intervention_type || '').toLowerCase() === 'mediation';
-                        const currentStatus = String(v.status || 'pending').toLowerCase();
-                        if (isMediation) {
-                          const mediationValue = currentStatus === 'resolved'
-                            ? 'resolved'
-                            : currentStatus === 'recorded' || String(v.mediation_status || '').toLowerCase() === 'proceeded_to_sanction'
-                              ? 'recorded'
-                              : 'pending';
-                          return (
-                            <select
-                              className={`s-status-dropdown ${mediationValue === 'resolved' ? 's-status-dropdown--served' : 's-status-dropdown--pending'}`}
-                              value={mediationValue}
-                              onClick={(e) => e.stopPropagation()}
-                              onChange={(e) => {
-                                const value = e.target.value;
-                                onUpdateViolationStatus(v.id, value, {
-                                  mediation_status: value === 'resolved' ? 'resolved' : value === 'recorded' ? 'proceeded_to_sanction' : 'pending',
-                                });
-                              }}
-                            >
-                              <option value="pending">Pending Mediation</option>
-                              <option value="recorded">Proceed to Sanction</option>
-                              <option value="resolved">Resolved Through Mediation</option>
-                            </select>
-                          );
-                        }
-                        if (String(v.status || '').toLowerCase() === 'no-readmission') {
-                          return (
-                            <span className="s-suspension-left" style={{ background: '#fee2e2', borderColor: '#fecaca', color: '#b91c1c' }}>
-                              No-readmission
-                            </span>
-                          );
-                        }
-                        return (
-                          <select
-                            className={`s-status-dropdown ${(v.status || 'pending').toLowerCase() === 'served' ? 's-status-dropdown--served' : 's-status-dropdown--pending'}`}
-                            value={(v.status || 'pending').toLowerCase() === 'served' ? 'served' : 'pending'}
-                            onClick={(e) => e.stopPropagation()}
-                            onChange={(e) => onUpdateViolationStatus(v.id, e.target.value)}
-                          >
-                            <option value="pending">Pending</option>
-                            <option value="served">Served</option>
-                          </select>
-                        );
-                      })()}
+                      <CaseStatusControl
+                        violation={v}
+                        onChange={onUpdateViolationStatus}
+                        getBusinessDaysLeft={getBusinessDaysLeft}
+                      />
                     </div>
                     <p className="s-history-variety">{v.variety}</p>
+                    {v.offense_review && <OffenseReviewNote review={v.offense_review} />}
                     <p className="s-history-desc">{v.description}</p>
                     <div className="s-history-meta">
                       <span>
@@ -1384,17 +1297,11 @@ function StudentProfile({ student, onBack, onSelectViolation, onUpdateViolationS
                         {v.date}
                       </span>
                     </div>
-                    {!(v.intervention_type === 'mediation' && (v.status === 'resolved' || v.mediation_status === 'resolved')) && (
+                    {!isResolvedThroughMediation(v) && (
                       <>
                         <div className="s-history-sanction-label">Final Sanction:</div>
                         <div className="s-history-sanction">{v.finalSanction || v.sanction}</div>
                       </>
-                    )}
-                    {v.status === 'overridden' && (
-                      <div className="s-override-box">
-                        <span className="s-override-label">Override Justification:</span>
-                        <span className="s-override-text">{v.overrideJustification}</span>
-                      </div>
                     )}
                   </div>
                 ))}
@@ -1425,10 +1332,7 @@ function StudentProfile({ student, onBack, onSelectViolation, onUpdateViolationS
 /* Violation Details*/
 function ViolationDetails({ violation, student, onBack, onSetSuspensionDates, suspensionSaving, location, sidebarOpen, setSidebarOpen }) {
   const [showSuspensionModal, setShowSuspensionModal] = useState(false);
-  const canSetSuspension = String(violation?.recommended_sanction || violation?.sanction || '').toLowerCase().includes('suspension')
-    || String(violation?.offense_type || '').toLowerCase() === 'major'
-    || Boolean(violation?.suspension_eligible)
-    || Number(violation?.cumulative_offense_number || 0) > 3;
+  const canSetSuspension = canScheduleSuspension(violation);
 
   const handleSaveSuspension = async (startDate, endDate) => {
     await onSetSuspensionDates(violation.id, startDate, endDate);
@@ -1526,6 +1430,13 @@ function ViolationDetails({ violation, student, onBack, onSetSuspensionDates, su
           <div className="s-divider" />
 
           <div className="s-vd-field s-vd-field--full">
+            <div className="s-vd-field-label">Case Status</div>
+            <div className="s-vd-field-value">{getCaseStatusLabel(getEffectiveCaseStatus(violation))}</div>
+            {violation.offense_review && <OffenseReviewNote review={violation.offense_review} />}
+          </div>
+          <div className="s-divider" />
+
+          <div className="s-vd-field s-vd-field--full">
             <div className="s-vd-field-label">Offense Category</div>
             <div className="s-vd-field-value s-vd-field-value--lg">{violation.category}</div>
           </div>
@@ -1563,7 +1474,7 @@ function ViolationDetails({ violation, student, onBack, onSetSuspensionDates, su
             </>
           )}
 
-          {!(violation.intervention_type === 'mediation' && (violation.status === 'resolved' || violation.mediation_status === 'resolved')) && (
+          {!isResolvedThroughMediation(violation) && (
             <>
               <div className="s-vd-field s-vd-field--full">
                 <div className="s-vd-field-label">Recommended Sanction</div>
@@ -1702,27 +1613,6 @@ export default function Students() {
         id: violationDoc.id,
         ...violationDoc.data(),
       }));
-      const nowMs = Date.now();
-      const oneDayMs = 24 * 60 * 60 * 1000;
-      const expiredServed = allViolations.filter((violation) => {
-        if (normalizeViolationStatus(violation.status) !== 'served') return false;
-        const statusSetAt = toMillis(violation.status_updated_at) || toMillis(violation.updated_at) || toMillis(violation.created_at);
-        if (!statusSetAt) return false;
-        return nowMs - statusSetAt >= oneDayMs;
-      });
-
-      if (expiredServed.length > 0) {
-        await Promise.all(
-          expiredServed.map((violation) =>
-            updateDoc(doc(db, 'violations', violation.id), {
-              status: 'pending',
-              updated_at: serverTimestamp(),
-              status_updated_at: serverTimestamp(),
-            })
-          )
-        );
-      }
-
       const allStudents = studentsSnapshot.docs.map((studentDoc) => ({
         ...studentDoc.data(),
         student_id: studentDoc.id,
@@ -1731,6 +1621,13 @@ export default function Students() {
       const trashStudents = allStudents.filter(isRecordInTrash);
       const activeViolations = allViolations.filter((violation) => !isRecordInTrash(violation));
       const trashedViolations = allViolations.filter(isRecordInTrash);
+
+      const violationsByStudent = new Map();
+      activeViolations.forEach((violation) => {
+        const key = String(violation.student_id);
+        if (!violationsByStudent.has(key)) violationsByStudent.set(key, []);
+        violationsByStudent.get(key).push(violation);
+      });
 
       const studentsWithLiveViolations = data.map((student) => {
         const mappedViolations = activeViolations
@@ -1773,9 +1670,11 @@ export default function Students() {
             offense_type: violation.offense_type || '',
             sanction: violation.recommended_sanction || 'N/A',
             generated_explanation: violation.generated_explanation || '',
-            status: isNoReadmissionSanction(violation.recommended_sanction)
-              ? 'no-readmission'
-              : violation.status || 'recorded',
+            status: violation.status || 'recorded',
+            offense_review: getOffenseNumberReview(
+              violation,
+              violationsByStudent.get(String(violation.student_id)) || []
+            ),
             intervention_type: violation.intervention_type || '',
             mediation_status: violation.mediation_status || '',
             offense_number: violation.offense_number ?? null,
@@ -2107,9 +2006,25 @@ export default function Students() {
     }
   };
 
-  const handleUpdateViolationStatus = async (violationId, nextStatus, extraFields = {}) => {
+  const handleUpdateViolationStatus = async (violation, nextStatus) => {
+    const violationId = violation?.id;
     if (!violationId) return;
-    const nextPatch = { status: nextStatus, ...extraFields };
+    const fromStatus = getEffectiveCaseStatus(violation);
+    if (fromStatus === nextStatus) return;
+    const confirmed = window.confirm(
+      `Change this case from "${getCaseStatusLabel(fromStatus)}" to "${getCaseStatusLabel(nextStatus)}"?\n\n`
+      + 'The change is saved to the case history and the system logs.'
+    );
+    if (!confirmed) return;
+
+    const nextPatch = getStatusFields(nextStatus, violation);
+    const historyEntry = {
+      from: fromStatus,
+      to: nextStatus,
+      by: userProfile?.user_id || '',
+      by_email: userProfile?.email || '',
+      at: new Date().toISOString(),
+    };
     const applyStatus = (list) =>
       list.map((student) => ({
         ...student,
@@ -2137,12 +2052,18 @@ export default function Students() {
     try {
       await updateDoc(doc(db, 'violations', violationId), {
         ...nextPatch,
+        status_history: arrayUnion(historyEntry),
+        status_updated_by: userProfile?.user_id || '',
         updated_at: serverTimestamp(),
         status_updated_at: serverTimestamp(),
       });
-      await recordActivity(userProfile, ACTIVITY_ACTIONS.VIOLATION_STATUS_UPDATED, 'violation', violationId);
+      await recordActivity(userProfile, ACTIVITY_ACTIONS.VIOLATION_STATUS_UPDATED, 'violation', violationId, {
+        from_status: fromStatus,
+        to_status: nextStatus,
+      });
     } catch (error) {
       console.error('Failed to update violation status:', error);
+      alert('The case status could not be saved. Check your connection and try again. The previous status has been restored.');
       await fetchStudents();
     }
   };

@@ -100,15 +100,36 @@ service cloud.firestore {
       allow delete: if isProvisioned() && canReadScope(resource.data.school_scope);
     }
 
+    // Case status values (see frontend/src/caseStatus.js). `case_status` is the
+    // canonical field; `status` / `mediation_status` are kept for older records.
+    function validCaseStatusFields(data) {
+      return (!('case_status' in data) || data.case_status in [
+          'pending_mediation', 'pending_sanction', 'served', 'resolved_mediation', 'no_readmission'
+        ])
+        && (!('status' in data) || data.status in [
+          'pending', 'recorded', 'served', 'resolved', 'no-readmission'
+        ])
+        && (!('mediation_status' in data) || data.mediation_status == null || data.mediation_status in [
+          'pending', 'proceeded_to_sanction', 'resolved'
+        ]);
+    }
+
+    function statusFieldsChanged() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(['case_status', 'status', 'mediation_status']);
+    }
+
     match /violations/{violationId} {
       allow get, list: if isProvisioned() && canReadScope(resource.data.school_scope);
       allow create: if isProvisioned()
         && canWriteScope(request.resource.data.school_scope)
-        && violationMatchesCurrentStudent(request.resource.data);
+        && violationMatchesCurrentStudent(request.resource.data)
+        && validCaseStatusFields(request.resource.data);
       allow update: if isProvisioned()
         && canReadScope(resource.data.school_scope)
         && canWriteScope(request.resource.data.school_scope)
-        && violationMatchesCurrentStudent(request.resource.data);
+        && violationMatchesCurrentStudent(request.resource.data)
+        && (!statusFieldsChanged() || validCaseStatusFields(request.resource.data));
       allow delete: if isProvisioned() && canReadScope(resource.data.school_scope);
     }
 
@@ -167,7 +188,7 @@ service cloud.firestore {
       allow create: if isProvisioned()
         && request.resource.data.keys().hasOnly([
           'action', 'actor_uid', 'actor_email', 'actor_role', 'school_scope',
-          'target_type', 'target_id', 'source', 'created_at'
+          'target_type', 'target_id', 'source', 'created_at', 'from_status', 'to_status'
         ])
         && request.resource.data.keys().hasAll([
           'action', 'actor_uid', 'actor_email', 'actor_role', 'school_scope',
@@ -206,7 +227,15 @@ service cloud.firestore {
         && request.resource.data.target_id is string
         && request.resource.data.target_id.size() <= 128
         && request.resource.data.source == 'client'
-        && request.resource.data.created_at == request.time;
+        && request.resource.data.created_at == request.time
+        && (!('from_status' in request.resource.data)
+          || (request.resource.data.action == 'violation_status_updated'
+            && request.resource.data.from_status is string
+            && request.resource.data.from_status.size() <= 40))
+        && (!('to_status' in request.resource.data)
+          || (request.resource.data.action == 'violation_status_updated'
+            && request.resource.data.to_status is string
+            && request.resource.data.to_status.size() <= 40));
       allow update, delete: if false;
     }
 

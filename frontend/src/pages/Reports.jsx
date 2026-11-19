@@ -1,25 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { collection, onSnapshot } from "firebase/firestore";
 import {
-  LayoutDashboard,
-  Users,
-  ClipboardList,
-  Activity,
-  ShieldCheck,
-  BarChart3,
   LogOut,
   Menu,
   X,
-  KeyRound,
 } from "lucide-react";
 import { db } from "../firebase";
 import { useAuthProfile } from "../authContext";
 import { queryForUserScope } from "../firestoreAccess";
 import { isRecordInTrash } from "../recordStatus";
 import { doesViolationCount } from "../engine/ruleEngine";
+import { getCaseStatusLabel, getEffectiveCaseStatus, isOpenCase, isResolvedThroughMediation } from "../caseStatus";
 import { formatIdentifiedSanction } from "../engine/sanctionLabel";
-import { endSession } from "../session";
+import { getNavItems } from "../navigation";
+import { useLogout } from "../useLogout";
 import "../css/Reports.css";
 import saresLogo from "../assets/sares-logo.png";
 import wesleyLogo from "../assets/wesley-logo.png";
@@ -40,13 +35,9 @@ function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar, userProfile 
 
       <nav className="report-nav">
         <ul className="report-nav-list">
-          <li><Link to="/sares/dashboard" onClick={toggleSidebar} className={`report-nav-item${activePage === "/sares/dashboard" ? " report-nav-item--active" : ""}`}><LayoutDashboard className="report-nav-icon" /><span>Dashboard</span></Link></li>
-          <li><Link to="/sares/students" onClick={toggleSidebar} className={`report-nav-item${activePage === "/sares/students" ? " report-nav-item--active" : ""}`}><Users className="report-nav-icon" /><span>Students</span></Link></li>
-          <li><Link to="/sares/rules" onClick={toggleSidebar} className={`report-nav-item${activePage === "/sares/rules" ? " report-nav-item--active" : ""}`}><ShieldCheck className="report-nav-icon" /><span>Rule Management</span></Link></li>
-          <li><Link to="/sares/reports" onClick={toggleSidebar} className={`report-nav-item${activePage === "/sares/reports" ? " report-nav-item--active" : ""}`}><BarChart3 className="report-nav-icon" /><span>Reports</span></Link></li>
-          <li><Link to="/sares/violation" onClick={toggleSidebar} className={`report-nav-item${activePage === "/sares/violation" ? " report-nav-item--active" : ""}`}><ClipboardList className="report-nav-icon" /><span>Log Violation</span></Link></li>
-          <li><Link to="/sares/account" onClick={toggleSidebar} className={`report-nav-item${activePage === "/sares/account" ? " report-nav-item--active" : ""}`}><KeyRound className="report-nav-icon" /><span>Account Security</span></Link></li>
-          {userProfile?.role === "superadmin" && <li><Link to="/sares/system-logs" onClick={toggleSidebar} className={`report-nav-item${activePage === "/sares/system-logs" ? " report-nav-item--active" : ""}`}><Activity className="report-nav-icon" /><span>System Logs</span></Link></li>}
+          {getNavItems(userProfile).map(({ to, label, icon: Icon }) => (
+            <li key={to}><Link to={to} onClick={toggleSidebar} className={`report-nav-item${activePage === to ? " report-nav-item--active" : ""}`}><Icon className="report-nav-icon" /><span>{label}</span></Link></li>
+          ))}
         </ul>
       </nav>
 
@@ -85,7 +76,6 @@ function toGradeSection(violation) {
 export default function Report() {
   const { userProfile } = useAuthProfile();
   const location = useLocation();
-  const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [violations, setViolations] = useState([]);
   const [studentNumbers, setStudentNumbers] = useState({});
@@ -134,10 +124,7 @@ export default function Report() {
     };
   }, [userProfile]);
 
-  const handleLogout = async () => {
-    await endSession(userProfile);
-    navigate("/login");
-  };
+  const handleLogout = useLogout();
 
   const gradeSectionOptions = useMemo(() => {
     const values = new Set(violations.map(toGradeSection));
@@ -174,7 +161,8 @@ export default function Report() {
     const countedViolations = filteredViolations.filter(doesViolationCount);
     const totalViolations = countedViolations.length;
     const students = new Set(countedViolations.map((v) => v.student_id || v.student_name || v.id));
-    const pendingCases = filteredViolations.filter((v) => String(v.status || "").toLowerCase() === "pending").length;
+    // Open cases: pending mediation, pending sanction, or serving a suspension.
+    const pendingCases = filteredViolations.filter((v) => isOpenCase(v)).length;
 
     const counts = countedViolations.reduce((acc, v) => {
       const key = v.category_name || "Unspecified";
@@ -219,7 +207,7 @@ export default function Report() {
           v.offense_variety || v.rule_name || "Unspecified",
           v.cumulative_offense_number || v.offense_number || "N/A",
           v.recommended_sanction || "N/A",
-          v.status || "N/A",
+          getCaseStatusLabel(getEffectiveCaseStatus(v)),
           v.subcategory_id || "",
         ];
       });
@@ -325,7 +313,7 @@ export default function Report() {
                         <td>{v.student_name || v.student_id || "Unknown"}</td>
                         <td>{v.offense_variety || v.rule_name || v.category_name || v.offense_type || "Unspecified"}</td>
                         <td>{v.reported_by || "N/A"}</td>
-                        <td>{!(v.intervention_type === 'mediation' && (v.status === 'resolved' || v.mediation_status === 'resolved')) ? formatIdentifiedSanction(v) : "—"}</td>
+                        <td>{!isResolvedThroughMediation(v) ? formatIdentifiedSanction(v) : "—"}</td>
                         <td>{Array.isArray(v.evidence_urls) ? v.evidence_urls.length : 0}</td>
                       </tr>
                     );

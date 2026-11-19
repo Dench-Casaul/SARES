@@ -1,3 +1,5 @@
+import { isResolvedThroughMediation } from '../caseStatus.js';
+
 function ordinal(n) {
   const num = Number(n);
   if (num === 1) return '1st';
@@ -11,11 +13,9 @@ function ordinal(n) {
   return `${num}${suffix}`;
 }
 
+/** A case resolved through mediation has no sanction to show. */
 export function shouldHideSanction(record) {
-  const intervention = String(record?.intervention_type || '').toLowerCase();
-  const status = String(record?.status || '').toLowerCase();
-  const mediation = String(record?.mediation_status || '').toLowerCase();
-  return intervention === 'mediation' && (status === 'resolved' || mediation === 'resolved');
+  return isResolvedThroughMediation(record);
 }
 
 /**

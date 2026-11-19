@@ -20,7 +20,10 @@ export const ACTIVITY_ACTIONS = Object.freeze({
   HANDBOOK_UPDATED: 'handbook_updated',
 })
 
-export async function recordActivity(userProfile, action, targetType, targetId = '') {
+/**
+ * @param {object} [details] optional `{ from_status, to_status }` for case status changes.
+ */
+export async function recordActivity(userProfile, action, targetType, targetId = '', details = {}) {
   const user = auth.currentUser
   if (!user || !userProfile?.role || !userProfile?.school_scope) {
     console.error('Activity log entry could not be saved: authenticated role profile is unavailable.')
@@ -38,6 +41,8 @@ export async function recordActivity(userProfile, action, targetType, targetId =
       target_id: String(targetId || '').slice(0, 128),
       source: 'client',
       created_at: serverTimestamp(),
+      ...(details.from_status ? { from_status: String(details.from_status).slice(0, 40) } : {}),
+      ...(details.to_status ? { to_status: String(details.to_status).slice(0, 40) } : {}),
     })
   } catch (error) {
     console.error(`Activity log entry "${action}" could not be saved:`, error)

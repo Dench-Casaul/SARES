@@ -1,23 +1,18 @@
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import "../css/CaseAssessment.css";
 import wesleyLogo from "../assets/wesley-logo.png";
 import {
-  LayoutDashboard,
-  Users,
-  ClipboardList,
-  Activity,
-  ShieldCheck,
-  BarChart3,
   LogOut,
   AlertTriangle,
   Printer,
   Download,
-  KeyRound,
 } from "lucide-react";
 import { formatIdentifiedSanction } from "../engine/sanctionLabel";
 import { getViolationDescription } from "../engine/violationDescription";
 import { useAuthProfile } from "../authContext";
-import { endSession } from "../session";
+import { getNavItems } from "../navigation";
+import { useLogout } from "../useLogout";
+import { CASE_STATUS, getCaseStatusLabel, getEffectiveCaseStatus } from "../caseStatus";
 
 function Sidebar({ activePage, onLogout, userProfile }) {
   return (
@@ -29,13 +24,9 @@ function Sidebar({ activePage, onLogout, userProfile }) {
         <h1>SARES</h1>
       </div>
       <nav className="ca-nav">
-        <Link to="/sares/dashboard" className={`ca-nav-item${activePage === "/sares/dashboard" ? " active" : ""}`}><LayoutDashboard className="ca-nav-icon" /><span>Dashboard</span></Link>
-        <Link to="/sares/students" className={`ca-nav-item${activePage === "/sares/students" ? " active" : ""}`}><Users className="ca-nav-icon" /><span>Students</span></Link>
-        <Link to="/sares/rules" className={`ca-nav-item${activePage === "/sares/rules" ? " active" : ""}`}><ShieldCheck className="ca-nav-icon" /><span>Rule Management</span></Link>
-        <Link to="/sares/reports" className={`ca-nav-item${activePage === "/sares/reports" ? " active" : ""}`}><BarChart3 className="ca-nav-icon" /><span>Reports</span></Link>
-        <Link to="/sares/violation" className={`ca-nav-item${activePage === "/sares/violation" ? " active" : ""}`}><ClipboardList className="ca-nav-icon" /><span>Log Violation</span></Link>
-        <Link to="/sares/account" className={`ca-nav-item${activePage === "/sares/account" ? " active" : ""}`}><KeyRound className="ca-nav-icon" /><span>Account Security</span></Link>
-        {userProfile?.role === "superadmin" && <Link to="/sares/system-logs" className={`ca-nav-item${activePage === "/sares/system-logs" ? " active" : ""}`}><Activity className="ca-nav-icon" /><span>System Logs</span></Link>}
+        {getNavItems(userProfile).map(({ to, label, icon: Icon }) => (
+          <Link key={to} to={to} className={`ca-nav-item${activePage === to ? " active" : ""}`}><Icon className="ca-nav-icon" /><span>{label}</span></Link>
+        ))}
       </nav>
       <div className="ca-logout-section">
         <button className="ca-logout" onClick={onLogout}><LogOut className="ca-nav-icon" /><span>Logout</span></button>
@@ -73,13 +64,9 @@ function printableDate(value) {
 export default function CaseAssessment() {
   const { userProfile } = useAuthProfile();
   const location = useLocation();
-  const navigate = useNavigate();
   const caseData = location.state?.caseData || null;
 
-  const handleLogout = async () => {
-    await endSession(userProfile);
-    navigate("/login");
-  };
+  const handleLogout = useLogout();
 
   if (!caseData) {
     return (
@@ -102,7 +89,9 @@ export default function CaseAssessment() {
   const isMajor = String(caseData.offense_type).toLowerCase() === "major";
   const subcategoryLabel = SUBCATEGORY_LABELS[caseData.subcategory_id] || caseData.subcategory_id || "—";
   const isMediation = String(caseData.intervention_type || "").toLowerCase() === "mediation";
-  const isPending = String(caseData.status || "").toLowerCase() === "pending";
+  const caseStatus = getEffectiveCaseStatus(caseData);
+  const isPending = caseStatus === CASE_STATUS.PENDING_MEDIATION;
+  const isResolvedMediation = caseStatus === CASE_STATUS.RESOLVED_MEDIATION;
   const identifiedSanction = formatIdentifiedSanction(caseData);
   const description = getViolationDescription(caseData);
   const evidenceFiles = Array.isArray(caseData.evidence_urls) ? caseData.evidence_urls : [];
@@ -172,7 +161,7 @@ export default function CaseAssessment() {
             <div className="ca-row"><span>Reported By</span><strong>{caseData.reported_by || "—"}</strong></div>
             <div className="ca-row"><span>Reporter Role</span><strong>{caseData.reporter_role || "—"}</strong></div>
             <div className="ca-row"><span>Reporter Contact</span><strong>{caseData.reporter_contact || "—"}</strong></div>
-            <div className="ca-row"><span>Status</span><strong>{isMediation && isPending ? "Pending Mediation" : caseData.status || "Recorded"}</strong></div>
+            <div className="ca-row"><span>Status</span><strong>{getCaseStatusLabel(caseStatus)}</strong></div>
           </article>
         </section>
 
@@ -185,7 +174,7 @@ export default function CaseAssessment() {
             </p>
           </article>
 
-          {!(isMediation && (caseData.status === 'resolved' || caseData.mediation_status === 'resolved')) && (
+          {!isResolvedMediation && (
             <article className="ca-card">
               <h2>{isMediation && isPending ? "Escalation Sanction" : "Recommended Sanction"}</h2>
               <p className="ca-paragraph ca-multiline ca-sanction-text">
@@ -265,7 +254,7 @@ export default function CaseAssessment() {
           </section>
         )}
 
-        {caseData.generated_explanation && !(isMediation && (caseData.status === 'resolved' || caseData.mediation_status === 'resolved')) && (
+        {caseData.generated_explanation && !isResolvedMediation && (
           <section className="ca-card" style={{ marginTop: "16px" }}>
             <h2>Counselor Explanation</h2>
             <p className="ca-paragraph">{caseData.generated_explanation}</p>

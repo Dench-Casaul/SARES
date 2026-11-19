@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
-import { collection, deleteDoc, deleteField, doc, getDoc, getDocs, limit, orderBy, query, serverTimestamp, setDoc, updateDoc, where, writeBatch } from 'firebase/firestore';
+import { collection, deleteDoc, deleteField, doc, getCountFromServer, getDoc, getDocs, limit, orderBy, query, serverTimestamp, setDoc, updateDoc, where, writeBatch } from 'firebase/firestore';
 import { ref, uploadBytes } from 'firebase/storage';
 import { saveViolationsWithCaseNumbers } from '../src/engine/incidentCaseNumber.js';
 
@@ -200,6 +200,50 @@ test('school transfers move a student and linked violation together', async () =
 
   await assertSucceeds(getDoc(doc(firestore, 'students', 'elementary-student')));
   await assertFails(getDoc(doc(signedInAs('elementary').firestore(), 'students', 'elementary-student')));
+});
+
+test('case status changes accept only known status values', async () => {
+  const firestore = signedInAs('elementary').firestore();
+  const violationRef = doc(firestore, 'violations', 'elementary-violation');
+  await assertSucceeds(updateDoc(violationRef, { case_status: 'served', status: 'served' }));
+  await assertSucceeds(updateDoc(violationRef, {
+    case_status: 'pending_sanction', status: 'recorded', mediation_status: 'proceeded_to_sanction',
+  }));
+  await assertFails(updateDoc(violationRef, { status: 'whatever' }));
+  await assertFails(updateDoc(violationRef, { case_status: 'overridden' }));
+  await assertFails(updateDoc(violationRef, { mediation_status: 'maybe' }));
+  // Unrelated edits are not blocked by the status check
+  await assertSucceeds(updateDoc(violationRef, { suspension_start: '2026-11-20', suspension_end: '2026-11-21' }));
+
+  const logs = collection(firestore, 'activity_logs');
+  const entry = {
+    action: 'violation_status_updated',
+    actor_uid: 'elementary',
+    actor_email: 'elementary@ows.edu.ph',
+    actor_role: 'counselor',
+    school_scope: 'elementary',
+    target_type: 'violation',
+    target_id: 'elementary-violation',
+    source: 'client',
+    created_at: serverTimestamp(),
+  };
+  await assertSucceeds(setDoc(doc(logs), { ...entry, from_status: 'pending_sanction', to_status: 'served' }));
+  await assertFails(setDoc(doc(logs), { ...entry, action: 'student_updated', target_type: 'student', from_status: 'x' }));
+  await assertFails(setDoc(doc(logs), { ...entry, to_status: 'x'.repeat(41) }));
+});
+
+test('dashboard student counts are allowed only within the caller\'s scope', async () => {
+  const elementaryStudents = collection(signedInAs('elementary').firestore(), 'students');
+  const scoped = query(elementaryStudents, where('school_scope', 'in', ['elementary', 'shared']));
+  const all = await assertSucceeds(getCountFromServer(scoped));
+  assert.equal(all.data().count, 2);
+  const trashed = await assertSucceeds(getCountFromServer(query(scoped, where('deleted_at', '!=', null))));
+  assert.equal(trashed.data().count, 0);
+  await assertFails(getCountFromServer(elementaryStudents));
+
+  const superadminStudents = collection(signedInAs('superadmin').firestore(), 'students');
+  const everyone = await assertSucceeds(getCountFromServer(superadminStudents));
+  assert.equal(everyone.data().count, 3);
 });
 
 test('unprovisioned school-domain users are denied', async () => {

@@ -9,7 +9,9 @@ import { getSchoolScopeForYear } from '../schoolScope'
 import { formatIdentifiedSanction } from '../engine/sanctionLabel'
 import { getViolationDescription } from '../engine/violationDescription'
 import { ACTIVITY_ACTIONS, recordActivity } from '../activityLog'
-import { endSession } from '../session'
+import { getNavItems } from '../navigation'
+import { useLogout } from '../useLogout'
+import { getInitialStatusFields } from '../caseStatus'
 import {
   buildViolationRecordsForStudents,
   evaluateSaresRecommendation,
@@ -24,10 +26,13 @@ import {
 import '../css/Violation.css'
 import wesleyLogo from '../assets/wesley-logo.png'
 import {
-  Activity, LayoutDashboard, Users, ClipboardList, ShieldCheck,
-  BarChart3, LogOut, Menu, X, ChevronRight, AlertTriangle,
-  CheckCircle, ChevronLeft,
-  KeyRound,
+  LogOut,
+  Menu,
+  X,
+  ChevronRight,
+  AlertTriangle,
+  CheckCircle,
+  ChevronLeft,
 } from 'lucide-react'
 
 function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar, userProfile }) {
@@ -40,29 +45,11 @@ function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar, userProfile 
         <h1>SARES</h1>
       </div>
       <nav className="v-nav">
-        <Link to="/sares/dashboard" onClick={toggleSidebar} className={`v-nav-item${activePage === '/sares/dashboard' ? ' active' : ''}`}>
-          <LayoutDashboard className="v-nav-icon" /><span>Dashboard</span>
-        </Link>
-        <Link to="/sares/students" onClick={toggleSidebar} className={`v-nav-item${activePage === '/sares/students' ? ' active' : ''}`}>
-          <Users className="v-nav-icon" /><span>Students</span>
-        </Link>
-        <Link to="/sares/rules" onClick={toggleSidebar} className={`v-nav-item${activePage === '/sares/rules' ? ' active' : ''}`}>
-          <ShieldCheck className="v-nav-icon" /><span>Rule Management</span>
-        </Link>
-        <Link to="/sares/reports" onClick={toggleSidebar} className={`v-nav-item${activePage === '/sares/reports' ? ' active' : ''}`}>
-          <BarChart3 className="v-nav-icon" /><span>Reports</span>
-        </Link>
-        <Link to="/sares/violation" onClick={toggleSidebar} className={`v-nav-item${activePage === '/sares/violation' ? ' active' : ''}`}>
-          <ClipboardList className="v-nav-icon" /><span>Log Violation</span>
-        </Link>
-        <Link to="/sares/account" onClick={toggleSidebar} className={`v-nav-item${activePage === '/sares/account' ? ' active' : ''}`}>
-          <KeyRound className="v-nav-icon" /><span>Account Security</span>
-        </Link>
-        {userProfile?.role === 'superadmin' && (
-          <Link to="/sares/system-logs" onClick={toggleSidebar} className={`v-nav-item${activePage === '/sares/system-logs' ? ' active' : ''}`}>
-            <Activity className="v-nav-icon" /><span>System Logs</span>
+        {getNavItems(userProfile).map(({ to, label, icon: Icon }) => (
+          <Link key={to} to={to} onClick={toggleSidebar} className={`v-nav-item${activePage === to ? ' active' : ''}`}>
+            <Icon className="v-nav-icon" /><span>{label}</span>
           </Link>
-        )}
+        ))}
       </nav>
       <div className="v-logout-section">
         <button className="v-logout" onClick={handleLogout}>
@@ -150,10 +137,7 @@ export default function Violation() {
   const [existingViolations, setExistingViolations] = useState([])
   const [currentPage, setCurrentPage] = useState(1)
 
-  const handleLogout = async () => {
-    await endSession(userProfile);
-    navigate('/login');
-  }
+  const handleLogout = useLogout()
 
   useEffect(() => {
     if (!userProfile) return
@@ -509,6 +493,8 @@ export default function Violation() {
         existingViolations,
       }).map((payload) => ({
         ...payload,
+        // Each student's own sanction decides the starting status (e.g. no-readmission).
+        ...getInitialStatusFields(payload),
         evidence_urls: [],
       }))
 

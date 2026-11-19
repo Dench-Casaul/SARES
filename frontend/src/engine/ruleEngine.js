@@ -9,25 +9,19 @@ import {
 } from '../data/handbookIndex.js';
 import { formatIdentifiedSanction } from './sanctionLabel.js';
 import { getSchoolScopeForYear } from '../schoolScope.js';
+import { countsTowardOffenses, isOpenCase } from '../caseStatus.js';
 
 /** Month (1–12) when the school year label rolls over. Default 6 = June (PH). */
 export const SCHOOL_YEAR_START_MONTH = 6;
 
+/** Whether a case counts toward the student's offense number (see caseStatus.js). */
 export function doesViolationCount(violation) {
-  const interventionType = String(violation?.intervention_type || '').toLowerCase();
-  const mediationStatus = String(violation?.mediation_status || '').toLowerCase();
-  const status = String(violation?.status || '').toLowerCase();
-  return !(interventionType === 'mediation' && (mediationStatus === 'resolved' || status === 'resolved'));
+  return countsTowardOffenses(violation);
 }
 
-export function isViolationServed(violation) {
-  const status = String(violation?.status || '').toLowerCase();
-  const interventionType = String(violation?.intervention_type || '').toLowerCase();
-  const mediationStatus = String(violation?.mediation_status || '').toLowerCase();
-  const isResolved = (value) => ['resolved', 'resolved through mediation'].includes(value);
-  return status === 'served' || (
-    interventionType === 'mediation' && (isResolved(status) || isResolved(mediationStatus))
-  );
+/** True when the case needs no further action (served, resolved, no-readmission, completed suspension). */
+export function isViolationServed(violation, now = new Date()) {
+  return !isOpenCase(violation, now);
 }
 
 /**
@@ -93,6 +87,35 @@ export function countPriorOffenses(
       doesViolationCount(v) &&
       isViolationEarlierThan(v, currentIncident)
   ).length;
+}
+
+/**
+ * Checks whether a recorded case's stored offense number still matches the
+ * student's records. Offense numbers (and their sanctions) are fixed when a
+ * case is recorded; they can drift if an earlier case is later resolved
+ * through mediation, reopened, or recorded with an earlier incident date.
+ * Returns null when they match (or can't be checked), otherwise
+ * `{ recorded, current }` so the counselor can review it. Nothing is changed
+ * automatically: re-issuing a sanction is a counselor decision.
+ */
+export function getOffenseNumberReview(violation, studentViolations = []) {
+  const recorded = Number(violation?.cumulative_offense_number ?? violation?.offense_number);
+  if (!Number.isFinite(recorded) || recorded < 1) return null;
+  if (!violation?.school_year_key || !violation?.subcategory_id || !violation?.student_id) return null;
+  if (!countsTowardOffenses(violation)) return null;
+
+  const violationId = String(violation.id || violation.violation_id || '');
+  const others = studentViolations.filter((other) => (
+    String(other?.id || other?.violation_id || '') !== violationId
+  ));
+  const current = countPriorOffenses(
+    violation.student_id,
+    violation.school_year_key,
+    violation.subcategory_id,
+    others,
+    { incident_date: violation.incident_date, created_at: violation.created_at, id: violationId }
+  ) + 1;
+  return current === recorded ? null : { recorded, current };
 }
 
 /**

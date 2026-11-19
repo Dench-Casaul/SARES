@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
-import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useLocation } from 'react-router-dom'
 import { collection, getDocs, limit, orderBy, query, startAfter, Timestamp, where } from 'firebase/firestore'
-import { Activity, BarChart3, ClipboardList, KeyRound, LayoutDashboard, LogOut, ShieldCheck, Users } from 'lucide-react'
+import { LogOut } from 'lucide-react'
 import { db } from '../firebase'
 import { useAuthProfile } from '../authContext'
 import { ACTIVITY_ACTIONS, getActivityActionLabel, getFailedLoginReasonLabel } from '../activityLog'
-import { endSession } from '../session'
+import { NAV_ITEMS } from '../navigation'
+import { useLogout } from '../useLogout'
+import { getCaseStatusLabel } from '../caseStatus'
 import '../css/SystemLogs.css'
 import wesleyLogo from '../assets/wesley-logo.png'
 
@@ -20,15 +22,15 @@ function Sidebar({ activePage, onLogout }) {
         <h1>SARES</h1>
       </div>
       <nav className="logs-nav" aria-label="Main navigation">
-        <Link to="/sares/dashboard"><LayoutDashboard /><span>Dashboard</span></Link>
-        <Link to="/sares/students"><Users /><span>Students</span></Link>
-        <Link to="/sares/rules"><ShieldCheck /><span>Rule Management</span></Link>
-        <Link to="/sares/reports"><BarChart3 /><span>Reports</span></Link>
-        <Link to="/sares/violation"><ClipboardList /><span>Log Violation</span></Link>
-        <Link to="/sares/system-logs" className={activePage ? 'active' : ''} aria-current={activePage ? 'page' : undefined}>
-          <Activity /><span>System Logs</span>
-        </Link>
-        <Link to="/sares/account"><KeyRound /><span>Account Security</span></Link>
+        {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
+          to === '/sares/system-logs' ? (
+            <Link key={to} to={to} className={activePage ? 'active' : ''} aria-current={activePage ? 'page' : undefined}>
+              <Icon /><span>{label}</span>
+            </Link>
+          ) : (
+            <Link key={to} to={to}><Icon /><span>{label}</span></Link>
+          )
+        ))}
       </nav>
       <div className="logs-sidebar-footer">
         <button type="button" onClick={onLogout}><LogOut /><span>Logout</span></button>
@@ -39,6 +41,9 @@ function Sidebar({ activePage, onLogout }) {
 
 function formatActivityDescription(activity) {
   const label = getActivityActionLabel(activity.action)
+  if (activity.action === ACTIVITY_ACTIONS.VIOLATION_STATUS_UPDATED && activity.from_status && activity.to_status) {
+    return `${label} (${getCaseStatusLabel(activity.from_status)} → ${getCaseStatusLabel(activity.to_status)})`
+  }
   if (activity.action !== ACTIVITY_ACTIONS.LOGIN_FAILED) return label
   const details = [
     getFailedLoginReasonLabel(activity.target_id),
@@ -56,7 +61,6 @@ function formatActivityDate(timestamp) {
 export default function SystemLogs() {
   const { userProfile } = useAuthProfile()
   const location = useLocation()
-  const navigate = useNavigate()
   const [activityLogs, setActivityLogs] = useState([])
   const [nextPageCursor, setNextPageCursor] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -169,10 +173,7 @@ export default function SystemLogs() {
     setPageIndex((currentPage) => Math.max(0, currentPage - 1))
   }
 
-  const handleLogout = async () => {
-    await endSession(userProfile)
-    navigate('/login')
-  }
+  const handleLogout = useLogout()
 
   if (userProfile?.role !== 'superadmin') return <Navigate to="/sares/dashboard" replace />
 

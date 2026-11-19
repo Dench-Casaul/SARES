@@ -1569,3 +1569,35 @@
     transform: translateX(0);
   }
 }
+
+/* Case status control (see src/caseStatus.js) */
+.s-case-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.s-case-status-badge {
+  display: inline-flex;
+  align-items: center;
+  cursor: default;
+}
+
+.s-status-dropdown--final {
+  background: #fee2e2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
+.s-offense-review {
+  margin: 6px 0 8px;
+  padding: 8px 10px;
+  border: 1px solid #f0d8aa;
+  border-radius: 8px;
+  background: #fff8ec;
+  color: #8a5300;
+  font-size: 12px;
+  line-height: 1.45;
+}

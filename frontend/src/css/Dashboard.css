@@ -799,3 +799,337 @@
   color: #64748b;
   font-weight: 600;
 }
+
+/* ------------------------------------------------------------------
+ * Dashboard additions (dash-*). New classes only; the rules above are
+ * left unchanged because other pages may rely on them.
+ * ------------------------------------------------------------------ */
+
+/* Superadmin school filter */
+.dash-scope-toggle {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  margin: 4px 0 18px;
+  border: 1px solid #d8e6f7;
+  border-radius: 12px;
+  background: #f4f8fd;
+  width: fit-content;
+}
+
+.dash-scope-option {
+  appearance: none;
+  border: 0;
+  border-radius: 9px;
+  padding: 7px 14px;
+  background: transparent;
+  color: #365577;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.dash-scope-option:hover {
+  color: #071f5f;
+}
+
+.dash-scope-option--active {
+  background: #ffffff;
+  color: #006ed0;
+  box-shadow: 0 2px 6px rgba(17, 44, 80, 0.1);
+}
+
+.dash-scope-option:focus-visible,
+.dash-clickable:focus-visible,
+.dash-show-all:focus-visible,
+.dash-alert-retry:focus-visible {
+  outline: 2px solid #1198e8;
+  outline-offset: 2px;
+}
+
+/* Load error banner */
+.dash-alert {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  border: 1px solid #fecaca;
+  border-radius: 14px;
+  background: #fef2f2;
+  color: #991b1b;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.dash-alert-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.dash-alert span {
+  flex: 1;
+  min-width: 200px;
+}
+
+.dash-alert-retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: 1px solid #fca5a5;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #991b1b;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.dash-alert-retry svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* Monthly trend bars: count always visible above each bar */
+.dash-trend-track {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.dash-trend-bar {
+  cursor: default;
+}
+
+.dash-trend-count {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  font-weight: 800;
+  color: #071f5f;
+  font-family: 'DM Mono', monospace;
+}
+
+/* Category: stacked severity bar + legend with counts */
+.dash-stack {
+  display: flex;
+  height: 14px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #e8f0fb;
+  margin-bottom: 18px;
+}
+
+.dash-stack-segment {
+  height: 100%;
+}
+
+.dash-stack-segment + .dash-stack-segment {
+  border-left: 2px solid #ffffff;
+}
+
+.dash-category-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dash-category-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #365577;
+}
+
+.dash-category-label {
+  flex: 1;
+}
+
+.dash-category-count {
+  font-weight: 800;
+  color: #071f5f;
+  font-family: 'DM Mono', monospace;
+}
+
+.dash-category-percent {
+  width: 42px;
+  text-align: right;
+  color: #64748b;
+  font-family: 'DM Mono', monospace;
+}
+
+/* Top violations ranking */
+.dash-rank-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dash-rank-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+
+.dash-rank-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 800;
+  flex-shrink: 0;
+  color: #ffffff;
+}
+
+.dash-rank-badge--1 { background: #f59e0b; }
+.dash-rank-badge--2 { background: #94a3b8; }
+.dash-rank-badge--3 { background: #c97c2b; }
+.dash-rank-badge--4 { background: #e2e8f0; color: #64748b; }
+
+.dash-rank-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dash-rank-value {
+  font-size: 12px;
+  font-weight: 800;
+  color: #071f5f;
+  font-family: 'DM Mono', monospace;
+  white-space: nowrap;
+}
+
+.dash-rank-percent {
+  color: #1198e8;
+}
+
+.dash-rank-track {
+  height: 5px;
+  border-radius: 4px;
+  background: #e8f0fb;
+  overflow: hidden;
+}
+
+.dash-rank-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #1198e8, #60c0ff);
+}
+
+/* Clickable rows (recent violations, pending students) */
+.dash-clickable {
+  appearance: none;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dash-clickable:disabled {
+  cursor: default;
+}
+
+.violation-row.dash-clickable {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid #e7edf6;
+  border-radius: 10px;
+  padding: 13px 8px;
+}
+
+.violation-row.dash-clickable:last-child {
+  border-bottom: none;
+}
+
+.violation-row.dash-clickable:not(:disabled):hover {
+  background: #f4f8fd;
+}
+
+.offender-card.dash-clickable:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(182, 106, 0, 0.12);
+}
+
+.dash-row-chevron {
+  width: 18px;
+  height: 18px;
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.dash-avatar--recent {
+  background: #7b9dff22;
+  color: #7b9dff;
+}
+
+.dash-avatar--pending {
+  background: #d96eff22;
+  color: #d96eff;
+}
+
+.dash-offender-since {
+  font-size: 11px;
+  color: #b66a00;
+  margin-top: 3px;
+}
+
+.dash-show-all {
+  margin-top: 12px;
+  padding: 8px 12px;
+  border: 1px solid #d8e6f7;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #006ed0;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  width: 100%;
+}
+
+.dash-show-all:hover {
+  background: #f4f8fd;
+}
+
+@media (max-width: 520px) {
+  .dash-scope-toggle {
+    display: flex;
+    flex-wrap: nowrap;
+    width: 100%;
+  }
+
+  .dash-scope-option {
+    flex: 1;
+    padding: 7px 6px;
+    white-space: nowrap;
+  }
+}
