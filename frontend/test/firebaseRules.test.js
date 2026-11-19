@@ -214,6 +214,10 @@ test('case status changes accept only known status values', async () => {
   await assertFails(updateDoc(violationRef, { mediation_status: 'maybe' }));
   // Unrelated edits are not blocked by the status check
   await assertSucceeds(updateDoc(violationRef, { suspension_start: '2026-11-20', suspension_end: '2026-11-21' }));
+  // Parent/guardian involvement: only the handbook's requirement types
+  await assertSucceeds(updateDoc(violationRef, { 'parent_involvement.conference': { status: 'done', date: '2026-11-20' } }));
+  await assertFails(updateDoc(violationRef, { 'parent_involvement.home_visit': { status: 'done' } }));
+  await assertFails(updateDoc(violationRef, { parent_involvement: 'called mom' }));
 
   const logs = collection(firestore, 'activity_logs');
   const entry = {
@@ -228,6 +232,7 @@ test('case status changes accept only known status values', async () => {
     created_at: serverTimestamp(),
   };
   await assertSucceeds(setDoc(doc(logs), { ...entry, from_status: 'pending_sanction', to_status: 'served' }));
+  await assertSucceeds(setDoc(doc(logs), { ...entry, action: 'parent_involvement_updated' }));
   await assertFails(setDoc(doc(logs), { ...entry, action: 'student_updated', target_type: 'student', from_status: 'x' }));
   await assertFails(setDoc(doc(logs), { ...entry, to_status: 'x'.repeat(41) }));
 });

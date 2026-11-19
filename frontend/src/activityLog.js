@@ -17,6 +17,7 @@ export const ACTIVITY_ACTIONS = Object.freeze({
   VIOLATION_UPDATED: 'violation_updated',
   VIOLATION_STATUS_UPDATED: 'violation_status_updated',
   SUSPENSION_DATES_UPDATED: 'suspension_dates_updated',
+  PARENT_INVOLVEMENT_UPDATED: 'parent_involvement_updated',
   HANDBOOK_UPDATED: 'handbook_updated',
 })
 
@@ -66,6 +67,7 @@ export function getActivityActionLabel(action) {
     [ACTIVITY_ACTIONS.VIOLATION_UPDATED]: 'Updated a violation record',
     [ACTIVITY_ACTIONS.VIOLATION_STATUS_UPDATED]: 'Updated a case status',
     [ACTIVITY_ACTIONS.SUSPENSION_DATES_UPDATED]: 'Updated suspension dates',
+    [ACTIVITY_ACTIONS.PARENT_INVOLVEMENT_UPDATED]: 'Recorded parent/guardian involvement',
     [ACTIVITY_ACTIONS.HANDBOOK_UPDATED]: 'Updated handbook rules or catalog',
   }
   return labels[action] || 'System activity'

@@ -1,3 +1,4 @@
+import { describeRequirementRecord, getParentInvolvementSummary } from "../parentInvolvement.js";
 import { jsPDF } from "jspdf";
 import { getViolationDescription } from "./violationDescription.js";
 
@@ -179,8 +180,13 @@ export function createIncidentReportPdf(caseData, groupMembers = [caseData]) {
   });
   y += 2;
   addParagraph(description.label, description.text, 24);
-  if (caseData.parent_contact_notes) {
-    addParagraph("Parent/Guardian Involvement", caseData.parent_contact_notes, 15);
+  const parentItems = getParentInvolvementSummary(caseData);
+  const parentLines = [
+    ...parentItems.map((item) => `${item.label}: ${item.record.status === "pending" ? "Pending" : describeRequirementRecord(item)}`),
+    ...(caseData.parent_contact_notes ? [caseData.parent_contact_notes] : []),
+  ];
+  if (parentLines.length > 0) {
+    addParagraph("Parent/Guardian Involvement", parentLines.join("\n"), 15);
   }
 
   doc.setFont("helvetica", "bold");

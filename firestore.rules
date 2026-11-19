@@ -114,6 +114,13 @@ service cloud.firestore {
         ]);
     }
 
+    // Parent/guardian involvement records (see frontend/src/parentInvolvement.js).
+    function validParentInvolvement(data) {
+      return !('parent_involvement' in data)
+        || (data.parent_involvement is map
+          && data.parent_involvement.keys().hasOnly(['reminder', 'conference', 'commitment']));
+    }
+
     function statusFieldsChanged() {
       return request.resource.data.diff(resource.data).affectedKeys()
         .hasAny(['case_status', 'status', 'mediation_status']);
@@ -124,12 +131,14 @@ service cloud.firestore {
       allow create: if isProvisioned()
         && canWriteScope(request.resource.data.school_scope)
         && violationMatchesCurrentStudent(request.resource.data)
-        && validCaseStatusFields(request.resource.data);
+        && validCaseStatusFields(request.resource.data)
+        && validParentInvolvement(request.resource.data);
       allow update: if isProvisioned()
         && canReadScope(resource.data.school_scope)
         && canWriteScope(request.resource.data.school_scope)
         && violationMatchesCurrentStudent(request.resource.data)
-        && (!statusFieldsChanged() || validCaseStatusFields(request.resource.data));
+        && (!statusFieldsChanged() || validCaseStatusFields(request.resource.data))
+        && validParentInvolvement(request.resource.data);
       allow delete: if isProvisioned() && canReadScope(resource.data.school_scope);
     }
 
@@ -203,7 +212,8 @@ service cloud.firestore {
           'student_created', 'student_updated', 'student_trashed',
           'student_restored', 'student_deleted',
           'violation_recorded', 'violation_updated',
-          'violation_status_updated', 'suspension_dates_updated', 'handbook_updated'
+          'violation_status_updated', 'suspension_dates_updated', 'parent_involvement_updated',
+          'handbook_updated'
         ]
         && request.resource.data.target_type in [
           'session', 'student', 'violation', 'handbook'
@@ -219,7 +229,7 @@ service cloud.firestore {
             && request.resource.data.target_type == 'student')
           || (request.resource.data.action in [
               'case_recorded', 'violation_recorded', 'violation_updated',
-              'violation_status_updated', 'suspension_dates_updated'
+              'violation_status_updated', 'suspension_dates_updated', 'parent_involvement_updated'
             ] && request.resource.data.target_type == 'violation')
           || (request.resource.data.action == 'handbook_updated'
             && request.resource.data.target_type == 'handbook')

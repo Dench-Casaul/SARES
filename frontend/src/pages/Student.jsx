@@ -31,6 +31,16 @@ import {
   isResolvedThroughMediation,
   parseCalendarDay,
 } from '../caseStatus'
+import {
+  CONTACT_METHODS,
+  PARENT_REQUIREMENT_TYPES,
+  REQUIREMENT_STATUS,
+  buildRequirementRecord,
+  describeRequirementRecord,
+  getParentInvolvementSummary,
+  getPendingParentRequirements,
+  getRequirementStatusLabel,
+} from '../parentInvolvement'
 
 const YEARS = ["All Year", "Kindergarten", "1st Grade", "2nd Grade", "3rd Grade", "4th Grade", "5th Grade", "6th Grade", "7th Grade", "8th Grade", "9th Grade", "10th Grade"]
 const YEAR_LEVELS = ["Kindergarten", "1st Grade", "2nd Grade", "3rd Grade", "4th Grade", "5th Grade", "6th Grade", "7th Grade", "8th Grade", "9th Grade", "10th Grade"]
@@ -134,13 +144,13 @@ function AddStudentModal({ onClose, onAdd, initialForm, submitLabel = 'Add Stude
 
         <div className="s-modal-body">
           <div className="s-field">
-            <label className="s-label">Student ID</label>
+            <label className="s-label">Student LRN</label>
             <input
               className="s-input"
               name="id"
               value={form.id}
               onChange={handle}
-              placeholder="Enter student's LRN / official student ID"
+              placeholder="Enter student's LRN"
             />
           </div>
 
@@ -809,7 +819,7 @@ function StudentList({
                 id="student-search"
                 name="student-search"
                 className="s-search"
-                placeholder="Search by name or student ID..."
+                placeholder="Search by name or LRN..."
                 value={search}
                 onChange={e => { setSearch(e.target.value); setCurrentPage(1); }}
               />
@@ -839,7 +849,7 @@ function StudentList({
                     <th>First Name</th>
                     <th>Middle Name</th>
                     <th>Last Name</th>
-                    <th>Student ID</th>
+                    <th>Student LRN</th>
                     <th>Year Level & Section</th>
                     <th>Total Violations</th>
                     <th>Status</th>
@@ -1288,6 +1298,12 @@ function StudentProfile({ student, onBack, onSelectViolation, onUpdateViolationS
                     </div>
                     <p className="s-history-variety">{v.variety}</p>
                     {v.offense_review && <OffenseReviewNote review={v.offense_review} />}
+                    {(() => {
+                      const pendingParent = getPendingParentRequirements(v);
+                      return pendingParent.length > 0 ? (
+                        <p className="s-parent-chip">Parent requirement pending: {pendingParent.map((item) => item.label).join(', ')}</p>
+                      ) : null;
+                    })()}
                     <p className="s-history-desc">{v.description}</p>
                     <div className="s-history-meta">
                       <span>
@@ -1329,8 +1345,157 @@ function StudentProfile({ student, onBack, onSelectViolation, onUpdateViolationS
   );
 }
 
+/* Parent/guardian involvement, as required by the case's handbook sanction (see parentInvolvement.js). */
+function ParentRequirementForm({ item, onSave, onCancel }) {
+  const { userProfile } = useAuthProfile();
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState(() => ({
+    status: item.record.status === REQUIREMENT_STATUS.PENDING ? REQUIREMENT_STATUS.DONE : item.record.status,
+    date: item.record.date || '',
+    parent_name: item.record.parent_name || '',
+    relationship: item.record.relationship || '',
+    method: item.record.method || '',
+    attendees: item.record.attendees || '',
+    parent_agreements: item.record.parent_agreements || '',
+    commitment: item.record.commitment || '',
+    notes: item.record.notes || '',
+  }));
+  const set = (field) => (event) => setForm((current) => ({ ...current, [field]: event.target.value }));
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setSaving(true);
+    const saved = await onSave(item.type, buildRequirementRecord(item.type, form, userProfile));
+    setSaving(false);
+    if (saved) onCancel();
+  };
+
+  return (
+    <form className="s-parent-form" onSubmit={handleSubmit}>
+      <div className="s-field-row">
+        <div className="s-field">
+          <label className="s-label">Outcome</label>
+          <select className="s-input" value={form.status} onChange={set('status')}>
+            {[REQUIREMENT_STATUS.DONE, REQUIREMENT_STATUS.NOT_COMPLETED, REQUIREMENT_STATUS.PENDING].map((status) => (
+              <option key={status} value={status}>{getRequirementStatusLabel(item.type, status)}</option>
+            ))}
+          </select>
+        </div>
+        <div className="s-field">
+          <label className="s-label">Date</label>
+          <input type="date" className="s-input" value={form.date} onChange={set('date')} />
+        </div>
+      </div>
+      <div className="s-field-row">
+        <div className="s-field">
+          <label className="s-label">Parent/guardian name</label>
+          <input className="s-input" value={form.parent_name} onChange={set('parent_name')} maxLength={120} />
+        </div>
+        <div className="s-field">
+          <label className="s-label">Relationship</label>
+          <input className="s-input" value={form.relationship} onChange={set('relationship')} maxLength={60} placeholder="e.g. Mother, Guardian" />
+        </div>
+      </div>
+      {item.type === PARENT_REQUIREMENT_TYPES.REMINDER && (
+        <div className="s-field">
+          <label className="s-label">How the parent was informed</label>
+          <select className="s-input" value={form.method} onChange={set('method')}>
+            <option value="">Select…</option>
+            {CONTACT_METHODS.map((method) => <option key={method} value={method}>{method}</option>)}
+          </select>
+        </div>
+      )}
+      {item.type === PARENT_REQUIREMENT_TYPES.CONFERENCE && (
+        <>
+          <div className="s-field">
+            <label className="s-label">Also present</label>
+            <input className="s-input" value={form.attendees} onChange={set('attendees')} maxLength={300} placeholder="e.g. Class adviser, guidance counselor" />
+          </div>
+          <div className="s-field">
+            <label className="s-label">What the parent agreed to do</label>
+            <textarea className="s-input" rows={3} value={form.parent_agreements} onChange={set('parent_agreements')} maxLength={2000} />
+          </div>
+        </>
+      )}
+      {item.type === PARENT_REQUIREMENT_TYPES.COMMITMENT && (
+        <div className="s-field">
+          <label className="s-label">What the parent committed to</label>
+          <textarea className="s-input" rows={3} value={form.commitment} onChange={set('commitment')} maxLength={2000} />
+        </div>
+      )}
+      <div className="s-field">
+        <label className="s-label">Notes (optional)</label>
+        <textarea className="s-input" rows={2} value={form.notes} onChange={set('notes')} maxLength={2000} />
+      </div>
+      <div className="s-parent-form-actions">
+        <button type="button" className="s-btn-cancel" onClick={onCancel} disabled={saving}>Cancel</button>
+        <button type="submit" className="s-btn-submit s-btn-submit--sm" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+      </div>
+    </form>
+  );
+}
+
+function ParentInvolvementSection({ violation, onSaveParentRecord }) {
+  const [editingType, setEditingType] = useState(null);
+  const items = getParentInvolvementSummary(violation);
+  if (items.length === 0 && !violation.parent_contact_notes) return null;
+
+  return (
+    <>
+      <div className="s-vd-field s-vd-field--full">
+        <div className="s-vd-field-label">Parent/Guardian Involvement</div>
+        {items.length === 0 ? (
+          <p className="s-parent-none">The handbook sanction for this case does not require parent involvement.</p>
+        ) : (
+          <>
+            <p className="s-parent-none">Required by the handbook sanction for this case.</p>
+            <ul className="s-parent-list">
+              {items.map((item) => (
+                <li key={item.type} className="s-parent-item">
+                  <div className="s-parent-head">
+                    <div>
+                      <div className="s-parent-title">{item.label}</div>
+                      <div className="s-parent-desc">{item.description}</div>
+                    </div>
+                    <span className={`s-parent-status s-parent-status--${item.record.status}`}>{item.statusLabel}</span>
+                  </div>
+                  {item.record.status !== REQUIREMENT_STATUS.PENDING && (
+                    <p className="s-parent-detail">{describeRequirementRecord(item)}</p>
+                  )}
+                  {item.record.recorded_at && (
+                    <p className="s-parent-meta">
+                      Recorded by {item.record.recorded_by_email || 'staff'} on {new Date(item.record.recorded_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </p>
+                  )}
+                  {editingType === item.type ? (
+                    <ParentRequirementForm
+                      item={item}
+                      onSave={(type, record) => onSaveParentRecord(violation.id, type, record)}
+                      onCancel={() => setEditingType(null)}
+                    />
+                  ) : (
+                    <button type="button" className="s-parent-edit" onClick={() => setEditingType(item.type)}>
+                      {item.record.status === REQUIREMENT_STATUS.PENDING ? 'Record outcome' : 'Edit'}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+        {violation.parent_contact_notes && (
+          <div className="s-vd-desc-box s-parent-legacy">
+            <strong>Notes recorded with the incident:</strong> {violation.parent_contact_notes}
+          </div>
+        )}
+      </div>
+      <div className="s-divider" />
+    </>
+  );
+}
+
 /* Violation Details*/
-function ViolationDetails({ violation, student, onBack, onSetSuspensionDates, suspensionSaving, location, sidebarOpen, setSidebarOpen }) {
+function ViolationDetails({ violation, student, onBack, onSetSuspensionDates, onSaveParentRecord, suspensionSaving, location, sidebarOpen, setSidebarOpen }) {
   const [showSuspensionModal, setShowSuspensionModal] = useState(false);
   const canSetSuspension = canScheduleSuspension(violation);
 
@@ -1464,15 +1629,7 @@ function ViolationDetails({ violation, student, onBack, onSetSuspensionDates, su
             </>
           )}
 
-          {violation.parent_contact_notes && (
-            <>
-              <div className="s-vd-field s-vd-field--full">
-                <div className="s-vd-field-label">Parent/Guardian Involvement</div>
-                <div className="s-vd-desc-box">{violation.parent_contact_notes}</div>
-              </div>
-              <div className="s-divider" />
-            </>
-          )}
+          <ParentInvolvementSection violation={violation} onSaveParentRecord={onSaveParentRecord} />
 
           {!isResolvedThroughMediation(violation) && (
             <>
@@ -2006,13 +2163,44 @@ export default function Students() {
     }
   };
 
+  const handleSaveParentRecord = async (violationId, type, record) => {
+    if (!violationId) return false;
+    try {
+      await updateDoc(doc(db, 'violations', violationId), {
+        [`parent_involvement.${type}`]: record,
+        updated_at: serverTimestamp(),
+      });
+      await recordActivity(userProfile, ACTIVITY_ACTIONS.PARENT_INVOLVEMENT_UPDATED, 'violation', violationId);
+    } catch (error) {
+      console.error('Failed to save parent involvement:', error);
+      alert('The parent/guardian record could not be saved. Check your connection and try again.');
+      return false;
+    }
+
+    const applyRecord = (violation) => (
+      String(violation.id) === String(violationId)
+        ? { ...violation, parent_involvement: { ...(violation.parent_involvement || {}), [type]: record } }
+        : violation
+    );
+    setStudents((prev) => prev.map((student) => ({ ...student, violations: (student.violations || []).map(applyRecord) })));
+    setSelectedStudent((prev) => (prev ? { ...prev, violations: (prev.violations || []).map(applyRecord) } : prev));
+    setSelectedViolation((prev) => (prev ? applyRecord(prev) : prev));
+    return true;
+  };
+
   const handleUpdateViolationStatus = async (violation, nextStatus) => {
     const violationId = violation?.id;
     if (!violationId) return;
     const fromStatus = getEffectiveCaseStatus(violation);
     if (fromStatus === nextStatus) return;
+    const pendingParent = nextStatus === CASE_STATUS.SERVED ? getPendingParentRequirements(violation) : [];
+    const parentWarning = pendingParent.length > 0
+      ? `Warning: the handbook requires ${pendingParent.map((item) => item.label.toLowerCase()).join(' and ')} for this sanction, `
+        + 'and no outcome has been recorded yet.\n\n'
+      : '';
     const confirmed = window.confirm(
-      `Change this case from "${getCaseStatusLabel(fromStatus)}" to "${getCaseStatusLabel(nextStatus)}"?\n\n`
+      parentWarning
+      + `Change this case from "${getCaseStatusLabel(fromStatus)}" to "${getCaseStatusLabel(nextStatus)}"?\n\n`
       + 'The change is saved to the case history and the system logs.'
     );
     if (!confirmed) return;
@@ -2075,6 +2263,7 @@ export default function Students() {
         student={selectedStudent}
         onBack={() => setView('profile')}
         onSetSuspensionDates={handleSetSuspensionDates}
+        onSaveParentRecord={handleSaveParentRecord}
         suspensionSaving={suspensionSaving}
         location={location}
         sidebarOpen={sidebarOpen}

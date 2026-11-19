@@ -12,6 +12,7 @@ import { ACTIVITY_ACTIONS, recordActivity } from '../activityLog'
 import { getNavItems } from '../navigation'
 import { useLogout } from '../useLogout'
 import { getInitialStatusFields } from '../caseStatus'
+import { getParentRequirementsForSanction } from '../parentInvolvement'
 import {
   buildViolationRecordsForStudents,
   evaluateSaresRecommendation,
@@ -527,6 +528,10 @@ export default function Violation() {
     ai_counselor_recommendation: aiCounselorRecommendation,
     ai_assisted_solution: aiSuggestion,
   })
+  // Mediation cases apply no sanction yet, so no parent requirement until escalated.
+  const reviewParentRequirements = form.handling_path === 'mediation'
+    ? []
+    : getParentRequirementsForSanction(recommendation?.recommendedSanction)
   return (
     <div className="v-page">
       {/* Mobile bar */}
@@ -978,10 +983,16 @@ export default function Violation() {
                     </p>
                   )}
                 </div>
-                {form.parent_contact_notes.trim() && (
+                {(reviewParentRequirements.length > 0 || form.parent_contact_notes.trim()) && (
                   <div className="v-review-section v-review-section--full">
                     <h4>Parent/Guardian Involvement</h4>
-                    <p>{form.parent_contact_notes.trim()}</p>
+                    {reviewParentRequirements.length > 0 && (
+                      <p>
+                        Required by the handbook sanction: {reviewParentRequirements.map((item) => item.label).join(', ')}.
+                        Record the outcome from the student's case record.
+                      </p>
+                    )}
+                    {form.parent_contact_notes.trim() && <p>{form.parent_contact_notes.trim()}</p>}
                   </div>
                 )}
                 {useAiAssistance && reviewDescription.source !== 'ai_assisted_solution' && (

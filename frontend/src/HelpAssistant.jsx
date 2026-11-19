@@ -41,7 +41,7 @@ const TOURS = {
     {
       target: '[data-help-target="student-list"]',
       title: "Search and filter",
-      content: "Search by name or student ID and filter by year level. The table shows identity, section, violation count, status, and available actions.",
+      content: "Search by name or LRN and filter by year level. The table shows identity, section, violation count, status, and available actions.",
     },
     {
       target: '[data-help-target="student-table"]',

@@ -320,3 +320,12 @@
   .ca-print-signatures small { margin-top: 3px; }
   .ca-print-footer { position: fixed; bottom: 0; width: 100%; padding-top: 5px; border-top: 1px solid #aaa; color: #555; font: 8pt Georgia, serif; }
 }
+
+/* Parent/guardian involvement */
+.ca-parent-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}

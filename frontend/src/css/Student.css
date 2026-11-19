@@ -1601,3 +1601,123 @@
   font-size: 12px;
   line-height: 1.45;
 }
+
+/* Parent/guardian involvement (see src/parentInvolvement.js) */
+.s-parent-none {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.s-parent-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.s-parent-item {
+  border: 1px solid #d8e6f7;
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: #ffffff;
+}
+
+.s-parent-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.s-parent-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: #071f5f;
+}
+
+.s-parent-desc {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.s-parent-status {
+  flex-shrink: 0;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  border: 1px solid #f0d8aa;
+  background: #fff8ec;
+  color: #b66a00;
+}
+
+.s-parent-status--done {
+  border-color: #bbf7d0;
+  background: #ecfdf3;
+  color: #15803d;
+}
+
+.s-parent-status--not_completed {
+  border-color: #fecaca;
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.s-parent-detail {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: #1e293b;
+  line-height: 1.5;
+}
+
+.s-parent-meta {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: #8190a7;
+}
+
+.s-parent-edit {
+  margin-top: 10px;
+  padding: 6px 12px;
+  border: 1px solid #b9d9fb;
+  border-radius: 8px;
+  background: #eaf4ff;
+  color: #006ed0;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.s-parent-form {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed #d8e6f7;
+}
+
+.s-parent-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.s-parent-legacy {
+  margin-top: 10px;
+}
+
+.s-parent-chip {
+  display: inline-block;
+  margin: 2px 0 8px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid #f0d8aa;
+  background: #fff8ec;
+  color: #8a5300;
+  font-size: 11px;
+  font-weight: 700;
+}
