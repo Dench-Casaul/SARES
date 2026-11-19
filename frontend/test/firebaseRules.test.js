@@ -235,6 +235,29 @@ test('activity logs are append-only, attributed to the caller, and superadmin-re
       created_at: serverTimestamp(),
     }));
   }
+  await assertSucceeds(setDoc(doc(collection(elementaryDb, 'activity_logs'), 'elementary-timeout'), {
+    action: 'session_timeout',
+    actor_uid: 'elementary',
+    actor_email: 'elementary@ows.edu.ph',
+    actor_role: 'counselor',
+    school_scope: 'elementary',
+    target_type: 'session',
+    target_id: '',
+    source: 'client',
+    created_at: serverTimestamp(),
+  }));
+  // Failed sign-ins are recorded only by the server logger, never by clients.
+  await assertFails(setDoc(doc(collection(elementaryDb, 'activity_logs')), {
+    action: 'login_failed',
+    actor_uid: 'elementary',
+    actor_email: 'elementary@ows.edu.ph',
+    actor_role: 'counselor',
+    school_scope: 'elementary',
+    target_type: 'session',
+    target_id: 'invalid_credentials',
+    source: 'client',
+    created_at: serverTimestamp(),
+  }));
   await assertFails(getDocs(collection(elementaryDb, 'activity_logs')));
   await assertFails(setDoc(doc(collection(elementaryDb, 'activity_logs')), {
     action: 'login_success',
@@ -266,7 +289,7 @@ test('activity logs are append-only, attributed to the caller, and superadmin-re
     orderBy('created_at', 'desc'),
     limit(30)
   )));
-  assert.equal(logs.size, 3);
+  assert.equal(logs.size, 4);
 });
 
 test('a separately provisioned superadmin UID keeps all-scope access', async () => {

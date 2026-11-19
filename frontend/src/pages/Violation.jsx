@@ -9,6 +9,7 @@ import { getSchoolScopeForYear } from '../schoolScope'
 import { formatIdentifiedSanction } from '../engine/sanctionLabel'
 import { getViolationDescription } from '../engine/violationDescription'
 import { ACTIVITY_ACTIONS, recordActivity } from '../activityLog'
+import { endSession } from '../session'
 import {
   buildViolationRecordsForStudents,
   evaluateSaresRecommendation,
@@ -150,9 +151,8 @@ export default function Violation() {
   const [currentPage, setCurrentPage] = useState(1)
 
   const handleLogout = async () => {
-    await recordActivity(userProfile, ACTIVITY_ACTIONS.LOGOUT, 'session');
-    localStorage.removeItem('user')
-    navigate('/login')
+    await endSession(userProfile);
+    navigate('/login');
   }
 
   useEffect(() => {

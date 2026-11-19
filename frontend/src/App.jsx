@@ -17,6 +17,8 @@ import { auth, db } from "./firebase";
 import { isAllowedLoginEmail } from "./authPolicy";
 import { isValidRoleProfile } from "./schoolScope";
 import { AuthProfileContext } from "./authContext";
+import { ACTIVITY_ACTIONS } from "./activityLog";
+import { endSession, IDLE_TIMEOUT_MS, SESSION_EXPIRED_KEY } from "./session";
 import HelpAssistant from "./HelpAssistant";
 
 class AppErrorBoundary extends React.Component {
@@ -73,7 +75,6 @@ function App() {
       setUserProfile(null);
 
       if (!user) {
-        localStorage.removeItem("user");
         applyHandbookOverrides();
         applySanctionOverrides();
         setAuthReady(true);
@@ -115,7 +116,6 @@ function App() {
       } catch (error) {
         console.error("Failed to validate SARES account:", error);
         if (currentEvent === authEvent) {
-          localStorage.removeItem("user");
           await signOut(auth).catch(() => {});
           setUserProfile(null);
           setAuthReady(true);
@@ -130,9 +130,42 @@ function App() {
     };
   }, []);
 
+  // Inactivity sign-out. Elapsed time is checked against a timestamp rather than a
+  // single long timer, so a computer waking from sleep is still signed out.
+  useEffect(() => {
+    if (!userProfile) return undefined;
+
+    let lastActivityAt = Date.now();
+    let expired = false;
+    const markActivity = () => {
+      lastActivityAt = Date.now();
+    };
+    const checkIdle = () => {
+      if (expired || Date.now() - lastActivityAt < IDLE_TIMEOUT_MS) return;
+      expired = true;
+      try {
+        sessionStorage.setItem(SESSION_EXPIRED_KEY, "1");
+      } catch {
+        // The login page just won't show the inactivity notice.
+      }
+      endSession(userProfile, ACTIVITY_ACTIONS.SESSION_TIMEOUT);
+    };
+
+    const activityEvents = ["pointerdown", "pointermove", "keydown", "wheel", "touchstart", "scroll"];
+    activityEvents.forEach((eventName) => window.addEventListener(eventName, markActivity, { passive: true, capture: true }));
+    document.addEventListener("visibilitychange", checkIdle);
+    const intervalId = window.setInterval(checkIdle, 30 * 1000);
+
+    return () => {
+      activityEvents.forEach((eventName) => window.removeEventListener(eventName, markActivity, { capture: true }));
+      document.removeEventListener("visibilitychange", checkIdle);
+      window.clearInterval(intervalId);
+    };
+  }, [userProfile]);
+
   return (
     <div data-rule-revision={ruleRevision}>
-      <AuthProfileContext.Provider value={{ userProfile }}>
+      <AuthProfileContext.Provider value={{ userProfile, authReady }}>
         <AppErrorBoundary>
           <Routes>
             <Route path="/" element={<Landing />} />

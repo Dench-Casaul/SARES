@@ -4,7 +4,8 @@ import { collection, getDocs, limit, orderBy, query, startAfter, Timestamp, wher
 import { Activity, BarChart3, ClipboardList, KeyRound, LayoutDashboard, LogOut, ShieldCheck, Users } from 'lucide-react'
 import { db } from '../firebase'
 import { useAuthProfile } from '../authContext'
-import { ACTIVITY_ACTIONS, getActivityActionLabel, recordActivity } from '../activityLog'
+import { ACTIVITY_ACTIONS, getActivityActionLabel, getFailedLoginReasonLabel } from '../activityLog'
+import { endSession } from '../session'
 import '../css/SystemLogs.css'
 import wesleyLogo from '../assets/wesley-logo.png'
 
@@ -34,6 +35,16 @@ function Sidebar({ activePage, onLogout }) {
       </div>
     </aside>
   )
+}
+
+function formatActivityDescription(activity) {
+  const label = getActivityActionLabel(activity.action)
+  if (activity.action !== ACTIVITY_ACTIONS.LOGIN_FAILED) return label
+  const details = [
+    getFailedLoginReasonLabel(activity.target_id),
+    activity.ip_address ? `IP ${activity.ip_address}` : '',
+  ].filter(Boolean)
+  return details.length ? `${label} (${details.join(' · ')})` : label
 }
 
 function formatActivityDate(timestamp) {
@@ -159,8 +170,7 @@ export default function SystemLogs() {
   }
 
   const handleLogout = async () => {
-    await recordActivity(userProfile, ACTIVITY_ACTIONS.LOGOUT, 'session')
-    localStorage.removeItem('user')
+    await endSession(userProfile)
     navigate('/login')
   }
 
@@ -178,7 +188,7 @@ export default function SystemLogs() {
           <div>
             <p className="logs-eyebrow">Administration</p>
             <h1>System Logs / Recent Activity</h1>
-            <p>Successful sign-ins and in-app actions across both school scopes.</p>
+            <p>Sign-ins, failed sign-in attempts, sign-outs, and in-app actions across both school scopes.</p>
           </div>
         </header>
 
@@ -240,7 +250,7 @@ export default function SystemLogs() {
                       <td>{formatActivityDate(activity.created_at)}</td>
                       <td>{activity.actor_email || 'Unknown account'}</td>
                       <td>{activity.school_scope === 'high_school' ? 'High school' : activity.school_scope === 'elementary' ? 'Elementary' : activity.school_scope === 'all' ? 'Admin' : 'Shared'}</td>
-                      <td>{getActivityActionLabel(activity.action)}</td>
+                      <td>{formatActivityDescription(activity)}</td>
                     </tr>
                   ))}
                 </tbody>

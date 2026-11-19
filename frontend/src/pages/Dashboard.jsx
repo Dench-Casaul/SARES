@@ -6,7 +6,7 @@ import { useAuthProfile } from '../authContext'
 import { queryForUserScope } from '../firestoreAccess'
 import { isRecordInTrash } from '../recordStatus'
 import { isViolationServed } from '../engine/ruleEngine'
-import { ACTIVITY_ACTIONS, recordActivity } from '../activityLog'
+import { endSession } from '../session'
 import '../css/Dashboard.css'
 import heroImg from '../assets/hero.png'
 import wesleyLogo from '../assets/wesley-logo.png'
@@ -157,10 +157,7 @@ const Dashboard = () => {
   };
 
   const handleLogout = async () => {
-    await recordActivity(userProfile, ACTIVITY_ACTIONS.LOGOUT, 'session');
-    // Clear any stored user data (e.g., tokens, user info)
-    localStorage.removeItem('user');
-    // Navigate to the login page
+    await endSession(userProfile);
     navigate('/login');
   };
 

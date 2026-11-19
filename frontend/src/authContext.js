@@ -1,5 +1,6 @@
 import { createContext, useContext } from 'react';
 
+// Value shape: { userProfile, authReady }
 export const AuthProfileContext = createContext(null);
 
 export function useAuthProfile() {

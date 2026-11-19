@@ -3,7 +3,9 @@ import { auth, db } from './firebase'
 
 export const ACTIVITY_ACTIONS = Object.freeze({
   LOGIN_SUCCESS: 'login_success',
+  LOGIN_FAILED: 'login_failed',
   LOGOUT: 'logout',
+  SESSION_TIMEOUT: 'session_timeout',
   PASSWORD_UPDATED: 'password_updated',
   CASE_RECORDED: 'case_recorded',
   STUDENT_CREATED: 'student_created',
@@ -45,7 +47,9 @@ export async function recordActivity(userProfile, action, targetType, targetId =
 export function getActivityActionLabel(action) {
   const labels = {
     [ACTIVITY_ACTIONS.LOGIN_SUCCESS]: 'Signed in successfully',
+    [ACTIVITY_ACTIONS.LOGIN_FAILED]: 'Failed sign-in attempt',
     [ACTIVITY_ACTIONS.LOGOUT]: 'Signed out',
+    [ACTIVITY_ACTIONS.SESSION_TIMEOUT]: 'Signed out after inactivity',
     [ACTIVITY_ACTIONS.PASSWORD_UPDATED]: 'Changed account password',
     [ACTIVITY_ACTIONS.CASE_RECORDED]: 'Saved case management details',
     [ACTIVITY_ACTIONS.STUDENT_CREATED]: 'Added a student',
@@ -60,4 +64,48 @@ export function getActivityActionLabel(action) {
     [ACTIVITY_ACTIONS.HANDBOOK_UPDATED]: 'Updated handbook rules or catalog',
   }
   return labels[action] || 'System activity'
+}
+
+// Reasons recorded by the server-side failed sign-in logger (api/log-failed-login.js).
+export const FAILED_LOGIN_REASONS = Object.freeze({
+  INVALID_CREDENTIALS: 'invalid_credentials',
+  DOMAIN_NOT_ALLOWED: 'domain_not_allowed',
+  RATE_LIMITED: 'rate_limited',
+  ACCOUNT_DISABLED: 'account_disabled',
+  NOT_PROVISIONED: 'not_provisioned',
+  WRONG_ACCOUNT_TYPE: 'wrong_account_type',
+  UNKNOWN_ERROR: 'unknown_error',
+})
+
+export function getFailedLoginReasonLabel(reason) {
+  const labels = {
+    [FAILED_LOGIN_REASONS.INVALID_CREDENTIALS]: 'wrong email or password',
+    [FAILED_LOGIN_REASONS.DOMAIN_NOT_ALLOWED]: 'email outside the school domain',
+    [FAILED_LOGIN_REASONS.RATE_LIMITED]: 'too many attempts',
+    [FAILED_LOGIN_REASONS.ACCOUNT_DISABLED]: 'account disabled',
+    [FAILED_LOGIN_REASONS.NOT_PROVISIONED]: 'account not provisioned for SARES',
+    [FAILED_LOGIN_REASONS.WRONG_ACCOUNT_TYPE]: 'wrong account type selected',
+    [FAILED_LOGIN_REASONS.UNKNOWN_ERROR]: 'unexpected error',
+  }
+  return labels[reason] || ''
+}
+
+// Fire-and-forget: a logging failure must never block or change the sign-in result.
+export function reportFailedLogin({ email, reason, accountType, idToken = '' }) {
+  try {
+    const headers = { 'Content-Type': 'application/json' }
+    if (idToken) headers.Authorization = `Bearer ${idToken}`
+    fetch('/api/log-failed-login', {
+      method: 'POST',
+      headers,
+      keepalive: true,
+      body: JSON.stringify({
+        email: String(email || '').slice(0, 254),
+        reason,
+        account_type: accountType || '',
+      }),
+    }).catch(() => {})
+  } catch {
+    // Ignore: logging is best-effort.
+  }
 }

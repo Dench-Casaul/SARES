@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { collection, onSnapshot } from "firebase/firestore";
-import { signOut } from "firebase/auth";
 import {
   LayoutDashboard,
   Users,
@@ -14,13 +13,13 @@ import {
   X,
   KeyRound,
 } from "lucide-react";
-import { auth, db } from "../firebase";
+import { db } from "../firebase";
 import { useAuthProfile } from "../authContext";
 import { queryForUserScope } from "../firestoreAccess";
 import { isRecordInTrash } from "../recordStatus";
 import { doesViolationCount } from "../engine/ruleEngine";
 import { formatIdentifiedSanction } from "../engine/sanctionLabel";
-import { ACTIVITY_ACTIONS, recordActivity } from "../activityLog";
+import { endSession } from "../session";
 import "../css/Reports.css";
 import saresLogo from "../assets/sares-logo.png";
 import wesleyLogo from "../assets/wesley-logo.png";
@@ -136,13 +135,7 @@ export default function Report() {
   }, [userProfile]);
 
   const handleLogout = async () => {
-    await recordActivity(userProfile, ACTIVITY_ACTIONS.LOGOUT, "session");
-    try {
-      await signOut(auth);
-    } catch {
-      // no-op
-    }
-    localStorage.removeItem("user");
+    await endSession(userProfile);
     navigate("/login");
   };
 

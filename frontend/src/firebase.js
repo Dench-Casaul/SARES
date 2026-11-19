@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { browserSessionPersistence, initializeAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
@@ -15,6 +15,8 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-export const auth = getAuth(app);
+// Session persistence: closing the tab or browser ends the sign-in, so a shared
+// office computer does not stay signed in to SARES for the next person.
+export const auth = initializeAuth(app, { persistence: browserSessionPersistence });
 export const db = getFirestore(app);
 export const storage = getStorage(app);

@@ -1,20 +1,17 @@
-import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { signOut } from "firebase/auth";
+import { Navigate, useNavigate } from "react-router-dom";
 import wesleyLogo from "../assets/wesley-logo.png";
 import saresLogo from "../assets/sares-logo.png";
-import { auth } from "../firebase";
+import { useAuthProfile } from "../authContext";
 import "../css/Landing.css";
 
 function Landing() {
   const navigate = useNavigate();
+  const { userProfile, authReady } = useAuthProfile();
 
-  useEffect(() => {
-    signOut(auth).catch(() => {
-      // Best-effort sign out to prevent stale sessions on the landing screen.
-    });
-    localStorage.removeItem("user");
-  }, []);
+  // Signed-in users go back to the app; signing out only happens through Logout.
+  if (authReady && userProfile) {
+    return <Navigate to="/sares/dashboard" replace />;
+  }
 
   return (
     <main className="landing-page">

@@ -1,22 +1,80 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, GraduationCap, Mail, Lock, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import { isAllowedLoginEmail, normalizeLoginEmail } from "../authPolicy";
 import { isRoleProfileForLoginType, isValidRoleProfile } from "../schoolScope";
-import { ACTIVITY_ACTIONS, recordActivity } from "../activityLog";
+import {
+  ACTIVITY_ACTIONS,
+  FAILED_LOGIN_REASONS,
+  recordActivity,
+  reportFailedLogin,
+} from "../activityLog";
+import { useAuthProfile } from "../authContext";
+import { IDLE_TIMEOUT_MS, SESSION_EXPIRED_KEY } from "../session";
 import heroImg from "../assets/hero.png";
 import wesleyLogo from "../assets/wesley-logo.png";
 import saresLogo from "../assets/sares-logo.png";
 import "../css/Login.css";
 
+const IDLE_TIMEOUT_MINUTES = Math.round(IDLE_TIMEOUT_MS / 60000);
+const ACCOUNT_TYPES = ["elementary", "high_school", "superadmin"];
+
+const LOGIN_MESSAGES = {
+  invalidCredentials: "Invalid email or password.",
+  rateLimited: "Too many failed sign-in attempts. Please wait a few minutes before trying again, or contact the system administrator.",
+  accountDisabled: "This account has been disabled. Contact the system administrator.",
+  network: "Unable to reach the server. Check your internet connection and try again.",
+  notProvisioned: "This account is not provisioned for SARES. Contact the system administrator.",
+  wrongAccountType: "This account does not match the selected sign-in. Choose the account type assigned to you.",
+  unexpected: "Sign-in failed due to an unexpected error. Please try again.",
+};
+
+// Thrown inside handleLogin to carry a failure reason to the single catch block.
+class LoginFailure extends Error {
+  constructor(reason, message) {
+    super(message);
+    this.reason = reason;
+  }
+}
+
+// Maps Firebase Auth / Firestore errors to a failure reason and a user-facing message.
+// Credential errors share one message so the page does not reveal which accounts exist.
+function classifyLoginError(error) {
+  if (error instanceof LoginFailure) {
+    return { reason: error.reason, message: error.message };
+  }
+  switch (error?.code) {
+    case "auth/invalid-credential":
+    case "auth/invalid-login-credentials":
+    case "auth/wrong-password":
+    case "auth/user-not-found":
+    case "auth/invalid-email":
+      return { reason: FAILED_LOGIN_REASONS.INVALID_CREDENTIALS, message: LOGIN_MESSAGES.invalidCredentials };
+    case "auth/too-many-requests":
+      return { reason: FAILED_LOGIN_REASONS.RATE_LIMITED, message: LOGIN_MESSAGES.rateLimited };
+    case "auth/user-disabled":
+      return { reason: FAILED_LOGIN_REASONS.ACCOUNT_DISABLED, message: LOGIN_MESSAGES.accountDisabled };
+    case "auth/network-request-failed":
+    case "unavailable":
+      // Not reported: the logging endpoint is unreachable too, and the attempt never reached a verdict.
+      return { reason: null, message: LOGIN_MESSAGES.network };
+    case "permission-denied":
+      // Firestore rules only allow reading users/{uid} when the profile is valid and provisioned.
+      return { reason: FAILED_LOGIN_REASONS.NOT_PROVISIONED, message: LOGIN_MESSAGES.notProvisioned };
+    default:
+      return { reason: FAILED_LOGIN_REASONS.UNKNOWN_ERROR, message: LOGIN_MESSAGES.unexpected };
+  }
+}
+
 function Login() {
-  const [searchParams] = useSearchParams();
+  const { userProfile, authReady } = useAuthProfile();
+  const [searchParams, setSearchParams] = useSearchParams();
   const initialAccountType = searchParams.get("type");
   const [selectedAccountType, setSelectedAccountType] = useState(
-    ["elementary", "high_school", "superadmin"].includes(initialAccountType)
+    ACCOUNT_TYPES.includes(initialAccountType)
       ? initialAccountType
       : ""
   );
@@ -25,6 +83,15 @@ function Login() {
   const [showPassword, setShowPassword] = useState(false);
 
   const [error, setError] = useState("");
+  const [sessionExpired] = useState(() => {
+    try {
+      const expired = sessionStorage.getItem(SESSION_EXPIRED_KEY) === "1";
+      sessionStorage.removeItem(SESSION_EXPIRED_KEY);
+      return expired;
+    } catch {
+      return false;
+    }
+  });
   const [loading, setLoading] = useState(false);
   const [acceptedPolicies, setAcceptedPolicies] = useState(false);
   const [showPolicyHint, setShowPolicyHint] = useState(false);
@@ -32,13 +99,6 @@ function Login() {
   const [activePolicyTab, setActivePolicyTab] = useState("privacy");
 
   const navigate = useNavigate();
-
-  useEffect(() => {
-    signOut(auth).catch(() => {
-      // Best-effort sign out to prevent stale sessions on the login screen.
-    });
-    localStorage.removeItem("user");
-  }, []);
 
   useEffect(() => {
     if (!isPolicyModalOpen) return undefined;
@@ -56,7 +116,7 @@ function Login() {
   const handleLogin = async (event) => {
     event.preventDefault();
 
-    const hasCredentials = email.trim() && password.trim();
+    const hasCredentials = email.trim() && password;
 
     if (!acceptedPolicies) {
       setShowPolicyHint(Boolean(hasCredentials));
@@ -73,49 +133,71 @@ function Login() {
     setLoading(true);
 
     const normalizedEmail = normalizeLoginEmail(email);
-
-    if (!isAllowedLoginEmail(normalizedEmail)) {
-      setError("Invalid email or password.");
-      setLoading(false);
-      return;
-    }
+    let idToken = "";
 
     try {
-      const credential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
-      const firebaseUser = credential.user;
-      const authEmail = normalizeLoginEmail(firebaseUser.email || normalizedEmail);
-
-      if (!isAllowedLoginEmail(authEmail)) {
-        await signOut(auth);
-        setError("Invalid email or password.");
-        return;
+      if (!isAllowedLoginEmail(normalizedEmail)) {
+        throw new LoginFailure(FAILED_LOGIN_REASONS.DOMAIN_NOT_ALLOWED, LOGIN_MESSAGES.invalidCredentials);
       }
 
-      const userDocRef = doc(db, "users", firebaseUser.uid);
-      const userDoc = await getDoc(userDocRef);
+      const credential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
+      const firebaseUser = credential.user;
+      // Kept so the failure logger can verify who this was if a later check fails.
+      idToken = await firebaseUser.getIdToken().catch(() => "");
 
+      if (!isAllowedLoginEmail(firebaseUser.email || "")) {
+        throw new LoginFailure(FAILED_LOGIN_REASONS.DOMAIN_NOT_ALLOWED, LOGIN_MESSAGES.invalidCredentials);
+      }
+
+      const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
       const userData = userDoc.exists() ? userDoc.data() : null;
       if (!userData || !isValidRoleProfile(userData)) {
-        await signOut(auth);
-        setError("This account is not provisioned for SARES. Contact the system administrator.");
-        return;
+        throw new LoginFailure(FAILED_LOGIN_REASONS.NOT_PROVISIONED, LOGIN_MESSAGES.notProvisioned);
       }
 
       if (!isRoleProfileForLoginType(userData, selectedAccountType)) {
-        await signOut(auth);
-        setError("This account does not match the selected sign-in. Choose the account type assigned to you.");
-        return;
+        throw new LoginFailure(FAILED_LOGIN_REASONS.WRONG_ACCOUNT_TYPE, LOGIN_MESSAGES.wrongAccountType);
       }
 
       await recordActivity(userData, ACTIVITY_ACTIONS.LOGIN_SUCCESS, "session");
       navigate("/sares/dashboard");
-    } catch (error) {
-      console.error("Login error:", error);
-      setError("Invalid email or password.");
+    } catch (loginError) {
+      const { reason, message } = classifyLoginError(loginError);
+      if (!(loginError instanceof LoginFailure)) {
+        console.error("Login error:", loginError);
+      }
+
+      // Never leave a half-validated session behind.
+      if (auth.currentUser) {
+        await signOut(auth).catch(() => {});
+      }
+
+      if (reason) {
+        reportFailedLogin({
+          email: normalizedEmail,
+          reason,
+          accountType: selectedAccountType,
+          idToken,
+        });
+      }
+      setError(message);
     } finally {
       setLoading(false);
     }
   };
+
+  const handleChooseDifferentType = () => {
+    setSelectedAccountType("");
+    setSearchParams({}, { replace: true });
+    setError("");
+    setShowPolicyHint(false);
+  };
+
+  // Already signed in (e.g. pressed Back from the dashboard): return to the app instead of
+  // silently signing out. Skipped while a sign-in is being validated on this page.
+  if (authReady && userProfile && !loading) {
+    return <Navigate to="/sares/dashboard" replace />;
+  }
 
   return (
     <div className="app-shell">
@@ -160,6 +242,12 @@ function Login() {
             </p>
           </header>
 
+          {sessionExpired && (
+            <p className="login-notice" role="status">
+              You were signed out after {IDLE_TIMEOUT_MINUTES} minutes of inactivity. Please sign in again.
+            </p>
+          )}
+
           {!selectedAccountType ? (
             <div className="account-type-options" role="group" aria-label="Choose account type">
               <button
@@ -201,9 +289,7 @@ function Login() {
               <button
                 type="button"
                 className="login-back-button"
-                onClick={() => {
-                  navigate("/");
-                }}
+                onClick={handleChooseDifferentType}
               >
                 <ArrowLeft aria-hidden="true" size={16} />
                 Choose a different account type

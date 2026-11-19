@@ -17,7 +17,7 @@ import {
 import { formatIdentifiedSanction } from "../engine/sanctionLabel";
 import { getViolationDescription } from "../engine/violationDescription";
 import { useAuthProfile } from "../authContext";
-import { ACTIVITY_ACTIONS, recordActivity } from "../activityLog";
+import { endSession } from "../session";
 
 function Sidebar({ activePage, onLogout, userProfile }) {
   return (
@@ -77,8 +77,7 @@ export default function CaseAssessment() {
   const caseData = location.state?.caseData || null;
 
   const handleLogout = async () => {
-    await recordActivity(userProfile, ACTIVITY_ACTIONS.LOGOUT, "session");
-    localStorage.removeItem("user");
+    await endSession(userProfile);
     navigate("/login");
   };
 

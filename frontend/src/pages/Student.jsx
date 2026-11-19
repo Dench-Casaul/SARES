@@ -15,6 +15,7 @@ import wesleyLogo from '../assets/wesley-logo.png'
 import { Activity, AlertTriangle, LayoutDashboard, Users, ClipboardList, ShieldCheck, BarChart3, LogOut, Menu, X, Calendar, Download, KeyRound, Trash2, RotateCcw } from 'lucide-react'
 import { getSubcategories, listOffenseGroups, listOffensesByGroup } from '../data/handbookIndex'
 import { ACTIVITY_ACTIONS, recordActivity } from '../activityLog'
+import { endSession } from '../session'
 
 const normalizeViolationStatus = (status) => {
   const normalized = String(status || '').toLowerCase().trim();
@@ -49,9 +50,8 @@ function Sidebar({ activePage, isOpen, toggleSidebar }) {
   const { userProfile } = useAuthProfile();
 
   const handleLogout = async () => {
-    await recordActivity(userProfile, ACTIVITY_ACTIONS.LOGOUT, 'session');
-    localStorage.removeItem("user");
-    navigate("/login");
+    await endSession(userProfile);
+    navigate('/login');
   };
 
   return (
