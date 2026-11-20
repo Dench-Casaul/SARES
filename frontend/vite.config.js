@@ -5,11 +5,13 @@ import react from '@vitejs/plugin-react'
 import { loadEnv } from 'vite'
 import preventionSuggestionHandler from './api/generate-prevention-suggestion.js'
 import counselorRecommendationHandler from './api/generate-counselor-recommendation.js'
+import recommendOffenseHandler from './api/recommend-offense.js'
 
 function localApiPlugin() {
   const handlers = {
     '/api/generate-prevention-suggestion': preventionSuggestionHandler,
     '/api/generate-counselor-recommendation': counselorRecommendationHandler,
+    '/api/recommend-offense': recommendOffenseHandler,
   }
 
   return {

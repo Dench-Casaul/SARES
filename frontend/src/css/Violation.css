@@ -852,6 +852,116 @@
 .v-offense-type-sub-labels { display: flex; gap: 8px; }
 .v-offense-type-sub-labels span { background: #f1f5f9; border-radius: 6px; padding: 3px 9px; font-size: 11px; font-weight: 600; color: #475569; }
 
+/* ── Recommended Offense (AI suggestions) ─────────────── */
+.v-suggestions { margin-top: 20px; }
+.v-suggestion-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid #b8d8f2;
+  border-radius: 10px;
+  background: #f0f8ff;
+  color: #0f2c66;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.v-suggestion-status p { margin: 0; flex: 1 1 240px; }
+.v-suggestion-status svg { color: #087fc5; flex-shrink: 0; }
+.v-suggestion-status--warning { border-color: #f0b34a; background: #fff8e8; color: #713f12; }
+.v-suggestion-list { display: flex; flex-direction: column; gap: 10px; }
+.v-suggestion-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  width: 100%;
+  padding: 16px 18px;
+  background: #f9fbff;
+  border: 2px solid #dce5f2;
+  border-radius: 14px;
+  cursor: pointer;
+  text-align: left;
+  font-family: 'DM Sans', sans-serif;
+  transition: border-color 0.15s, background 0.15s;
+}
+.v-suggestion-card:hover,
+.v-suggestion-card.selected { border-color: #1198e8; background: #eaf4ff; }
+.v-suggestion-card.major:hover,
+.v-suggestion-card.major.selected { border-color: #f59e0b; background: #fffbeb; }
+.v-suggestion-card:focus-visible,
+.v-chip:focus-visible,
+.v-text-button:focus-visible { outline: 3px solid #93c5fd; outline-offset: 2px; }
+.v-suggestion-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; }
+.v-suggestion-confidence {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #f1f5f9;
+  color: #475569;
+}
+.v-suggestion-confidence--high { background: #dcfce7; color: #166534; }
+.v-suggestion-confidence--medium { background: #dbeafe; color: #1d4ed8; }
+.v-suggestion-check { color: #087fc5; flex-shrink: 0; }
+.v-suggestion-card.major .v-suggestion-check { color: #d97706; }
+.v-suggestion-title { display: flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 800; color: #071f5f; }
+.v-suggestion-path { font-size: 12px; font-weight: 600; color: #526782; }
+.v-suggestion-reason { font-size: 13px; color: #334155; line-height: 1.5; }
+.v-selected-offense {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid #b8d8f2;
+  border-radius: 10px;
+  background: #f0f8ff;
+  color: #0f2c66;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.v-selected-offense svg { color: #087fc5; flex-shrink: 0; margin-top: 2px; }
+.v-text-button {
+  padding: 0;
+  border: none;
+  background: none;
+  color: #087fc5;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.v-manual-toggle { display: block; margin-top: 16px; }
+.v-manual-browser {
+  margin-top: 12px;
+  padding: 16px;
+  border: 1px solid #dce5f2;
+  border-radius: 14px;
+  background: #fcfdff;
+}
+.v-chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.v-chip-row + .v-chip-row { margin-top: 10px; }
+.v-chip {
+  padding: 7px 14px;
+  border: 1.5px solid #dce5f2;
+  border-radius: 999px;
+  background: #fff;
+  color: #365577;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.v-chip:hover,
+.v-chip.selected { border-color: #1198e8; background: #eaf4ff; color: #0c4a6e; }
+.v-chip.major:hover,
+.v-chip.major.selected { border-color: #f59e0b; background: #fffbeb; color: #92400e; }
+
 /* ── Subcategory Cards ────────────────────────────────── */
 .v-subcategory-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 20px; }
 .v-subcategory-card {
@@ -955,6 +1065,13 @@
   margin-top: 24px;
   padding-top: 16px;
   border-top: 1px solid #e8f0fb;
+}
+.v-rules-status {
+  align-self: center;
+  margin: 0 auto 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #9a3412;
 }
 .v-btn-cancel { display: inline-flex; align-items: center; gap: 6px; }
 .v-btn-submit { display: inline-flex; align-items: center; gap: 6px; }

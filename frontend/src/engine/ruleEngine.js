@@ -3,11 +3,12 @@
  */
 
 import {
+  getHighestSanctionTier,
   getSanctionByOffenseNumber,
   isIllegalActivityOffense,
   getOffenseById,
 } from '../data/handbookIndex.js';
-import { formatIdentifiedSanction } from './sanctionLabel.js';
+import { formatIdentifiedSanction, ordinal } from './sanctionLabel.js';
 import { getSchoolScopeForYear } from '../schoolScope.js';
 import { countsTowardOffenses, isOpenCase } from '../caseStatus.js';
 
@@ -152,12 +153,24 @@ export function evaluateOffense({
   });
   const offenseNumber = priorCount + 1;
   const resolvedSchoolScope = schoolScope || getSchoolScopeForYear(currentIncident.year_level || currentIncident.year);
-  const tier = getSanctionByOffenseNumber(
+  let tier = getSanctionByOffenseNumber(
     resolvedOffenseType,
     level,
     resolvedSchoolScope,
     offenseNumber
   );
+  // Repeat offenses past the end of the schedule keep the highest listed sanction
+  // (never "no sanction") and are flagged so the counselor escalates for review.
+  let beyondSchedule = false;
+  let scheduleMaxOffense = null;
+  if (!tier) {
+    const highest = getHighestSanctionTier(resolvedOffenseType, level, resolvedSchoolScope);
+    if (highest && offenseNumber > Number(highest.offenseNumber)) {
+      tier = { ...highest, label: `${ordinal(offenseNumber)} Offense` };
+      beyondSchedule = true;
+      scheduleMaxOffense = Number(highest.offenseNumber);
+    }
+  }
   const suggestAuthorities = isIllegalActivityOffense(offenseId);
   const levelLabel = {
     light: 'Light',
@@ -183,8 +196,13 @@ export function evaluateOffense({
     subcategoryId: level,
     schoolScope: resolvedSchoolScope,
     handbookSection: 'Progressive Discipline Table',
+    beyondSchedule,
+    scheduleMaxOffense,
     notes: [
       `Cumulative ${levelLabel.toLowerCase()} offense count for school year ${schoolYearKey}: ${priorCount} prior, this is #${offenseNumber} for ${schoolLabel}.`,
+      ...(beyondSchedule
+        ? [`⚠ The handbook schedule ends at the ${ordinal(scheduleMaxOffense)} offense. The highest listed sanction applies; refer this repeat offense to the principal/discipline committee for review.`]
+        : []),
       ...(suggestAuthorities
         ? ['⚠ This violation may involve illegal activity. Consider referral to proper authorities.']
         : []),
@@ -215,6 +233,40 @@ export function evaluateSaresRecommendation({
     schoolScope: schoolScope || getSchoolScopeForYear(yearLevel),
     existingViolations,
     currentIncident,
+  });
+}
+
+/**
+ * Students whose offense number differs between two violation snapshots, e.g.
+ * the list loaded when the form opened (`before`) and a fresh read just before
+ * saving (`after`). Used to stop a save when another case was recorded meanwhile.
+ *
+ * @returns {{ student: object, beforeNumber: number, afterNumber: number, beforeLabel: string, afterLabel: string }[]}
+ */
+export function findOffenseNumberChanges({ students = [], offense = {}, before = [], after = [] }) {
+  const evaluateWith = (student, violations) => evaluateSaresRecommendation({
+    offenseType: offense.offenseType,
+    offenseId: offense.offenseId,
+    studentId: student.student_id,
+    incidentDate: offense.incidentDate,
+    subcategoryId: offense.subcategoryId,
+    schoolScope: student.school_scope || getSchoolScopeForYear(student.year_level || student.year),
+    yearLevel: student.year_level || student.year,
+    existingViolations: violations,
+    currentIncident: { incident_date: offense.incidentDate },
+  });
+
+  return students.flatMap((student) => {
+    const previous = evaluateWith(student, before);
+    const current = evaluateWith(student, after);
+    if (previous.offenseNumber === current.offenseNumber) return [];
+    return [{
+      student,
+      beforeNumber: previous.offenseNumber,
+      afterNumber: current.offenseNumber,
+      beforeLabel: previous.offenseLabel,
+      afterLabel: current.offenseLabel,
+    }];
   });
 }
 
@@ -267,6 +319,7 @@ export function buildViolationRecordsForStudents({
       ai_assisted_solution: incidentData.ai_assisted_solution,
       ai_assisted_solution_source: incidentData.ai_assisted_solution_source,
       suggest_authorities: studentRec.suggestAuthorities || incidentData.suggest_authorities,
+      beyond_schedule: studentRec.beyondSchedule,
       status: incidentData.status || 'recorded',
       created_by: incidentData.created_by || 'system',
       school_year_key: studentRec.schoolYearKey || incidentData.school_year_key,

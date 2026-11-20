@@ -273,6 +273,16 @@ export function getSanctionByOffenseNumber(offenseTypeId, subcategoryId, schoolS
   ) ?? null;
 }
 
+/** The last (highest-numbered) tier in a level's schedule for a school, or null. */
+export function getHighestSanctionTier(offenseTypeId, subcategoryId, schoolScope) {
+  const offenseType = runtimeHandbook.offenseTypes?.find((type) => type.id === offenseTypeId);
+  return (offenseType?.sanctionSchedule || [])
+    .filter((rule) => rule.subcategoryId === subcategoryId && rule.schoolScope === schoolScope)
+    .reduce((top, rule) => (
+      !top || Number(rule.offenseNumber) > Number(top.offenseNumber) ? rule : top
+    ), null);
+}
+
 /**
  * Returns subcategories for a given offense type id.
  * @param {'minor'|'major'} offenseTypeId

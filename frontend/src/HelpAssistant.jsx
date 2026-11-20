@@ -83,28 +83,18 @@ const TOURS = {
     },
     {
       target: '[data-help-step="1"]',
-      title: "Step 2: Offense type",
-      content: "Choose Minor or Major and the offense level. The next offense number is counted within that same level for the school year.",
+      title: "Step 2: Incident report",
+      content: "Describe what happened first, then enter who reported it. SARES recommends the matching handbook offense from this narrative. Keep it anonymous: the selected students' names are replaced automatically, but leave out other identifying details.",
     },
     {
       target: '[data-help-step="2"]',
-      title: "Step 3: Subcategory",
-      content: "Choose the offense level: Light or Less Serious for minor; Serious or Very Serious for major.",
+      title: "Step 3: Recommended offense",
+      content: "Review the offenses matched from the narrative and confirm the one that fits. If none fit, browse the handbook by offense type, level, and group. Then choose the handling path.",
     },
     {
       target: '[data-help-step="3"]',
-      title: "Step 4: Specific violation",
-      content: "Expand the matching offense group and select the specific act. Check its wording and any authority-referral warning before continuing.",
-    },
-    {
-      target: '[data-help-step="4"]',
-      title: "Step 5: Incident report",
-      content: "Enter who reported the incident and their role. Description, witnesses, and parent/guardian notes may be added when relevant. AI assistance is optional; do not send confidential or identifying details in its narrative.",
-    },
-    {
-      target: '[data-help-step="5"]',
-      title: "Step 6: Review and submit",
-      content: "Verify student, date, classification, violation, handling path, and recommendation. Submitting saves the case; mediation routes it for counselor review.",
+      title: "Step 4: Review and submit",
+      content: "Verify the student, date, confirmed offense, offense number, and the handbook sanction decided by the rule engine. Submitting saves the case; mediation routes it for counselor review.",
     },
   ],
   "/sares/case-assessment": [

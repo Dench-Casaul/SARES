@@ -1,6 +1,8 @@
 import { createContext, useContext } from 'react';
 
-// Value shape: { userProfile, authReady }
+// Value shape: { userProfile, authReady, rulesStatus, ruleRevision }
+// rulesStatus: 'loading' | 'ready' | 'error'. Recording a case requires 'ready'.
+// ruleRevision increments whenever the handbook rules change.
 export const AuthProfileContext = createContext(null);
 
 export function useAuthProfile() {

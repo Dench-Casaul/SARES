@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { collection, getDocs, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from '../firebase'
@@ -16,9 +16,17 @@ import { getParentRequirementsForSanction } from '../parentInvolvement'
 import {
   buildViolationRecordsForStudents,
   evaluateSaresRecommendation,
+  findOffenseNumberChanges,
 } from '../engine/ruleEngine'
 import { saveViolationsWithCaseNumbers } from '../engine/incidentCaseNumber'
 import {
+  buildOffenseCatalog,
+  describeOffenseSelection,
+  getOffenseSelectionMethod,
+  redactStudentNames,
+} from '../engine/offenseRecommendation'
+import {
+  getOffenseById,
   getSubcategories,
   listOffenseGroups,
   listOffensesByGroup,
@@ -34,6 +42,7 @@ import {
   AlertTriangle,
   CheckCircle,
   ChevronLeft,
+  Sparkles,
 } from 'lucide-react'
 
 function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar, userProfile }) {
@@ -61,7 +70,19 @@ function Sidebar({ activePage, handleLogout, isOpen, toggleSidebar, userProfile 
   )
 }
 
-const STEPS = ['Student & Date', 'Offense Type', 'Subcategory', 'Violation', 'Description', 'Review']
+// The narrative comes first; the AI recommends the matching handbook offense from it,
+// the counselor confirms one, and the rule engine decides the sanction.
+const STEPS = ['Student & Date', 'Incident Report', 'Recommended Offense', 'Review']
+const STEP = Object.freeze({ STUDENT: 0, REPORT: 1, OFFENSE: 2, REVIEW: 3 })
+
+const LEVEL_LABELS = {
+  light: 'Light',
+  less_serious: 'Less Serious',
+  serious: 'Serious',
+  very_serious: 'Very Serious',
+}
+
+const CONFIDENCE_LABELS = { high: 'High match', medium: 'Possible match', low: 'Weak match' }
 
 const splitStudentName = (fullName = '') => {
   const parts = String(fullName || '').trim().split(/\s+/).filter(Boolean)
@@ -94,7 +115,8 @@ const formatApplicablePolicyReference = ({
 }
 
 export default function Violation() {
-  const { userProfile } = useAuthProfile()
+  const { userProfile, rulesStatus, ruleRevision } = useAuthProfile()
+  const rulesReady = rulesStatus === 'ready'
   const location = useLocation()
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -113,6 +135,13 @@ export default function Violation() {
   const [aiCounselorRecommendationSource, setAiCounselorRecommendationSource] = useState('')
   const [aiCounselorRecommendationLoading, setAiCounselorRecommendationLoading] = useState(false)
   const [aiCounselorRecommendationError, setAiCounselorRecommendationError] = useState('')
+  // AI offense recommendation from the narrative: [{ offenseId, confidence, reason, offense }]
+  const [offenseSuggestions, setOffenseSuggestions] = useState([])
+  const [offenseSuggestionStatus, setOffenseSuggestionStatus] = useState('idle') // idle | loading | ready | error
+  const [offenseSuggestionError, setOffenseSuggestionError] = useState('')
+  const [offenseSuggestionNarrative, setOffenseSuggestionNarrative] = useState(null)
+  const [showManualBrowser, setShowManualBrowser] = useState(false)
+  const offenseSuggestionRequest = useRef(0)
 
   const today = new Date().toISOString().split('T')[0]
 
@@ -164,7 +193,7 @@ export default function Violation() {
       incident_description: prefillViolation?.incident_description || f.incident_description,
     }))
     setStudentQuery(matched.full_name || '')
-    setStep(prefillViolation ? 4 : 1)
+    setStep(STEP.REPORT)
     fetchViolations() // Pre-fetch existing violations
     navigate(location.pathname, { replace: true, state: {} })
   }, [location.state, students])
@@ -188,18 +217,22 @@ export default function Violation() {
     } catch { alert('Failed to load students.') }
   }
 
+  const loadViolations = async () => {
+    const snap = await getDocs(queryForUserScope(collection(db, 'violations'), userProfile))
+    const records = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(record => !isRecordInTrash(record))
+    records.sort((a, b) => {
+      const timeA = a.created_at?.seconds || 0
+      const timeB = b.created_at?.seconds || 0
+      return timeB - timeA
+    })
+    return records
+  }
+
   const fetchViolations = async () => {
     try {
-      const snap = await getDocs(queryForUserScope(collection(db, 'violations'), userProfile))
-      const records = snap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .filter(record => !isRecordInTrash(record))
-      records.sort((a, b) => {
-        const timeA = a.created_at?.seconds || 0
-        const timeB = b.created_at?.seconds || 0
-        return timeB - timeA
-      })
-      setExistingViolations(records)
+      setExistingViolations(await loadViolations())
     } catch { /* non-critical */ }
   }
 
@@ -239,7 +272,11 @@ export default function Violation() {
         }),
       }
     })
-  }, [selectedStudents, selectedStudent, students, form.offense_type, form.offense_id, form.incident_date, form.subcategory_id, existingViolations])
+  // ruleRevision: the handbook lives in module state, so recompute when the school's rules change.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedStudents, selectedStudent, students, form.offense_type, form.offense_id, form.incident_date, form.subcategory_id, existingViolations, ruleRevision])
+
+  const beyondScheduleRecs = selectedStudentRecommendations.filter((rec) => rec.beyondSchedule)
 
   const removeSelectedStudent = (studentId) => {
     const normalizedStudentId = String(studentId)
@@ -267,21 +304,82 @@ export default function Violation() {
       currentIncident: { incident_date: form.incident_date },
     })
     setRecommendation(rec)
-  }, [form.offense_id, form.offense_type, form.subcategory_id, form.incident_date, form.student_id, selectedStudent?.school_scope, selectedStudent?.year_level, selectedStudent?.year, existingViolations])
+  }, [form.offense_id, form.offense_type, form.subcategory_id, form.incident_date, form.student_id, selectedStudent?.school_scope, selectedStudent?.year_level, selectedStudent?.year, existingViolations, ruleRevision])
+
+  // Narrative sent to AI: the selected students' names are replaced with "Student A", "Student B", …
+  const narrativeStudents = (selectedStudents.length > 0 ? selectedStudents : (selectedStudent ? [selectedStudent] : []))
+    .map((target) => students.find((item) => String(item.student_id) === String(target.student_id)) || target)
+  const aiNarrative = redactStudentNames(form.incident_description.trim(), narrativeStudents)
+
+  const requestOffenseSuggestions = async (narrative) => {
+    const requestId = ++offenseSuggestionRequest.current
+    setOffenseSuggestionNarrative(narrative)
+    setOffenseSuggestions([])
+    setOffenseSuggestionError('')
+    setOffenseSuggestionStatus('loading')
+    try {
+      const idToken = await auth.currentUser?.getIdToken()
+      if (!idToken) throw new Error('Sign in again to use AI assistance.')
+      const response = await fetch('/api/recommend-offense', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          incidentDescription: narrative,
+          catalog: buildOffenseCatalog(getHandbook()),
+        }),
+      })
+      const result = await response.json().catch(() => null)
+      if (!response.ok || !Array.isArray(result?.matches)) {
+        throw new Error(result?.error || `AI offense recommendation failed (${response.status}).`)
+      }
+      // Only offenses that exist in this school's current handbook are shown.
+      const matches = result.matches
+        .map((match) => ({ ...match, offense: getOffenseById(match.offenseId) }))
+        .filter((match) => match.offense)
+      if (requestId !== offenseSuggestionRequest.current) return
+      setOffenseSuggestions(matches)
+      setOffenseSuggestionStatus('ready')
+      if (matches.length === 0) setShowManualBrowser(true)
+    } catch (error) {
+      if (requestId !== offenseSuggestionRequest.current) return
+      console.error('Failed to recommend an offense:', error)
+      setOffenseSuggestionError(error instanceof Error ? error.message : 'AI offense recommendation is unavailable.')
+      setOffenseSuggestionStatus('error')
+      setShowManualBrowser(true)
+    }
+  }
 
   const goNext = async () => {
-    if (step === 0) {
+    if (step === STEP.STUDENT) {
       if (selectedStudents.length === 0 && !form.student_id) { alert('Please select at least one student.'); return }
       if (!form.incident_date) { alert('Please select a date.'); return }
       await fetchViolations()
     }
-    if (step === 3 && !form.offense_id) { alert('Please select a violation.'); return }
-    if (step === 4 && useAiAssistance && !form.incident_description.trim()) {
-      alert('Enter an anonymized incident description to request AI assistance.')
+    if (step === STEP.REPORT) {
+      if (!form.incident_description.trim()) {
+        alert('Describe what happened. The matching handbook offense is recommended from this narrative.')
+        return
+      }
+      if (!form.reported_by.trim()) { alert('Please enter who reported this incident.'); return }
+      // Re-run the recommendation only when the narrative changed since the last request.
+      if (aiNarrative !== offenseSuggestionNarrative) requestOffenseSuggestions(aiNarrative)
+      setStep(STEP.OFFENSE)
       return
     }
-    if (step === 4 && !form.reported_by.trim()) { alert('Please enter who reported this incident.'); return }
-    if (step === 4 && useAiAssistance) {
+    if (step === STEP.OFFENSE && !form.offense_id) {
+      alert('Confirm one of the recommended offenses, or select one from the handbook.')
+      return
+    }
+    if (step === STEP.OFFENSE && offenseSuggestionStatus === 'loading') {
+      // The counselor chose manually before the AI answered: ignore the late answer so the
+      // stored audit (suggestions vs. confirmed offense) reflects what the counselor saw.
+      offenseSuggestionRequest.current += 1
+      setOffenseSuggestionStatus('skipped')
+    }
+    if (step === STEP.OFFENSE && useAiAssistance) {
       setAiSuggestion('')
       setAiSuggestionSource('')
       setAiSuggestionError('')
@@ -296,7 +394,7 @@ export default function Violation() {
             Authorization: `Bearer ${idToken}`,
           },
           body: JSON.stringify({
-            incidentDescription: form.incident_description.trim(),
+            incidentDescription: aiNarrative,
             offenseCategory: form.group_title,
             offenseType: form.offense_title,
           }),
@@ -316,7 +414,7 @@ export default function Violation() {
         setAiSuggestionLoading(false)
       }
     }
-    if (step === 4) {
+    if (step === STEP.OFFENSE) {
       setAiCounselorRecommendation('')
       setAiCounselorRecommendationSource('')
       setAiCounselorRecommendationError('')
@@ -369,7 +467,7 @@ export default function Violation() {
             Authorization: `Bearer ${idToken}`,
           },
           body: JSON.stringify({
-            incidentDescription: form.incident_description.trim(),
+            incidentDescription: aiNarrative,
             offenseType: offenseTypeLabel,
             subcategory: subcategoryLabel,
             offenseGroup: offenseGroupTitle,
@@ -411,12 +509,24 @@ export default function Violation() {
 
   const pickOffenseType = (type) => {
     setForm(f => ({ ...f, offense_type: type, subcategory_id: '', group_number: null, group_title: '', offense_id: '', offense_title: '' }))
-    setStep(2)
   }
 
   const pickSubcategory = (subId) => {
     setForm(f => ({ ...f, subcategory_id: subId, group_number: null, group_title: '', offense_id: '', offense_title: '' }))
-    setStep(3)
+  }
+
+  /** Confirms an AI-recommended offense: fills the full classification from the handbook. */
+  const pickSuggestion = (suggestion) => {
+    const { offense } = suggestion
+    setForm(f => ({
+      ...f,
+      offense_type: offense.group.categoryId,
+      subcategory_id: offense.group.subcategoryId,
+      group_number: offense.group.handbookNumber,
+      group_title: offense.group.groupTitle,
+      offense_id: offense.id,
+      offense_title: offense.title,
+    }))
   }
 
   const pickGroup = (group) => {
@@ -427,8 +537,24 @@ export default function Violation() {
     setForm(f => ({ ...f, offense_id: offense.id, offense_title: offense.title }))
   }
 
+  const offenseSuggestionSource = {
+    ready: 'gemini',
+    error: 'unavailable',
+    skipped: 'skipped',
+  }[offenseSuggestionStatus] || 'not_requested'
+  const offenseSelectionSummary = describeOffenseSelection(
+    getOffenseSelectionMethod(offenseSuggestions, form.offense_id),
+    offenseSuggestionSource
+  )
+
   const handleSubmit = async () => {
     if (!recommendation) return
+    if (!rulesReady) {
+      alert(rulesStatus === 'error'
+        ? 'The school handbook rules could not be loaded. Reload the page before recording this case.'
+        : 'The school handbook rules are still loading. Please wait a moment and try again.')
+      return
+    }
     setSubmitting(true)
     try {
       const studentsToRecord = (selectedStudents.length > 0
@@ -438,6 +564,33 @@ export default function Violation() {
           school_scope: student.school_scope || getSchoolScopeForYear(student.year_level || student.year),
         }))
       const isMediation = form.handling_path === 'mediation'
+
+      // Offense numbers shown on the review step were computed from violations loaded
+      // when the page opened. Re-read them now so a case recorded meanwhile (e.g. by
+      // another counselor) is counted, and stop if any student's number changed.
+      const freshViolations = await loadViolations()
+      const changedOffenseNumbers = findOffenseNumberChanges({
+        students: studentsToRecord,
+        offense: {
+          offenseType: form.offense_type,
+          offenseId: form.offense_id,
+          incidentDate: form.incident_date,
+          subcategoryId: form.subcategory_id,
+        },
+        before: existingViolations,
+        after: freshViolations,
+      })
+      setExistingViolations(freshViolations)
+      if (changedOffenseNumbers.length > 0) {
+        alert(
+          'Another case was recorded for this student since you opened this form, so the offense number changed:\n\n'
+          + changedOffenseNumbers.map((change) => (
+            `• ${change.student.full_name || change.student.student_id}: ${change.beforeLabel} → ${change.afterLabel}`
+          )).join('\n')
+          + '\n\nPlease review the updated recommended sanction, then submit again.'
+        )
+        return
+      }
 
       const baseIncidentData = {
         incident_date: form.incident_date,
@@ -470,6 +623,14 @@ export default function Violation() {
         ai_counselor_recommendation: aiCounselorRecommendation.trim(),
         ai_counselor_recommendation_source: aiCounselorRecommendationSource || 'unavailable',
         suggest_authorities: recommendation.suggestAuthorities,
+        // AI offense recommendation audit: what the AI suggested and how the counselor chose.
+        ai_offense_suggestions: offenseSuggestions.map(({ offenseId, confidence, reason }) => ({
+          offense_id: offenseId,
+          confidence,
+          reason,
+        })),
+        ai_offense_suggestion_source: offenseSuggestionSource,
+        offense_selection_method: getOffenseSelectionMethod(offenseSuggestions, form.offense_id),
         status: isMediation ? 'pending' : 'recorded',
         created_by: userProfile.user_id,
         school_year_key: recommendation.schoolYearKey,
@@ -491,7 +652,7 @@ export default function Violation() {
         incidentData: baseIncidentData,
         selectedStudents: studentsToRecord,
         recommendation,
-        existingViolations,
+        existingViolations: freshViolations,
       }).map((payload) => ({
         ...payload,
         // Each student's own sanction decides the starting status (e.g. no-readmission).
@@ -571,7 +732,7 @@ export default function Violation() {
         <div className="v-directory-card v-form-card" data-help-target="violation-form">
 
           {/* STEP 0: Student & Date */}
-          {step === 0 && (
+          {step === STEP.STUDENT && (
             <div className="v-step-content">
               <h2 className="v-directory-title">Step 1: Student & Date</h2>
               <p className="v-directory-sub">Select the student and incident date</p>
@@ -666,113 +827,31 @@ export default function Violation() {
             </div>
           )}
 
-          {/* STEP 1: Offense Type */}
-          {step === 1 && (
+          {/* STEP 2: Incident Report — written first; the offense is recommended from it */}
+          {step === STEP.REPORT && (
             <div className="v-step-content">
-              <h2 className="v-directory-title">Step 2: Offense Type</h2>
-              <p className="v-directory-sub">Is this a Minor or Major offense?</p>
-              <div className="v-offense-type-grid">
-                <button className={`v-offense-type-card v-offense-type-card--minor ${form.offense_type === 'minor' ? 'selected' : ''}`}
-                  onClick={() => pickOffenseType('minor')}>
-                  <span className="v-offense-type-badge">Minor</span>
-                  <h3>Minor Offense</h3>
-                  <p>Violations that do not constitute an immediate threat. Sanctions are based on 1st, 2nd, or 3rd offense count.</p>
-                  <div className="v-offense-type-sub-labels">
-                    <span>Light</span><span>Less Serious</span>
-                  </div>
-                </button>
-                <button className={`v-offense-type-card v-offense-type-card--major ${form.offense_type === 'major' ? 'selected' : ''}`}
-                  onClick={() => pickOffenseType('major')}>
-                  <span className="v-offense-type-badge v-offense-type-badge--major">Major</span>
-                  <h3>Major Offense</h3>
-                  <p>Acts of serious misconduct. Sanctions progress by offense level, school level, and the number of prior incidents in the same level.</p>
-                  <div className="v-offense-type-sub-labels">
-                    <span>Serious</span><span>Very Serious</span>
-                  </div>
-                </button>
+              <h2 className="v-directory-title">Step 2: Incident Report</h2>
+              <p className="v-directory-sub">Describe what happened. SARES recommends the matching handbook offense from this narrative in the next step.</p>
+
+              <div className="v-field" style={{ marginTop: '1.5rem' }}>
+                <label className="v-label" htmlFor="incident-description">What happened? *</label>
+                <textarea
+                  id="incident-description"
+                  className="v-input v-textarea"
+                  rows="6"
+                  maxLength={3000}
+                  placeholder="Describe the behavior: what was done, where, and how. Example: During recess, a student pushed a classmate against the wall and took their phone."
+                  value={form.incident_description}
+                  onChange={e => setForm(f => ({ ...f, incident_description: e.target.value }))}
+                />
+                <p className="v-ai-character-count">{form.incident_description.length} / 3000 characters</p>
               </div>
-            </div>
-          )}
 
-          {/* STEP 2: Subcategory */}
-          {step === 2 && (
-            <div className="v-step-content">
-              <h2 className="v-directory-title">Step 3: Subcategory</h2>
-              <p className="v-directory-sub">
-                {form.offense_type === 'minor' ? 'Minor Offense' : 'Major Offense'} → Select subcategory level
-              </p>
-              <div className="v-subcategory-grid">
-                {subcategories.map(sub => (
-                  <button key={sub.id}
-                    className={`v-subcategory-card ${form.subcategory_id === sub.id ? 'selected' : ''} ${form.offense_type === 'major' ? 'major' : ''}`}
-                    onClick={() => pickSubcategory(sub.id)}>
-                    <h3>{sub.label}</h3>
-                    <p className="v-subcategory-hint">
-                      {sub.id === 'light' && 'Dress code, ID, grooming, cleanliness, loitering'}
-                      {sub.id === 'less_serious' && 'Class disruption, tardiness, devices, language, facility misuse'}
-                      {sub.id === 'serious' && 'Academic dishonesty, forgery, vandalism, theft, disrespect, bullying'}
-                      {sub.id === 'very_serious' && 'Physical violence, weapons, drugs & alcohol, immorality, gambling'}
-                    </p>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* STEP 3: Specific Violation */}
-          {step === 3 && (
-            <div className="v-step-content">
-              <h2 className="v-directory-title">Step 4: Specific Violation</h2>
-              <p className="v-directory-sub">
-                {form.offense_type === 'minor' ? 'Minor' : 'Major'} → {subcategories.find(s => s.id === form.subcategory_id)?.label} → Select violation group and specific act
-              </p>
-
-              <div className="v-groups-list">
-                {offenseGroups.map(group => (
-                  <div key={group.handbookNumber} className={`v-group-item ${form.group_number === group.handbookNumber ? 'expanded' : ''}`}>
-                    <button className="v-group-header" onClick={() => pickGroup(group)}>
-                      <span>{group.groupTitle}</span>
-                      <ChevronRight size={16} className={`v-group-chevron ${form.group_number === group.handbookNumber ? 'rotated' : ''}`} />
-                    </button>
-                    {form.group_number === group.handbookNumber && (
-                      <div className="v-offense-options">
-                        {listOffensesByGroup(form.offense_type, form.subcategory_id, group.handbookNumber).map(offense => (
-                          <button key={offense.id}
-                            className={`v-offense-option ${form.offense_id === offense.id ? 'selected' : ''}`}
-                            onClick={() => pickOffense(offense)}>
-                            {offense.isIllegal && <AlertTriangle size={13} className="v-illegal-icon" />}
-                            {offense.title}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* STEP 5: Description */}
-          {step === 4 && (
-            <div className="v-step-content">
-              <h2 className="v-directory-title">Step 5: Incident Report</h2>
-              <p className="v-directory-sub">Optionally describe the incident for AI-assisted prevention or alternative suggestions, and provide who reported it.</p>
-
-              <div className="v-field" style={{ marginTop: '1.2rem' }}>
-                <label className="v-label">Handling Path</label>
-                <select
-                  className="v-input"
-                  value={form.handling_path}
-                  onChange={(e) => setForm(f => ({ ...f, handling_path: e.target.value }))}
-                >
-                  <option value="sanction">Proceed with sanction recommendation</option>
-                  <option value="mediation">Route to mediation first</option>
-                </select>
-                {form.handling_path === 'mediation' && (
-                  <p className="v-directory-sub" style={{ marginTop: '8px' }}>
-                    This case will be saved as pending mediation. The handbook sanction remains available if mediation fails or needs escalation.
-                  </p>
-                )}
+              <div className="v-ai-privacy-notice" role="note">
+                <strong>Privacy warning — keep the narrative anonymous.</strong>
+                <p>
+                  The narrative is sent to Google Gemini (free tier) to recommend the matching handbook offense and draft counselor guidance. Google may use free-tier content to improve its services. The selected students' names are replaced with "Student A", "Student B" before sending, but do not include other names, student numbers, contact details, health information, or other private details.
+                </p>
               </div>
 
               <div className="v-field" style={{ marginTop: '1.5rem' }}>
@@ -812,49 +891,12 @@ export default function Violation() {
                 />
               </div>
 
-              <div className="v-ai-privacy-notice" role="note">
-                <strong>Privacy warning — do not enter confidential or identifying information in AI requests.</strong>
-                <p>
-                  Counselor recommendations are generated automatically when you continue to review. If you provide a narrative, it and the selected handbook details are sent to Google Gemini using its free tier. The optional prevention suggestion uses the same narrative. Google may use free-tier content to improve its services. Do not include names, student numbers, contact details, health information, or other private details. Describe the incident in general, anonymous terms.
-                </p>
-              </div>
-
-              <label className="v-ai-toggle">
-                <input
-                  type="checkbox"
-                  checked={useAiAssistance}
-                  onChange={(event) => {
-                    setUseAiAssistance(event.target.checked)
-                    setAiSuggestion('')
-                    setAiSuggestionSource('')
-                    setAiSuggestionError('')
-                  }}
-                />
-                <span>
-                  <strong>Use AI-assisted prevention / alternative solution</strong>
-                  <small>Optional. When off, the incident description is optional and no narrative is sent to Gemini.</small>
-                </span>
-              </label>
-
               <div className="v-field" style={{ marginTop: '1.5rem' }}>
-                <label className="v-label">
-                  Incident Description {useAiAssistance ? '*' : '(optional)'}
-                </label>
-                <textarea className="v-input v-textarea" rows="5"
-                  maxLength={3000}
-                  placeholder={useAiAssistance
-                    ? 'Describe what happened using anonymous, non-confidential details...'
-                    : 'Optional. Leave blank if you do not want to provide a narrative...'}
-                  value={form.incident_description}
-                  onChange={e => setForm(f => ({ ...f, incident_description: e.target.value }))} />
-                {!useAiAssistance && (
-                  <p className="v-ai-character-count">
-                    Optional for the report. If entered, this anonymous narrative is used for the automatic counselor recommendation.
-                  </p>
-                )}
-                {useAiAssistance && (
-                  <p className="v-ai-character-count">{form.incident_description.length} / 3000 characters</p>
-                )}
+                <label className="v-label">Witnesses (Optional)</label>
+                <textarea className="v-input v-textarea" rows="2"
+                  placeholder="List any witnesses to the incident..."
+                  value={form.witnesses}
+                  onChange={e => setForm(f => ({ ...f, witnesses: e.target.value }))} />
               </div>
 
               <div className="v-field" style={{ marginTop: '1.5rem' }}>
@@ -869,22 +911,189 @@ export default function Violation() {
                   onChange={e => setForm(f => ({ ...f, parent_contact_notes: e.target.value }))}
                 />
               </div>
+            </div>
+          )}
 
-              <div className="v-field" style={{ marginTop: '1.5rem' }}>
-                <label className="v-label">Witnesses (Optional)</label>
-                <textarea className="v-input v-textarea" rows="2"
-                  placeholder="List any witnesses to the incident..."
-                  value={form.witnesses}
-                  onChange={e => setForm(f => ({ ...f, witnesses: e.target.value }))} />
+          {/* STEP 3: Recommended Offense — AI suggests, counselor confirms */}
+          {step === STEP.OFFENSE && (
+            <div className="v-step-content">
+              <h2 className="v-directory-title">Step 3: Recommended Offense</h2>
+              <p className="v-directory-sub">Matched from the incident narrative against the school handbook. Confirm the offense that fits, or browse the handbook. The sanction is then decided by the handbook rules.</p>
+
+              <div className="v-suggestions" aria-live="polite">
+                {offenseSuggestionStatus === 'loading' && (
+                  <p className="v-suggestion-status" role="status">
+                    <Sparkles size={16} aria-hidden="true" /> Reading the incident report and matching it to the handbook…
+                  </p>
+                )}
+                {(offenseSuggestionStatus === 'error' || offenseSuggestionStatus === 'skipped') && (
+                  <div className="v-suggestion-status v-suggestion-status--warning" role="alert">
+                    <p>
+                      {offenseSuggestionStatus === 'error'
+                        ? `${offenseSuggestionError} Select the offense from the handbook below.`
+                        : 'The AI recommendation was skipped. Select the offense from the handbook below.'}
+                    </p>
+                    <button type="button" className="v-text-button" onClick={() => requestOffenseSuggestions(aiNarrative)}>
+                      Try again
+                    </button>
+                  </div>
+                )}
+                {offenseSuggestionStatus === 'ready' && offenseSuggestions.length === 0 && (
+                  <p className="v-suggestion-status v-suggestion-status--warning" role="status">
+                    No handbook offense clearly matches this narrative. Select the offense from the handbook below, or go back and add detail to the narrative.
+                  </p>
+                )}
+                {offenseSuggestionStatus === 'ready' && offenseSuggestions.length > 0 && (
+                  <div className="v-suggestion-list" role="radiogroup" aria-label="Recommended offenses">
+                    {offenseSuggestions.map((suggestion, index) => {
+                      const { offense } = suggestion
+                      const isSelected = form.offense_id === suggestion.offenseId
+                      return (
+                        <button
+                          type="button"
+                          role="radio"
+                          aria-checked={isSelected}
+                          key={suggestion.offenseId}
+                          className={`v-suggestion-card ${isSelected ? 'selected' : ''} ${offense.group.categoryId === 'major' ? 'major' : ''}`}
+                          onClick={() => pickSuggestion(suggestion)}
+                        >
+                          <span className="v-suggestion-head">
+                            <span className={`v-suggestion-confidence v-suggestion-confidence--${suggestion.confidence}`}>
+                              {index === 0 ? 'Best match · ' : ''}{CONFIDENCE_LABELS[suggestion.confidence]}
+                            </span>
+                            {isSelected && <CheckCircle size={18} className="v-suggestion-check" aria-hidden="true" />}
+                          </span>
+                          <strong className="v-suggestion-title">
+                            {offense.isIllegal && <AlertTriangle size={14} className="v-illegal-icon" aria-label="May involve illegal activity" />}
+                            {offense.title}
+                          </strong>
+                          <span className="v-suggestion-path">
+                            {offense.group.categoryId === 'major' ? 'Major' : 'Minor'} › {LEVEL_LABELS[offense.group.subcategoryId]} › {offense.group.groupTitle}
+                          </span>
+                          {suggestion.reason && <span className="v-suggestion-reason">{suggestion.reason}</span>}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
 
+              {form.offense_id && !offenseSuggestions.some((suggestion) => suggestion.offenseId === form.offense_id) && (
+                <div className="v-selected-offense" role="status">
+                  <CheckCircle size={16} aria-hidden="true" />
+                  <span>
+                    <strong>Selected from the handbook:</strong>{' '}
+                    {form.offense_type === 'major' ? 'Major' : 'Minor'} › {LEVEL_LABELS[form.subcategory_id]} › {form.group_title} › {form.offense_title}
+                  </span>
+                </div>
+              )}
+
+              <button
+                type="button"
+                className="v-text-button v-manual-toggle"
+                aria-expanded={showManualBrowser}
+                onClick={() => setShowManualBrowser((open) => !open)}
+              >
+                {showManualBrowser ? 'Hide the handbook' : 'None of these fit? Browse the handbook'}
+              </button>
+
+              {showManualBrowser && (
+                <div className="v-manual-browser">
+                  <div className="v-chip-row" role="group" aria-label="Offense type">
+                    {['minor', 'major'].map((type) => (
+                      <button
+                        type="button"
+                        key={type}
+                        className={`v-chip ${form.offense_type === type ? 'selected' : ''} ${type === 'major' ? 'major' : ''}`}
+                        aria-pressed={form.offense_type === type}
+                        onClick={() => { if (form.offense_type !== type) pickOffenseType(type) }}
+                      >
+                        {type === 'minor' ? 'Minor' : 'Major'}
+                      </button>
+                    ))}
+                  </div>
+                  {form.offense_type && (
+                    <div className="v-chip-row" role="group" aria-label="Offense level">
+                      {subcategories.map((sub) => (
+                        <button
+                          type="button"
+                          key={sub.id}
+                          className={`v-chip ${form.subcategory_id === sub.id ? 'selected' : ''} ${form.offense_type === 'major' ? 'major' : ''}`}
+                          aria-pressed={form.subcategory_id === sub.id}
+                          onClick={() => { if (form.subcategory_id !== sub.id) pickSubcategory(sub.id) }}
+                        >
+                          {sub.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {form.offense_type && form.subcategory_id && (
+                    <div className="v-groups-list">
+                      {offenseGroups.map(group => (
+                        <div key={group.handbookNumber} className={`v-group-item ${form.group_number === group.handbookNumber ? 'expanded' : ''}`}>
+                          <button type="button" className="v-group-header" onClick={() => pickGroup(group)}>
+                            <span>{group.groupTitle}</span>
+                            <ChevronRight size={16} className={`v-group-chevron ${form.group_number === group.handbookNumber ? 'rotated' : ''}`} />
+                          </button>
+                          {form.group_number === group.handbookNumber && (
+                            <div className="v-offense-options">
+                              {listOffensesByGroup(form.offense_type, form.subcategory_id, group.handbookNumber).map(offense => (
+                                <button type="button" key={offense.id}
+                                  className={`v-offense-option ${form.offense_id === offense.id ? 'selected' : ''}`}
+                                  onClick={() => pickOffense(offense)}>
+                                  {offense.isIllegal && <AlertTriangle size={13} className="v-illegal-icon" />}
+                                  {offense.title}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="v-field" style={{ marginTop: '1.5rem' }}>
+                <label className="v-label">Handling Path</label>
+                <select
+                  className="v-input"
+                  value={form.handling_path}
+                  onChange={(e) => setForm(f => ({ ...f, handling_path: e.target.value }))}
+                >
+                  <option value="sanction">Proceed with sanction recommendation</option>
+                  <option value="mediation">Route to mediation first</option>
+                </select>
+                {form.handling_path === 'mediation' && (
+                  <p className="v-directory-sub" style={{ marginTop: '8px' }}>
+                    This case will be saved as pending mediation. The handbook sanction remains available if mediation fails or needs escalation.
+                  </p>
+                )}
+              </div>
+
+              <label className="v-ai-toggle">
+                <input
+                  type="checkbox"
+                  checked={useAiAssistance}
+                  onChange={(event) => {
+                    setUseAiAssistance(event.target.checked)
+                    setAiSuggestion('')
+                    setAiSuggestionSource('')
+                    setAiSuggestionError('')
+                  }}
+                />
+                <span>
+                  <strong>Also suggest AI-assisted prevention / alternative solutions</strong>
+                  <small>Optional. Uses the same anonymized narrative.</small>
+                </span>
+              </label>
             </div>
           )}
 
           {/* STEP 6: Review */}
-          {step === 5 && recommendation && (
+          {step === STEP.REVIEW && recommendation && (
             <div className="v-step-content">
-              <h2 className="v-directory-title">Step 6: Review & Submit</h2>
+              <h2 className="v-directory-title">Step 4: Review & Submit</h2>
               <p className="v-directory-sub">Confirm all details before submitting</p>
 
               <div className="v-review-grid">
@@ -909,6 +1118,7 @@ export default function Violation() {
                   <h4>Violation</h4>
                   <p className="v-review-group">{form.group_title}</p>
                   <p>{form.offense_title}</p>
+                  <p className="v-review-meta">{offenseSelectionSummary}</p>
                 </div>
                 <div className="v-review-section">
                   <h4>Offense Number</h4>
@@ -1038,6 +1248,20 @@ export default function Violation() {
                 )}
               </div>
 
+              {beyondScheduleRecs.length > 0 && (
+                <div className="v-authority-alert" role="alert">
+                  <AlertTriangle size={18} />
+                  <div>
+                    <strong>Repeat Offense Beyond Handbook Schedule</strong>
+                    <p>
+                      {beyondScheduleRecs.map((rec) => `${rec.studentName || 'This student'} (${rec.offenseLabel})`).join(', ')}
+                      {' '}exceeded the last offense listed in the handbook (
+                      {beyondScheduleRecs[0].scheduleMaxOffense}). The highest listed sanction is applied. Refer to the principal/discipline committee for review.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {recommendation.suggestAuthorities && (
                 <div className="v-authority-alert">
                   <AlertTriangle size={18} />
@@ -1052,32 +1276,29 @@ export default function Violation() {
 
           {/* Navigation */}
           <div className="v-wizard-nav">
-            {step > 0 && step !== 1 && step !== 2 && (
+            {step > STEP.STUDENT && (
               <button className="v-btn-cancel" onClick={goBack}>
                 <ChevronLeft size={16} /> Back
               </button>
             )}
-            {step === 1 && (
-              <button className="v-btn-cancel" onClick={goBack}>
-                <ChevronLeft size={16} /> Back
-              </button>
-            )}
-            {step === 2 && (
-              <button className="v-btn-cancel" onClick={() => setStep(1)}>
-                <ChevronLeft size={16} /> Back
-              </button>
-            )}
-            {step === 0 && <Link to="/sares/dashboard" className="v-btn-cancel v-link-btn">Cancel</Link>}
+            {step === STEP.STUDENT && <Link to="/sares/dashboard" className="v-btn-cancel v-link-btn">Cancel</Link>}
 
-            {step < 5 && step !== 1 && step !== 2 && (
+            {step < STEP.REVIEW && (
               <button className="v-btn-submit" onClick={goNext} disabled={aiSuggestionLoading || aiCounselorRecommendationLoading}>
                 {aiSuggestionLoading || aiCounselorRecommendationLoading
                   ? 'Generating guidance…'
                   : <>Next <ChevronRight size={16} /></>}
               </button>
             )}
-            {step === 5 && (
-              <button className="v-btn-submit" onClick={handleSubmit} disabled={submitting}>
+            {step === STEP.REVIEW && !rulesReady && (
+              <p className="v-rules-status" role="status">
+                {rulesStatus === 'error'
+                  ? 'The school handbook rules could not be loaded. Reload the page before recording this case.'
+                  : 'Loading the school handbook rules…'}
+              </p>
+            )}
+            {step === STEP.REVIEW && (
+              <button className="v-btn-submit" onClick={handleSubmit} disabled={submitting || !rulesReady}>
                 {submitting ? 'Submitting...' : form.handling_path === 'mediation' ? 'Submit for Mediation' : 'Submit Incident Report'}
               </button>
             )}

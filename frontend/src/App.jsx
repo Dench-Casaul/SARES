@@ -64,6 +64,8 @@ function App() {
   const [authReady, setAuthReady] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
   const [ruleRevision, setRuleRevision] = useState(0);
+  // 'loading' | 'ready' | 'error': whether the school's handbook rules are loaded.
+  const [rulesStatus, setRulesStatus] = useState("loading");
 
   useEffect(() => {
     let unsubscribeRuleOverrides = () => {};
@@ -98,19 +100,25 @@ function App() {
         if (currentEvent !== authEvent) return;
 
         setUserProfile(profile);
+        setRulesStatus("loading");
         setAuthReady(true);
         unsubscribeRuleOverrides = onSnapshot(
           doc(db, "rules", "handbook_sanctions"),
           (snapshot) => {
+            // An empty offline cache only means "unknown yet", not "no school edits":
+            // wait for the server instead of silently using the default schedule.
+            if (!snapshot.exists() && snapshot.metadata.fromCache) return;
             const overrides = snapshot.exists() ? snapshot.data() : {};
             applyHandbookOverrides(overrides);
             applySanctionOverrides(overrides);
             setRuleRevision((revision) => revision + 1);
+            setRulesStatus("ready");
           },
           (error) => {
+            // Keep whatever rules were last loaded; recording is blocked until they are
+            // confirmed, so cases are never saved against the wrong schedule.
             console.error("Failed to load handbook sanction updates:", error);
-            applyHandbookOverrides();
-            applySanctionOverrides();
+            setRulesStatus("error");
           }
         );
       } catch (error) {
@@ -165,7 +173,7 @@ function App() {
 
   return (
     <div data-rule-revision={ruleRevision}>
-      <AuthProfileContext.Provider value={{ userProfile, authReady }}>
+      <AuthProfileContext.Provider value={{ userProfile, authReady, rulesStatus, ruleRevision }}>
         <AppErrorBoundary>
           <Routes>
             <Route path="/" element={<Landing />} />

@@ -438,11 +438,18 @@ function SuspensionDateModal({ initialStart, initialEnd, onClose, onSave, saving
 }
 
 function CaseManagementModal({ student, violationDraft, onClose, onSaved }) {
-  const { userProfile } = useAuthProfile();
+  const { userProfile, rulesStatus } = useAuthProfile();
   const [saving, setSaving] = useState(false);
+  const rulesReady = rulesStatus === 'ready';
 
   const handleSave = async () => {
     if (!student || !violationDraft) return;
+    if (!rulesReady) {
+      alert(rulesStatus === 'error'
+        ? 'The school handbook rules could not be loaded. Reload the page before recording this case.'
+        : 'The school handbook rules are still loading. Please wait a moment and try again.');
+      return;
+    }
     setSaving(true);
     try {
       const today = new Date().toISOString().slice(0, 10);
@@ -490,6 +497,7 @@ function CaseManagementModal({ student, violationDraft, onClose, onSaved }) {
         offense_number: recommendation?.offenseNumber || 1,
         cumulative_offense_number: recommendation?.offenseNumber || 1,
         recommended_sanction: recommendedSanction,
+        beyond_schedule: Boolean(recommendation?.beyondSchedule),
         identified_sanction: formatIdentifiedSanction({
           offense_type: violationDraft.offense_type,
           subcategory_id: violationDraft.subcategory_id,
@@ -587,8 +595,8 @@ function CaseManagementModal({ student, violationDraft, onClose, onSaved }) {
 
         <div className="s-modal-footer">
           <button className="s-btn-cancel" onClick={onClose}>Back</button>
-          <button className="s-btn-submit" onClick={handleSave} disabled={saving}>
-            {saving ? 'Saving...' : 'Save Case'}
+          <button className="s-btn-submit" onClick={handleSave} disabled={saving || !rulesReady}>
+            {saving ? 'Saving...' : rulesReady ? 'Save Case' : 'Loading handbook rules…'}
           </button>
         </div>
       </div>

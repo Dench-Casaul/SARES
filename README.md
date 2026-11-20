@@ -103,13 +103,14 @@ npm run preview
    - Use the floating `?` button on any signed-in page to start its walkthrough, including detailed guidance for the student Trash and Rule Management panels. Drag it to reposition; focus it and use arrow keys to move it precisely.
 3. Manage students in `/sares/students`.
 4. Log a violation in `/sares/violation`:
-   - select student
-   - select offense category and rule
-   - enter the incident narrative and reporter details
+   - select the student(s) and incident date
+   - write the incident narrative and reporter details
+   - review the handbook offenses the AI recommends from the narrative and confirm one (or browse the handbook if none fit); the AI can only choose offenses that exist in the handbook
+   - choose the handling path; the rule engine then decides the offense number and sanction from the confirmed offense
    - automatically receive a read-only, handbook-grounded AI counselor recommendation at review; the rule-engine sanction remains authoritative
    - optionally enable AI-assisted prevention / alternative suggestions
-   - submit the reviewed incident
-   - AI requests send the anonymized narrative and relevant policy details to Google Gemini. Do not include names, student numbers, contact details, or other identifying information.
+   - submit the reviewed incident; each case stores the AI's suggested offenses and whether the counselor accepted the top match, chose another suggestion, or selected manually (`ai_offense_suggestions`, `offense_selection_method`)
+   - AI requests send the narrative and relevant policy details to Google Gemini. The selected students' names are replaced with "Student A", "Student B" first, but do not include other names, student numbers, contact details, or other identifying information.
 5. Review generated recommendation in `/sares/case-assessment`.
 6. View rule controls in `/sares/rules` and summaries in `/sares/reports`.
 

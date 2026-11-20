@@ -1,6 +1,6 @@
 import { isResolvedThroughMediation } from '../caseStatus.js';
 
-function ordinal(n) {
+export function ordinal(n) {
   const num = Number(n);
   if (num === 1) return '1st';
   if (num === 2) return '2nd';

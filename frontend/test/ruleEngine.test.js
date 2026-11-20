@@ -4,8 +4,10 @@ import {
   buildViolationRecordsForStudents,
   countPriorOffenses,
   evaluateOffense,
+  findOffenseNumberChanges,
   isViolationServed,
 } from '../src/engine/ruleEngine.js';
+import { getHighestSanctionTier } from '../src/data/handbookIndex.js';
 import { formatIdentifiedSanction } from '../src/engine/sanctionLabel.js';
 
 test('buildViolationRecordsForStudents creates one record per selected student and links them', () => {
@@ -181,7 +183,7 @@ test('serious-offense sanctions differ between Elementary and High School schedu
   assert.match(highSchoolRec.recommendedSanction, /Suspension \(5-10 days\)/);
 });
 
-test('offense levels without a later schedule do not invent another sanction', () => {
+test('offense levels without a later schedule reuse the highest listed sanction, not an invented one', () => {
   const rec = evaluateOffense({
     studentId: 's1',
     incidentDate: '2026-04-10',
@@ -194,7 +196,8 @@ test('offense levels without a later schedule do not invent another sanction', (
     ],
   });
   assert.equal(rec.offenseNumber, 3);
-  assert.match(rec.recommendedSanction, /No additional sanction is listed/);
+  assert.equal(rec.recommendedSanction, getHighestSanctionTier('major', 'serious', 'high_school').sanction);
+  assert.equal(rec.beyondSchedule, true);
 });
 
 test('identified sanction includes the offense number and school level, not a severity score', () => {
@@ -227,4 +230,103 @@ test('resolved mediation is treated as served for status summaries', () => {
     intervention_type: 'mediation',
   }), true);
   assert.equal(isViolationServed({ status: 'served', intervention_type: 'sanction' }), true);
+});
+
+function priorCases(count, subcategoryId, overrides = {}) {
+  return Array.from({ length: count }, (_, index) => ({
+    id: `prior-${index}`,
+    student_id: 's1',
+    school_year_key: '2026-2027',
+    subcategory_id: subcategoryId,
+    incident_date: '2026-08-01',
+    status: 'served',
+    ...overrides,
+  }));
+}
+
+test('repeat offenses past the schedule keep the highest listed sanction and are flagged', () => {
+  const highest = getHighestSanctionTier('minor', 'light', 'high_school');
+  const result = evaluateOffense({
+    offenseType: 'minor',
+    studentId: 's1',
+    incidentDate: '2026-09-10',
+    offenseId: 'unknown',
+    subcategoryId: 'light',
+    schoolScope: 'high_school',
+    existingViolations: priorCases(highest.offenseNumber, 'light'),
+  });
+
+  assert.equal(result.offenseNumber, highest.offenseNumber + 1);
+  assert.equal(result.recommendedSanction, highest.sanction);
+  assert.equal(result.offenseLabel, `${highest.offenseNumber + 1}th Offense`);
+  assert.equal(result.beyondSchedule, true);
+  assert.equal(result.scheduleMaxOffense, highest.offenseNumber);
+  assert.ok(result.notes.some((note) => /schedule ends/.test(note)));
+  assert.doesNotMatch(result.recommendedSanction, /No additional sanction/);
+});
+
+test('major offenses past the schedule escalate instead of returning no sanction', () => {
+  const highest = getHighestSanctionTier('major', 'serious', 'high_school');
+  const result = evaluateOffense({
+    offenseType: 'major',
+    studentId: 's1',
+    incidentDate: '2026-09-10',
+    offenseId: 'unknown',
+    subcategoryId: 'serious',
+    schoolScope: 'high_school',
+    existingViolations: priorCases(highest.offenseNumber + 3, 'serious'),
+  });
+
+  assert.equal(result.recommendedSanction, highest.sanction);
+  assert.equal(result.beyondSchedule, true);
+});
+
+test('offenses inside the schedule are not flagged as beyond it', () => {
+  const result = evaluateOffense({
+    offenseType: 'minor',
+    studentId: 's1',
+    incidentDate: '2026-09-10',
+    offenseId: 'unknown',
+    subcategoryId: 'light',
+    schoolScope: 'high_school',
+    existingViolations: priorCases(1, 'light'),
+  });
+
+  assert.equal(result.offenseNumber, 2);
+  assert.equal(result.beyondSchedule, false);
+  assert.equal(result.scheduleMaxOffense, null);
+});
+
+test('beyond-schedule flag is stored on each recorded case', () => {
+  const [record] = buildViolationRecordsForStudents({
+    incidentData: {
+      incident_date: '2026-09-10',
+      offense_type: 'minor',
+      subcategory_id: 'light',
+      offense_id: 'unknown',
+      created_at: { seconds: 1 },
+    },
+    selectedStudents: [{ student_id: 's1', full_name: 'Alice Reyes', year_level: 'Grade 10' }],
+    existingViolations: priorCases(10, 'light'),
+  });
+
+  assert.equal(record.beyond_schedule, true);
+});
+
+test('findOffenseNumberChanges reports students whose number changed in fresh data', () => {
+  const students = [
+    { student_id: 's1', full_name: 'Alice Reyes', year_level: 'Grade 10' },
+    { student_id: 's2', full_name: 'Bob Santos', year_level: 'Grade 10' },
+  ];
+  const offense = { offenseType: 'minor', offenseId: 'unknown', incidentDate: '2026-09-10', subcategoryId: 'light' };
+  const before = priorCases(1, 'light');
+  const recordedMeanwhile = { ...priorCases(1, 'light')[0], id: 'new-case', incident_date: '2026-09-05' };
+
+  const changes = findOffenseNumberChanges({ students, offense, before, after: [...before, recordedMeanwhile] });
+
+  assert.equal(changes.length, 1);
+  assert.equal(changes[0].student.student_id, 's1');
+  assert.equal(changes[0].beforeNumber, 2);
+  assert.equal(changes[0].afterNumber, 3);
+  assert.deepEqual(findOffenseNumberChanges({ students, offense, before, after: before }), []);
 });

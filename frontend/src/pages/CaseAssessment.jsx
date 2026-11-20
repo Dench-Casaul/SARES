@@ -8,6 +8,7 @@ import {
   Download,
 } from "lucide-react";
 import { formatIdentifiedSanction } from "../engine/sanctionLabel";
+import { describeOffenseSelection } from "../engine/offenseRecommendation";
 import { getViolationDescription } from "../engine/violationDescription";
 import { useAuthProfile } from "../authContext";
 import { getNavItems } from "../navigation";
@@ -128,6 +129,16 @@ export default function CaseAssessment() {
           </div>
         )}
 
+        {caseData.beyond_schedule && (
+          <div className="ca-authority-alert">
+            <AlertTriangle size={20} />
+            <div>
+              <strong>Repeat Offense Beyond Handbook Schedule</strong>
+              <p>This offense number exceeds the last offense listed in the handbook. The highest listed sanction was applied. Refer to the principal/discipline committee for review.</p>
+            </div>
+          </div>
+        )}
+
         {caseData.suggest_authorities && (
           <div className="ca-authority-alert">
             <AlertTriangle size={20} />
@@ -160,6 +171,12 @@ export default function CaseAssessment() {
             <div className="ca-row"><span>Subcategory</span><strong>{subcategoryLabel}</strong></div>
             <div className="ca-row"><span>Violation Group</span><strong>{caseData.group_title || caseData.category_name || "—"}</strong></div>
             <div className="ca-row"><span>Specific Violation</span><strong>{caseData.offense_variety || "—"}</strong></div>
+            {caseData.offense_selection_method && (
+              <div className="ca-row">
+                <span>Identified By</span>
+                <strong>{describeOffenseSelection(caseData.offense_selection_method, caseData.ai_offense_suggestion_source)}</strong>
+              </div>
+            )}
             <div className="ca-row"><span>Reported By</span><strong>{caseData.reported_by || "—"}</strong></div>
             <div className="ca-row"><span>Reporter Role</span><strong>{caseData.reporter_role || "—"}</strong></div>
             <div className="ca-row"><span>Reporter Contact</span><strong>{caseData.reporter_contact || "—"}</strong></div>
