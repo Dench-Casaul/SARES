@@ -11,9 +11,13 @@ import {
 import { formatIdentifiedSanction, ordinal } from './sanctionLabel.js';
 import { getSchoolScopeForYear } from '../schoolScope.js';
 import { countsTowardOffenses, isOpenCase } from '../caseStatus.js';
+import { DEFAULT_START_MONTH, getSchoolYearKey } from '../schoolCalendar.js';
 
-/** Month (1–12) when the school year label rolls over. Default 6 = June (PH). */
-export const SCHOOL_YEAR_START_MONTH = 6;
+// School years start on the opening day set in Rule Management (see schoolCalendar.js).
+export { getSchoolYearKey };
+
+/** Default opening month when no opening day is configured (6 = June). */
+export const SCHOOL_YEAR_START_MONTH = DEFAULT_START_MONTH;
 
 /** Whether a case counts toward the student's offense number (see caseStatus.js). */
 export function doesViolationCount(violation) {
@@ -23,18 +27,6 @@ export function doesViolationCount(violation) {
 /** True when the case needs no further action (served, resolved, no-readmission, completed suspension). */
 export function isViolationServed(violation, now = new Date()) {
   return !isOpenCase(violation, now);
-}
-
-/**
- * @param {string} isoDate — `YYYY-MM-DD`
- * @returns {string} e.g. `2025-2026`
- */
-export function getSchoolYearKey(isoDate) {
-  if (!isoDate || typeof isoDate !== 'string') return '';
-  const [y, m] = isoDate.split('-').map(Number);
-  if (!y || !m) return '';
-  const start = m >= SCHOOL_YEAR_START_MONTH ? y : y - 1;
-  return `${start}-${start + 1}`;
 }
 
 /** Counts prior incidents in the same offense level and school year. */

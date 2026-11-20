@@ -132,45 +132,45 @@ const TOURS = {
   "/sares/rules": [
     {
       target: '[data-help-target="rule-tabs"]',
-      title: "Three management panels",
-      content: "Handbook is for browsing and filtering. Update Rules edits sanction schedules. Update Violations maintains offense classes and their specific entries.",
+      title: "Four sections",
+      content: "Handbook shows the rules in use. Sanction Rules edits the sanction for each offense number. Violation Catalog (superadmin) maintains offense classes and violations. School Year sets each school year's opening day. An orange dot marks a tab with unsaved changes.",
     },
     {
       target: '[data-help-target="rule-filters"]',
       title: "Find handbook entries",
-      content: "Search by violation or category, then filter by offense type, offense level, and category. Apply the filters to update the matching groups.",
+      content: "Type to search offense classes and violations, or pick an offense level. Results update as you type.",
     },
     {
       target: '[data-help-target="rule-groups"]',
-      title: "Expand an offense group",
-      content: "Open a group to see its violations and sanctions by school level and offense number.",
+      title: "Open an offense class",
+      content: "Open a class to see its violations and the sanctions for its level, with Elementary and High School side by side. Violations marked with a warning may need referral to authorities.",
     },
     {
       target: '[data-help-target="rule-tabs"]',
-      title: "Open Update Rules",
+      title: "Open Sanction Rules",
       content: "The walkthrough switches to the sanction rules panel.",
       activate: '[data-help-control="rule-tab-rules"]',
     },
     {
       target: '[data-help-target="rule-sanction-schedule"]',
       title: "Progressive sanction table",
-      content: "Edit sanctions by offense level, school level, and offense number. Counts advance within the same offense level; saved values apply to new cases, not existing records.",
+      content: "Pick an offense level, then edit the sanction for each offense number. Edited boxes are highlighted until saved. Saved values apply to new cases, not recorded ones.",
     },
     {
       target: '[data-help-target="rule-save-rules"]',
       title: "Save sanction rules",
-      content: "Review all edited values before saving. Changes affect future recommendations, not cases already recorded.",
+      content: "Review the highlighted values, then save, or discard to return to the saved rules. Changes affect future recommendations only.",
     },
     {
       target: '[data-help-target="rule-tabs"]',
-      title: "Open Update Violations",
+      title: "Open Violation Catalog",
       content: "The walkthrough switches to the violation catalog panel.",
       activate: '[data-help-control="rule-tab-violations"]',
     },
     {
       target: '[data-help-target="rule-class-toolbar"]',
       title: "Manage offense classes",
-      content: "An offense class groups related handbook violations under a type and offense level. Use the add control to create a class or edit an existing class to maintain it.",
+      content: "An offense class groups related violations under one offense level. Search the catalog, add a class, or select Edit on a class to change it.",
     },
     {
       target: '[data-help-target="rule-violation-catalog"]',
@@ -180,7 +180,7 @@ const TOURS = {
     {
       target: '[data-help-target="rule-save-catalog"]',
       title: "Save the catalog",
-      content: "Save catalog changes after reviewing offense type, level, class names, and specific violations. These entries feed the violation-recording workflow.",
+      content: "Class edits stay in a draft until you select Save Catalog; Discard returns to the saved catalog. Saved entries feed the violation-recording workflow.",
     },
   ],
   "/sares/reports": [

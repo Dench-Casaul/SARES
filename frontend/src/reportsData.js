@@ -10,7 +10,7 @@ import {
   isOpenCase,
   isResolvedThroughMediation,
 } from './caseStatus.js';
-import { SCHOOL_YEAR_START_MONTH } from './engine/ruleEngine.js';
+import { getSchoolYearRange } from './schoolCalendar.js';
 import { parseRecordDate } from './dashboardStats.js';
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -62,14 +62,19 @@ export function getOffenseLevelLabel(subcategoryId) {
   return OFFENSE_LEVELS.find((level) => level.value === subcategoryId)?.label || '';
 }
 
-/** Months of a school year (June to May) up to the current month: [{ value: '2026-06', label: 'June 2026' }, …]. */
+/**
+ * Months of a school year, from its opening month to the month before the next
+ * one opens, up to the current month: [{ value: '2026-06', label: 'June 2026' }, …].
+ */
 export function listSchoolYearMonths(schoolYearKey, now = new Date()) {
-  const start = Number(String(schoolYearKey || '').split('-')[0]);
-  if (!schoolYearKey || !Number.isFinite(start)) return [];
+  const range = getSchoolYearRange(schoolYearKey);
+  if (!range) return [];
+  const [startYear, startMonth] = range.start.split('-').map(Number);
+  const [endYear, endMonth] = range.end.split('-').map(Number);
   const months = [];
-  for (let offset = 0; offset < 12; offset += 1) {
-    const date = new Date(start, SCHOOL_YEAR_START_MONTH - 1 + offset, 1);
-    if (date > now) break;
+  for (let date = new Date(startYear, startMonth - 1, 1);
+    date <= new Date(endYear, endMonth - 1, 1) && date <= now;
+    date = new Date(date.getFullYear(), date.getMonth() + 1, 1)) {
     months.push({ value: monthKey(date), label: `${MONTH_NAMES[date.getMonth()]} ${date.getFullYear()}` });
   }
   return months;

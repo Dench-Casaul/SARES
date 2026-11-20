@@ -373,7 +373,7 @@ const Dashboard = () => {
             <div className="chart-card">
               <div className="chart-header">
                 <h3 className="chart-title">Top Violations</h3>
-                <p className="chart-subtitle">Most frequent, share of all violations</p>
+                <p className="chart-subtitle">All school years · most frequent, share of all violations</p>
               </div>
               {!isReady ? (
                 <p className="card-subtitle">{notReadyText}</p>

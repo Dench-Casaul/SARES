@@ -13,6 +13,7 @@ import AccountSecurity from "./pages/AccountSecurity";
 import SystemLogs from "./pages/SystemLogs";
 import React, { useEffect, useState } from "react";
 import { applyHandbookOverrides, applySanctionOverrides } from "./data/handbookIndex";
+import { setSchoolYearStarts } from "./schoolCalendar";
 import { auth, db } from "./firebase";
 import { isAllowedLoginEmail } from "./authPolicy";
 import { isValidRoleProfile } from "./schoolScope";
@@ -69,16 +70,19 @@ function App() {
 
   useEffect(() => {
     let unsubscribeRuleOverrides = () => {};
+    let unsubscribeCalendar = () => {};
     let authEvent = 0;
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       const currentEvent = ++authEvent;
       unsubscribeRuleOverrides();
+      unsubscribeCalendar();
       setAuthReady(false);
       setUserProfile(null);
 
       if (!user) {
         applyHandbookOverrides();
         applySanctionOverrides();
+        setSchoolYearStarts({});
         setAuthReady(true);
         return;
       }
@@ -102,6 +106,26 @@ function App() {
         setUserProfile(profile);
         setRulesStatus("loading");
         setAuthReady(true);
+        // Recording a case needs both the handbook rules and the school calendar
+        // (which decides each case's school year), so "ready" waits for both.
+        const loaded = { rules: false, calendar: false };
+        const markLoaded = (part) => {
+          loaded[part] = true;
+          if (loaded.rules && loaded.calendar) setRulesStatus((status) => (status === "error" ? status : "ready"));
+        };
+        unsubscribeCalendar = onSnapshot(
+          doc(db, "rules", "school_calendar"),
+          (snapshot) => {
+            if (!snapshot.exists() && snapshot.metadata.fromCache) return;
+            setSchoolYearStarts(snapshot.exists() ? snapshot.data().school_year_starts || {} : {});
+            setRuleRevision((revision) => revision + 1);
+            markLoaded("calendar");
+          },
+          (error) => {
+            console.error("Failed to load the school calendar:", error);
+            setRulesStatus("error");
+          }
+        );
         unsubscribeRuleOverrides = onSnapshot(
           doc(db, "rules", "handbook_sanctions"),
           (snapshot) => {
@@ -112,7 +136,7 @@ function App() {
             applyHandbookOverrides(overrides);
             applySanctionOverrides(overrides);
             setRuleRevision((revision) => revision + 1);
-            setRulesStatus("ready");
+            markLoaded("rules");
           },
           (error) => {
             // Keep whatever rules were last loaded; recording is blocked until they are
@@ -135,6 +159,7 @@ function App() {
       authEvent += 1;
       unsubscribe();
       unsubscribeRuleOverrides();
+      unsubscribeCalendar();
     };
   }, []);
 

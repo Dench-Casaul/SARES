@@ -44,7 +44,7 @@ function getStudentNumber(record, studentNumbers) {
 }
 
 export default function Report() {
-  const { userProfile } = useAuthProfile();
+  const { userProfile, ruleRevision } = useAuthProfile();
   const navigate = useNavigate();
   const [violations, setViolations] = useState([]);
   const [studentNumbers, setStudentNumbers] = useState({});
@@ -58,9 +58,13 @@ export default function Report() {
 
   // Reports read one school year at a time (the current one by default) instead of
   // every violation ever recorded; "All school years" is an explicit choice.
-  const currentSchoolYear = useMemo(() => getSchoolYearKey(formatIsoDate(new Date())), []);
+  // The current school year follows the school calendar (opening days set in Rule Management).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const currentSchoolYear = useMemo(() => getSchoolYearKey(formatIsoDate(new Date())), [ruleRevision]);
   const schoolYearOptions = useMemo(() => listRecentSchoolYears(currentSchoolYear, 5), [currentSchoolYear]);
-  const [schoolYear, setSchoolYear] = useState(currentSchoolYear);
+  // null = "the current school year", so the page follows the calendar if it loads or changes.
+  const [chosenSchoolYear, setChosenSchoolYear] = useState(null);
+  const schoolYear = chosenSchoolYear || currentSchoolYear;
 
   useEffect(() => {
     if (!userProfile) return undefined;
@@ -125,7 +129,8 @@ export default function Report() {
 
   const monthOptions = useMemo(
     () => (schoolYear === "all" ? [] : listSchoolYearMonths(schoolYear)),
-    [schoolYear]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [schoolYear, ruleRevision]
   );
   const gradeLevelOptions = useMemo(() => listGradeLevels(violations), [violations]);
   const filteredViolations = useMemo(() => filterReportCases(violations, filters), [violations, filters]);
@@ -156,7 +161,7 @@ export default function Report() {
 
   const changeSchoolYear = (value) => {
     setLoading(true);
-    setSchoolYear(value);
+    setChosenSchoolYear(value === currentSchoolYear ? null : value);
     // Months belong to a school year, so the month filter starts over.
     updateFilters({ month: "all" });
   };
