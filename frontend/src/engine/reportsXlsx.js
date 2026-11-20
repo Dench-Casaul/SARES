@@ -2,9 +2,11 @@ import {
   AlignmentType,
   BorderStyle,
   Document,
+  Footer,
   Header,
   ImageRun,
   Packer,
+  PageNumber,
   Paragraph,
   Table,
   TableCell,
@@ -13,10 +15,14 @@ import {
   TextRun,
   WidthType,
 } from "docx";
+import { CONFIDENTIALITY_NOTICE, OFFICE_NAME, SCHOOL_NAME, SYSTEM_NAME } from "../schoolInfo.js";
 
 const A4_SHORT_EDGE = 11906;
 const A4_LONG_EDGE = 16838;
 const PAGE_MARGIN = 720;
+const BOTTOM_MARGIN = 1100;
+const FOOTER_MARGIN = 360;
+const TABLE_WIDTH = 15398;
 const HEADER_MARGIN = 1200;
 const COLUMN_WIDTHS = [1900, 3300, 6500, 3698];
 const TABLE_BORDER = { style: BorderStyle.SINGLE, size: 4, color: "D9E1F2" };
@@ -38,21 +44,19 @@ function formatStudentCell(studentName, studentNumber, gradeLevel) {
   const number = safeText(studentNumber, "");
   const grade = safeText(gradeLevel, "");
   const lines = [`Name: ${name}`];
-  if (number) lines.push(`ID: ${number}`);
+  if (number) lines.push(`LRN: ${number}`);
   if (grade) lines.push(grade);
   return lines.join("\n");
 }
 
-function formatViolationCell(offenseNumber, offenseClassification, specificViolation, offenseType) {
-  const parts = [];
+function formatViolationCell(offenseNumber, offenseClassification, specificViolation, offenseLevel) {
+  const parts = [`Violation: ${safeText(specificViolation, "Unspecified") || "Unspecified"}`];
+  const classification = safeText(offenseClassification, "");
+  if (classification) parts.push(`Type: ${classification}`);
+  const level = OFFENSE_TYPE_LABELS[offenseLevel] || safeText(offenseLevel, "");
+  if (level) parts.push(`Level: ${level}`);
   const offenseNo = safeText(offenseNumber, "");
   if (offenseNo) parts.push(`Offense No.: ${offenseNo}`);
-  const classification = safeText(offenseClassification, "Unspecified");
-  if (classification) parts.push(`Classification: ${classification}`);
-  const type = OFFENSE_TYPE_LABELS[offenseType] || safeText(offenseType, "");
-  if (type) parts.push(`Offense Type: ${type}`);
-  const specific = safeText(specificViolation, "Unspecified");
-  if (specific) parts.push(`Violation: ${specific}`);
   return parts.join("\n");
 }
 
@@ -133,7 +137,11 @@ function createReportHeader(dateRange, generatedAt, logoData, scopeLabel) {
             children: [
               new Paragraph({
                 spacing: { before: 0, after: 0 },
-                children: [new TextRun({ text: "SARES", bold: true, font: "Play", size: 32, color: "17365D" })],
+                children: [new TextRun({ text: SYSTEM_NAME, bold: true, font: "Play", size: 32, color: "17365D" })],
+              }),
+              new Paragraph({
+                spacing: { before: 20, after: 0 },
+                children: [new TextRun({ text: `${SCHOOL_NAME} · ${OFFICE_NAME}`, font: "Aptos", size: 18, color: "526174" })],
               }),
             ],
           }),
@@ -196,12 +204,130 @@ function createReportHeader(dateRange, generatedAt, logoData, scopeLabel) {
   });
 }
 
+function spacer(after) {
+  return new Paragraph({ spacing: { before: 0, after }, children: [] });
+}
+
+function createTitleBlock(title) {
+  return [
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 0, after: 40 },
+      children: [new TextRun({ text: title.toUpperCase(), bold: true, font: "Aptos", size: 30, color: "17365D" })],
+    }),
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 0, after: 200 },
+      children: [new TextRun({ text: `${SCHOOL_NAME} · ${OFFICE_NAME}`, font: "Aptos", size: 20, color: "526174" })],
+    }),
+  ];
+}
+
+/** One row of headline counts above the case table. */
+function createSummaryTable(summary) {
+  const items = [
+    ["Cases", summary.totalCases],
+    ["Minor offenses", summary.minor],
+    ["Major offenses", summary.major],
+    ["Students involved", summary.students],
+    ["Open cases", summary.open],
+    ["Resolved through mediation", summary.resolvedThroughMediation],
+  ];
+  const cellWidth = Math.floor(TABLE_WIDTH / items.length);
+  const widths = items.map((_, index) => (index === items.length - 1 ? TABLE_WIDTH - cellWidth * (items.length - 1) : cellWidth));
+  return new Table({
+    width: { size: TABLE_WIDTH, type: WidthType.DXA },
+    columnWidths: widths,
+    layout: TableLayoutType.FIXED,
+    borders: { top: TABLE_BORDER, bottom: TABLE_BORDER, left: TABLE_BORDER, right: TABLE_BORDER, insideHorizontal: TABLE_BORDER, insideVertical: TABLE_BORDER },
+    rows: [new TableRow({
+      cantSplit: true,
+      children: items.map(([label, value], index) => new TableCell({
+        width: { size: widths[index], type: WidthType.DXA },
+        margins: CELL_MARGINS,
+        shading: { fill: "F4F7FB" },
+        children: [
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 0, after: 20 },
+            children: [new TextRun({ text: String(value ?? 0), bold: true, font: "Aptos", size: 30, color: "17365D" })],
+          }),
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 0, after: 0 },
+            children: [new TextRun({ text: label, font: "Aptos", size: 17, color: "526174" })],
+          }),
+        ],
+      })),
+    })],
+  });
+}
+
+function signatureCell(heading, name, role, width) {
+  const line = (text, options = {}) => new Paragraph({
+    spacing: { before: 0, after: 40 },
+    children: [new TextRun({ text, font: "Aptos", size: 19, color: "243247", ...options })],
+  });
+  return new TableCell({
+    width: { size: width, type: WidthType.DXA },
+    margins: { top: 0, bottom: 0, left: 0, right: 240 },
+    borders: { top: NO_BORDER, bottom: NO_BORDER, left: NO_BORDER, right: NO_BORDER },
+    children: [
+      line(heading, { bold: true }),
+      spacer(360),
+      line("________________________________________"),
+      line(name || " ", { bold: true }),
+      line(role),
+      line("Date: ____________________"),
+    ],
+  });
+}
+
+/** "Prepared by" (counselor) and "Noted by" (principal) signature lines. */
+function createSignatureBlock(preparedBy) {
+  const half = Math.floor(TABLE_WIDTH / 2);
+  return new Table({
+    width: { size: TABLE_WIDTH, type: WidthType.DXA },
+    columnWidths: [half, TABLE_WIDTH - half],
+    layout: TableLayoutType.FIXED,
+    borders: { top: NO_BORDER, bottom: NO_BORDER, left: NO_BORDER, right: NO_BORDER, insideHorizontal: NO_BORDER, insideVertical: NO_BORDER },
+    rows: [new TableRow({
+      cantSplit: true,
+      children: [
+        signatureCell("Prepared by:", safeText(preparedBy), "Guidance Counselor", half),
+        signatureCell("Noted by:", "", "School Principal", TABLE_WIDTH - half),
+      ],
+    })],
+  });
+}
+
+function createReportFooter() {
+  return new Footer({
+    children: [
+      new Paragraph({
+        spacing: { before: 0, after: 20 },
+        children: [new TextRun({ text: CONFIDENTIALITY_NOTICE, italics: true, font: "Aptos", size: 15, color: "6B7280" })],
+      }),
+      new Paragraph({
+        alignment: AlignmentType.RIGHT,
+        spacing: { before: 0, after: 0 },
+        children: [new TextRun({ children: ["Page ", PageNumber.CURRENT, " of ", PageNumber.TOTAL_PAGES], font: "Aptos", size: 16, color: "526174" })],
+      }),
+    ],
+  });
+}
+
 export function createReportsDocx(headers = [], rows = [], {
   dateRange = "all",
   generatedAt = new Date(),
   logoData,
   // Describes the filters behind the report (e.g. "SY 2026-2027 · November 2026"); overrides dateRange.
   scopeLabel = "",
+  title = "Violation Report",
+  // { totalCases, minor, major, students, open, resolvedThroughMediation } (see reportsData.js)
+  summary = null,
+  // Name printed under "Prepared by" (the signed-in counselor).
+  preparedBy = "",
 } = {}) {
   void headers;
   const visibleHeaders = ["Date", "Student", "Violation", "Outcome"];
@@ -249,24 +375,36 @@ export function createReportsDocx(headers = [], rows = [], {
     })),
   ];
 
+  const casesTable = new Table({
+    width: { size: COLUMN_WIDTHS.reduce((total, width) => total + width, 0), type: WidthType.DXA },
+    columnWidths: COLUMN_WIDTHS,
+    layout: TableLayoutType.FIXED,
+    borders: { top: TABLE_BORDER, bottom: TABLE_BORDER, left: TABLE_BORDER, right: TABLE_BORDER, insideHorizontal: TABLE_BORDER, insideVertical: TABLE_BORDER },
+    rows: tableRows,
+  });
+  const noCases = new Paragraph({
+    alignment: AlignmentType.CENTER,
+    spacing: { before: 200, after: 200 },
+    children: [new TextRun({ text: "No cases match this report's filters.", italics: true, font: "Aptos", size: 20, color: "526174" })],
+  });
+
   return new Document({
-    title: "SARES Incident Report Summary",
-    description: "Disciplinary violation summary generated by SARES.",
+    title: `${SYSTEM_NAME} ${title}`,
+    description: `Disciplinary violation report generated by ${SYSTEM_NAME}.`,
     sections: [{
       headers: { default: createReportHeader(dateRange, generatedAt, logoData, scopeLabel) },
+      footers: { default: createReportFooter() },
       children: [
-        new Table({
-          width: { size: COLUMN_WIDTHS.reduce((total, width) => total + width, 0), type: WidthType.DXA },
-          columnWidths: COLUMN_WIDTHS,
-          layout: TableLayoutType.FIXED,
-          borders: { top: TABLE_BORDER, bottom: TABLE_BORDER, left: TABLE_BORDER, right: TABLE_BORDER, insideHorizontal: TABLE_BORDER, insideVertical: TABLE_BORDER },
-          rows: tableRows,
-        }),
+        ...createTitleBlock(title),
+        ...(summary ? [createSummaryTable(summary), spacer(160)] : []),
+        ...(visibleRows.length ? [casesTable] : [noCases]),
+        spacer(360),
+        createSignatureBlock(preparedBy),
       ],
       properties: {
         page: {
           size: { width: A4_SHORT_EDGE, height: A4_LONG_EDGE, orientation: "landscape" },
-          margin: { top: HEADER_MARGIN, bottom: PAGE_MARGIN, left: PAGE_MARGIN, right: PAGE_MARGIN, header: 0 },
+          margin: { top: HEADER_MARGIN, bottom: BOTTOM_MARGIN, left: PAGE_MARGIN, right: PAGE_MARGIN, header: 0, footer: FOOTER_MARGIN },
         },
       },
     }],

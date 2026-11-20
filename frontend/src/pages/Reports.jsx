@@ -9,6 +9,7 @@ import { isRecordInTrash } from "../recordStatus";
 import { getSchoolYearKey } from "../engine/ruleEngine";
 import { isResolvedThroughMediation } from "../caseStatus";
 import { ordinal } from "../engine/sanctionLabel";
+import { formatLongDate } from "../engine/documentFormat";
 import AppShell from "../AppShell";
 import { clampPage, getPageItems, getTotalPages } from "../pagination";
 import {
@@ -186,7 +187,7 @@ export default function Report() {
       const rows = filteredViolations.map((v) => {
         const offenseNumber = v.cumulative_offense_number || v.offense_number;
         return [
-          formatIsoDate(getReportDate(v)) || "N/A",
+          formatLongDate(getReportDate(v)) || "N/A",
           getStudentNumber(v, studentNumbers) || "N/A",
           v.student_name || "Unknown",
           getGradeLevel(v),
@@ -206,6 +207,8 @@ export default function Report() {
         generatedAt: new Date(),
         logoData,
         scopeLabel,
+        summary,
+        preparedBy: userProfile?.full_name || "",
       });
     } catch (exportFailure) {
       console.error("Failed to export report:", exportFailure);

@@ -9,6 +9,7 @@ import { canAccessSchoolScope, getSchoolScopeForYear } from '../schoolScope'
 import { doesViolationCount, evaluateSaresRecommendation, getOffenseNumberReview } from '../engine/ruleEngine'
 import { formatIdentifiedSanction } from '../engine/sanctionLabel'
 import { getViolationDescription } from '../engine/violationDescription';
+import { downloadIncidentReport } from '../incidentReportActions';
 import { saveViolationsWithCaseNumbers } from '../engine/incidentCaseNumber'
 import '../css/Student.css'
 import wesleyLogo from '../assets/wesley-logo.png'
@@ -1513,7 +1514,6 @@ function ViolationDetails({ violation, student, onBack, onSetSuspensionDates, on
   };
 
   const handleDownloadIncidentReport = async () => {
-    const { generateIncidentReportPdf } = await import('../engine/incidentReportPdf');
     const reportCase = {
       ...violation,
       student_name: violation.student_name || student.name,
@@ -1525,7 +1525,12 @@ function ViolationDetails({ violation, student, onBack, onSetSuspensionDates, on
       ...member,
       student_contact: member.student_contact || (String(member.student_id) === String(student.docId) ? student.phone : ''),
     }));
-    generateIncidentReportPdf(reportCase, groupMembers);
+    try {
+      await downloadIncidentReport(reportCase, groupMembers);
+    } catch (error) {
+      console.error('Failed to download the incident report:', error);
+      window.alert('The incident report could not be downloaded. Please try again.');
+    }
   };
 
   return (

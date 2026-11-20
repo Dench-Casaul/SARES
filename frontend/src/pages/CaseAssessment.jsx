@@ -15,6 +15,7 @@ import { getNavItems } from "../navigation";
 import { useLogout } from "../useLogout";
 import { CASE_STATUS, getCaseStatusLabel, getEffectiveCaseStatus } from "../caseStatus";
 import { describeRequirementRecord, getParentInvolvementSummary } from "../parentInvolvement";
+import { downloadIncidentReport, printIncidentReport } from "../incidentReportActions";
 
 function Sidebar({ activePage, onLogout, userProfile }) {
   return (
@@ -43,25 +44,6 @@ const SUBCATEGORY_LABELS = {
   serious: "Serious",
   very_serious: "Very Serious",
 };
-
-const INCIDENT_NATURES = [
-  ["Bullying / Harassment", ["bullying", "harassment"]],
-  ["Fighting / Physical Altercation", ["fight", "physical"]],
-  ["Verbal Abuse", ["verbal", "abuse"]],
-  ["Property Damage / Vandalism", ["property damage", "vandalism"]],
-  ["Academic Dishonesty", ["academic dishonesty", "cheating", "plagiarism"]],
-  ["Substance Use", ["substance", "drug", "alcohol"]],
-  ["Truancy / Cutting Classes", ["truancy", "cutting class", "absence"]],
-  ["Insubordination", ["insubordination", "disrespect"]],
-];
-
-function printableDate(value) {
-  if (typeof value === "string") return value.slice(0, 10);
-  const date = value?.toDate?.() || (value?.seconds ? new Date(value.seconds * 1000) : null);
-  return date instanceof Date && !Number.isNaN(date.getTime())
-    ? date.toISOString().slice(0, 10)
-    : "";
-}
 
 export default function CaseAssessment() {
   const { userProfile } = useAuthProfile();
@@ -99,10 +81,20 @@ export default function CaseAssessment() {
   const description = getViolationDescription(caseData);
   const evidenceFiles = Array.isArray(caseData.evidence_urls) ? caseData.evidence_urls : [];
   const groupMembers = Array.isArray(location.state?.groupCaseData) ? location.state.groupCaseData : [caseData];
-  const incidentNatureText = [caseData.group_title, caseData.offense_variety, caseData.incident_description].join(" ").toLowerCase();
-  const reporterRole = String(caseData.reporter_role || "").toLowerCase();
-  const witnesses = String(caseData.witnesses || "").split(/\n|;/).map((name) => name.trim()).filter(Boolean);
-  const dateFiled = printableDate(caseData.created_at) || new Date().toISOString().slice(0, 10);
+
+  // Print and Download produce the same Incident Report Form PDF.
+  const handlePrint = () => {
+    printIncidentReport(caseData, groupMembers).catch((error) => {
+      console.error("Failed to prepare the incident report for printing:", error);
+      window.alert("The incident report could not be prepared for printing. Please try again.");
+    });
+  };
+  const handleDownload = () => {
+    downloadIncidentReport(caseData, groupMembers).catch((error) => {
+      console.error("Failed to download the incident report:", error);
+      window.alert("The incident report could not be downloaded. Please try again.");
+    });
+  };
 
   return (
     <div className="ca-page">
@@ -110,14 +102,11 @@ export default function CaseAssessment() {
       <main className="ca-main" data-help-target="assessment-content">
         <header className="ca-header" data-help-target="assessment-actions">
           <h1 className="ca-title">Case Assessment</h1>
-          <button type="button" className="ca-btn-primary ca-print-button" onClick={() => window.print()}>
-            <Printer size={16} /> Print Incident Report
+          <button type="button" className="ca-btn-primary ca-print-button" onClick={handlePrint}>
+            <Printer size={16} aria-hidden="true" /> Print Incident Report
           </button>
-          <button type="button" className="ca-btn-secondary ca-print-button" onClick={async () => {
-            const { generateIncidentReportPdf } = await import("../engine/incidentReportPdf");
-            generateIncidentReportPdf(caseData, groupMembers);
-          }}>
-            <Download size={16} /> Download PDF
+          <button type="button" className="ca-btn-secondary ca-print-button" onClick={handleDownload}>
+            <Download size={16} aria-hidden="true" /> Download PDF
           </button>
         </header>
         <p className="ca-sub" data-help-target="assessment-summary">Violation recorded and assessed based on the Student Discipline Handbook.</p>
@@ -301,105 +290,6 @@ export default function CaseAssessment() {
           <Link to="/sares/reports" className="ca-btn-primary">Go to Reports</Link>
         </div>
 
-        <article className="ca-print-report">
-          <header className="ca-print-heading">
-            <h1>INCIDENT REPORT FORM</h1>
-            <p>Student Discipline / Guidance Office</p>
-            <div className="ca-print-meta">
-              <strong>Case No.: {caseData.case_number || "Not Assigned"}</strong>
-              <strong>Date Filed: {dateFiled || "________________"}</strong>
-            </div>
-          </header>
-
-          <section className="ca-print-section">
-            <h2>I. Reporting Party / Complainant</h2>
-            <div className="ca-print-grid">
-              <div><b>Full Name:</b> {caseData.reported_by || "____________________________"}</div>
-              <div><b>Date &amp; Time of Report:</b> {dateFiled} / __________________</div>
-              <div className="ca-print-tall">
-                <b>Role:</b> {caseData.reporter_role || "________________"}
-                <div>{["Student", "Teacher", "Staff", "Parent / Guardian", "Other"].map((role) => (
-                  <span key={role} className="ca-print-check">{reporterRole === role.toLowerCase() || (role === "Parent / Guardian" && reporterRole === "parent") ? "☒" : "☐"} {role}</span>
-                ))}</div>
-              </div>
-              <div><b>Grade/Section &amp; Contact No.:</b> {caseData.reporter_grade_section || "____________________________"}<br />{caseData.reporter_contact || "____________________________"}</div>
-            </div>
-          </section>
-
-          <section className="ca-print-section">
-            <h2>II. Persons Involved</h2>
-            <table className="ca-print-table">
-              <thead><tr><th>Name</th><th>Grade / Section</th><th>Role in Incident</th><th>Contact Information</th></tr></thead>
-              <tbody>{groupMembers.map((person, index) => (
-                <tr key={person.student_id || index}>
-                  <td>{person.student_name || "________________"}</td>
-                  <td>{person.year_level || "________________"}</td>
-                  <td>Respondent</td>
-                  <td>{person.student_contact || "________________"}</td>
-                </tr>
-              ))}</tbody>
-            </table>
-            <p className="ca-print-note">Role in Incident: Respondent, Involved Party, Aggrieved Party, or Other.</p>
-          </section>
-
-          <section className="ca-print-section">
-            <h2>III. Incident Details</h2>
-            <div className="ca-print-grid">
-              <div><b>Date of Incident:</b> {caseData.incident_date || "________________"}</div>
-              <div><b>Time of Incident:</b> {caseData.incident_time || "________________"}</div>
-              <div><b>Location:</b> {caseData.incident_location || "____________________________"}</div>
-              <div><b>Reported By (if different from complainant):</b> {caseData.reported_by || "____________________________"}</div>
-            </div>
-            <h3>Nature of Incident (check all that apply):</h3>
-            <div className="ca-print-natures">
-              {INCIDENT_NATURES.map(([label, terms]) => (
-                <span key={label}>{terms.some((term) => incidentNatureText.includes(term)) ? "☒" : "☐"} {label}</span>
-              ))}
-              <span>☐ Other: ______________________________</span>
-            </div>
-            <h3>Narrative Description of the Incident:</h3>
-            <p className="ca-print-narrative">{caseData.incident_description || " "}</p>
-            {(parentItems.length > 0 || caseData.parent_contact_notes) && (
-              <>
-                <h3>Parent/Guardian Involvement:</h3>
-                {parentItems.map((item) => (
-                  <p key={item.type} className="ca-print-narrative">
-                    {item.label}: {item.record.status === "pending" ? "Pending" : describeRequirementRecord(item)}
-                  </p>
-                ))}
-                {caseData.parent_contact_notes && <p className="ca-print-narrative">{caseData.parent_contact_notes}</p>}
-              </>
-            )}
-            <h3>Evidence / Attachments:</h3>
-            <div className="ca-print-natures">
-              {["Photos", "CCTV Footage", "Written Statement(s)", "Other"].map((label) => (
-                <span key={label}>{evidenceFiles.some((file) => label === "Photos" ? file.contentType?.startsWith("image/") : label === "CCTV Footage" ? /cctv|video/i.test(file.name || "") : label === "Written Statement(s)" ? /statement/i.test(file.name || "") : false) ? "☒" : "☐"} {label}</span>
-              ))}
-            </div>
-            {evidenceFiles.length > 0 && <p className="ca-print-note">Attached files: {evidenceFiles.map((file) => file.name).join(", ")}</p>}
-          </section>
-
-          <section className="ca-print-section">
-            <h2>IV. Witnesses</h2>
-            <table className="ca-print-table">
-              <thead><tr><th>Name</th><th>Grade / Section</th><th>Contact Information</th><th>Statement Attached</th></tr></thead>
-              <tbody>{Array.from({ length: Math.max(3, witnesses.length) }, (_, index) => (
-                <tr key={index}><td>{witnesses[index] || ""}</td><td></td><td></td><td>{witnesses[index] ? "☐" : ""}</td></tr>
-              ))}</tbody>
-            </table>
-          </section>
-
-          <section className="ca-print-section ca-print-actions-section">
-            <h2>V. Action Taken</h2>
-            <p className="ca-print-action-text">{caseData.action_taken || caseData.recommended_sanction || (isMediation ? "Referred for mediation." : "")}</p>
-            <p className="ca-print-certification">I certify that the information provided in this report is true and accurate to the best of my knowledge.</p>
-            <div className="ca-print-signatures">
-              <div><span></span><b>Complainant's Signature over Printed Name</b><small>Date Signed: ______________</small></div>
-              <div><span></span><b>Received by — Guidance Office</b><small>Date Filed: ______________</small></div>
-            </div>
-          </section>
-          <footer className="ca-print-footer">Confidential — For Guidance Office Use Only</footer>
-        </article>
       </main>
     </div>
   );

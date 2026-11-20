@@ -56,13 +56,13 @@ test("creates a readable A4 landscape DOCX with key incident details", async () 
   assert.match(text, /Jordan Lee/);
   assert.match(text, /Name: Jordan Lee/);
   assert.match(text, /STU-1042/);
-  assert.match(text, /ID: STU-1042/);
+  assert.match(text, /LRN: STU-1042/);
   assert.match(text, /Grade 10/);
   assert.match(text, /Major Offense/);
-  assert.match(text, /Offense Type: Light/);
-  assert.match(text, /Offense Type: Less Serious/);
-  assert.match(text, /Offense Type: Serious/);
-  assert.match(text, /Offense Type: Very Serious/);
+  assert.match(text, /Level: Light/);
+  assert.match(text, /Level: Less Serious/);
+  assert.match(text, /Level: Serious/);
+  assert.match(text, /Level: Very Serious/);
   assert.match(text, /OFF-12/);
   assert.match(text, /Student said/);
   assert.match(text, /Counseling/);
@@ -99,4 +99,37 @@ test("the report header states the filters the report was made from", async () =
     .map(([, data]) => strFromU8(data))
     .join("");
   assert.match(headerXml, /Scope: SY 2026-2027 · November 2026 · Grade 10/);
+});
+
+test("the report has a title, summary, signature lines, and a confidential footer with page numbers", async () => {
+  const document = createReportsDocx([], [
+    ["2026-11-17", "1001", "Juan Dela Cruz", "Grade 8", "Major Offense", "Physical bullying", "1st offense", "Suspension", "Pending Sanction", "serious"],
+  ], {
+    generatedAt: new Date(2026, 10, 20),
+    scopeLabel: "SY 2026-2027",
+    summary: { totalCases: 1, minor: 0, major: 1, students: 1, open: 1, resolvedThroughMediation: 0 },
+    preparedBy: "Ms. Ana Reyes",
+  });
+  const archive = unzipSync(await Packer.toBuffer(document));
+  const body = strFromU8(archive["word/document.xml"]);
+  const footer = Object.entries(archive)
+    .filter(([name]) => /^word\/footer\d*\.xml$/.test(name))
+    .map(([, data]) => strFromU8(data))
+    .join("");
+
+  assert.match(body, /VIOLATION REPORT/);
+  assert.match(body, /Olongapo Wesley School/);
+  assert.match(body, /Resolved through mediation/);
+  assert.match(body, /Prepared by:/);
+  assert.match(body, /Ms\. Ana Reyes/);
+  assert.match(body, /Noted by:/);
+  assert.match(body, /School Principal/);
+  assert.match(footer, /CONFIDENTIAL/);
+  assert.match(footer, /RA 10173/);
+  assert.match(footer, /NUMPAGES/);
+});
+
+test("an empty report says so instead of showing an empty table", async () => {
+  const archive = unzipSync(await Packer.toBuffer(createReportsDocx([], [], { generatedAt: new Date(2026, 10, 20) })));
+  assert.match(strFromU8(archive["word/document.xml"]), /No cases match this report/);
 });
