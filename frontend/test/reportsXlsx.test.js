@@ -88,3 +88,15 @@ test("adds the SARES header, selected date scope, and generation timestamp", asy
   assert.equal((headerXml.match(/<w:vAlign w:val="center"\/>/g) || []).length, 4);
   assert.match(relationshipsXml, /media\/[^"]+\.png/);
 });
+test("the report header states the filters the report was made from", async () => {
+  const document = createReportsDocx([], [], {
+    generatedAt: new Date(2026, 10, 20),
+    scopeLabel: "SY 2026-2027 · November 2026 · Grade 10",
+  });
+  const archive = unzipSync(await Packer.toBuffer(document));
+  const headerXml = Object.entries(archive)
+    .filter(([name]) => /^word\/header\d*\.xml$/.test(name))
+    .map(([, data]) => strFromU8(data))
+    .join("");
+  assert.match(headerXml, /Scope: SY 2026-2027 · November 2026 · Grade 10/);
+});

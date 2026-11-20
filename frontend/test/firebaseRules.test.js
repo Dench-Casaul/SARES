@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
-import { collection, deleteDoc, deleteField, doc, getCountFromServer, getDoc, getDocs, limit, orderBy, query, serverTimestamp, setDoc, updateDoc, where, writeBatch } from 'firebase/firestore';
+import { collection, deleteDoc, deleteField, doc, getCountFromServer, getDoc, getDocs, limit, orderBy, query, serverTimestamp, setDoc, Timestamp, updateDoc, where, writeBatch } from 'firebase/firestore';
 import { ref, uploadBytes } from 'firebase/storage';
 import { saveViolationsWithCaseNumbers } from '../src/engine/incidentCaseNumber.js';
 
@@ -408,4 +408,84 @@ test('superadmin can read all scopes while counselors can access shared evidence
   await assertFails(uploadBytes(ref(elementary.storage(), 'evidence/high_school/batch-c/photo.jpg'), new Uint8Array([1, 2, 3])));
   await assertFails(uploadBytes(ref(elementary.storage(), 'evidence/legacy/photo.jpg'), new Uint8Array([1, 2, 3])));
   await assertSucceeds(uploadBytes(ref(superadmin.storage(), 'evidence/legacy/photo.jpg'), new Uint8Array([1, 2, 3])));
+});
+
+function seededLog(daysAgo) {
+  return {
+    action: 'login_success',
+    actor_uid: 'elementary',
+    actor_email: 'elementary@ows.edu.ph',
+    actor_role: 'counselor',
+    school_scope: 'elementary',
+    target_type: 'session',
+    target_id: '',
+    source: 'client',
+    created_at: Timestamp.fromDate(new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000)),
+  };
+}
+
+test('only the superadmin may delete activity logs, and only entries older than one year', async () => {
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    const firestore = context.firestore();
+    await setDoc(doc(firestore, 'activity_logs', 'old-log'), seededLog(400));
+    await setDoc(doc(firestore, 'activity_logs', 'recent-log'), seededLog(10));
+    await setDoc(doc(firestore, 'activity_logs', 'almost-a-year-log'), seededLog(360));
+  });
+
+  const counselorDb = signedInAs('elementary').firestore();
+  await assertFails(deleteDoc(doc(counselorDb, 'activity_logs', 'old-log')));
+
+  const superadminDb = signedInAs('superadmin').firestore();
+  await assertFails(deleteDoc(doc(superadminDb, 'activity_logs', 'recent-log')));
+  await assertFails(deleteDoc(doc(superadminDb, 'activity_logs', 'almost-a-year-log')));
+  await assertFails(updateDoc(doc(superadminDb, 'activity_logs', 'old-log'), { target_id: 'edited' }));
+  await assertSucceeds(deleteDoc(doc(superadminDb, 'activity_logs', 'old-log')));
+
+  // The app's cleanup query: entries before the cutoff, deleted in a batch.
+  const cutoff = Timestamp.fromDate(new Date(Date.now() - 366 * 24 * 60 * 60 * 1000));
+  const stale = await assertSucceeds(getDocs(query(
+    collection(superadminDb, 'activity_logs'),
+    where('created_at', '<', cutoff),
+    orderBy('created_at'),
+    limit(250)
+  )));
+  assert.equal(stale.size, 0);
+});
+
+test('a log cleanup can be recorded by the superadmin only', async () => {
+  const purgeEntry = (uid, role, scope) => ({
+    action: 'activity_logs_purged',
+    actor_uid: uid,
+    actor_email: `${uid}@ows.edu.ph`,
+    actor_role: role,
+    school_scope: scope,
+    target_type: 'activity_log',
+    target_id: '120',
+    source: 'client',
+    created_at: serverTimestamp(),
+  });
+
+  const superadminDb = signedInAs('superadmin').firestore();
+  await assertSucceeds(setDoc(doc(collection(superadminDb, 'activity_logs')), purgeEntry('superadmin', 'superadmin', 'all')));
+
+  const counselorDb = signedInAs('elementary').firestore();
+  await assertFails(setDoc(doc(collection(counselorDb, 'activity_logs')), purgeEntry('elementary', 'counselor', 'elementary')));
+});
+
+test('counselors can run the narrower violation queries used to save reads', async () => {
+  const counselorDb = signedInAs('elementary').firestore();
+  const scope = where('school_scope', 'in', ['elementary', 'shared']);
+
+  const studentCases = await assertSucceeds(getDocs(query(
+    collection(counselorDb, 'violations'),
+    where('student_id', '==', 'elementary-student'),
+    scope
+  )));
+  assert.equal(studentCases.size, 1);
+
+  await assertSucceeds(getDocs(query(collection(counselorDb, 'violations'), scope, orderBy('created_at', 'desc'), limit(50))));
+  await assertSucceeds(getDocs(query(collection(counselorDb, 'violations'), where('school_year_key', '==', '2026-2027'), scope)));
+
+  // Without the scope constraint the same query is still refused.
+  await assertFails(getDocs(query(collection(counselorDb, 'violations'), where('student_id', '==', 'elementary-student'))));
 });

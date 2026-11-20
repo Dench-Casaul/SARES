@@ -213,10 +213,10 @@ service cloud.firestore {
           'student_restored', 'student_deleted',
           'violation_recorded', 'violation_updated',
           'violation_status_updated', 'suspension_dates_updated', 'parent_involvement_updated',
-          'handbook_updated'
+          'handbook_updated', 'activity_logs_purged'
         ]
         && request.resource.data.target_type in [
-          'session', 'student', 'violation', 'handbook'
+          'session', 'student', 'violation', 'handbook', 'activity_log'
         ]
         && (
           // 'login_failed' is deliberately absent: only the server logger (Admin SDK) writes it.
@@ -233,6 +233,9 @@ service cloud.firestore {
             ] && request.resource.data.target_type == 'violation')
           || (request.resource.data.action == 'handbook_updated'
             && request.resource.data.target_type == 'handbook')
+          || (request.resource.data.action == 'activity_logs_purged'
+            && request.resource.data.target_type == 'activity_log'
+            && isSuperadmin())
         )
         && request.resource.data.target_id is string
         && request.resource.data.target_id.size() <= 128
@@ -246,7 +249,12 @@ service cloud.firestore {
           || (request.resource.data.action == 'violation_status_updated'
             && request.resource.data.to_status is string
             && request.resource.data.to_status.size() <= 40));
-      allow update, delete: if false;
+      // Logs can never be edited. Retention: only the superadmin may delete, and only
+      // entries older than 365 days (keep in sync with LOG_RETENTION_DAYS in activityLog.js).
+      allow update: if false;
+      allow delete: if isSuperadmin()
+        && resource.data.created_at is timestamp
+        && resource.data.created_at < request.time - duration.value(365, 'd');
     }
 
     match /{document=**} {

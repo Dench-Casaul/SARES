@@ -7,6 +7,55 @@
         { "fieldPath": "school_scope", "order": "ASCENDING" },
         { "fieldPath": "deleted_at", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "violations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "student_id", "order": "ASCENDING" },
+        { "fieldPath": "school_scope", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "violations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "school_scope", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "violations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "school_year_key", "order": "ASCENDING" },
+        { "fieldPath": "school_scope", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "activity_logs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "action", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "activity_logs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "school_scope", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "activity_logs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "action", "order": "ASCENDING" },
+        { "fieldPath": "school_scope", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

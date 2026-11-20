@@ -8,9 +8,10 @@ import {
   Users,
 } from 'lucide-react'
 
-// The app's main navigation, shared by every page's sidebar. Each page keeps its
-// own sidebar markup and styling; only the list of links lives here, so adding or
-// renaming a page is a single edit.
+// The app's main navigation, shared by every page's sidebar. Account Security and
+// System Logs use the shared AppShell layout; the older pages still keep their own
+// sidebar markup. Only the list of links lives here, so adding or renaming a page
+// is a single edit.
 export const NAV_ITEMS = Object.freeze([
   { to: '/sares/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/sares/students', label: 'Students', icon: Users },

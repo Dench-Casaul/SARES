@@ -67,6 +67,14 @@ SARES can be installed from a supported browser and launched in a standalone app
    firebase deploy --only firestore:rules --project sares-system
    ```
 
+   Deploy the Firestore indexes too (free on the Spark plan). They let pages read only the records they need, which keeps daily usage inside the free quota of 50,000 document reads:
+
+   ```powershell
+   firebase deploy --only firestore:rules,firestore:indexes --project sares-system
+   ```
+
+   Index builds can take a few minutes. Until they finish, the app falls back to reading full collections (it keeps working, just less efficiently) and logs a "Firestore index not deployed yet" warning in the browser console.
+
 5. Verify sign-in and role profile access for all three accounts. Check elementary/high-school separation, shared records, a current-grade transfer, and confirm violation submission works without evidence files before ending the maintenance window.
 
 ## Validation
@@ -79,4 +87,13 @@ npm run test:rules
 npm run build
 ```
 
-`npm run test:rules` starts Firestore and Storage emulators using the root `firebase.json` and verifies scoped query requirements, cross-school denials, linked-student writes, role self-promotion denial, and evidence access rules.
+`npm run test:rules` starts Firestore and Storage emulators using the root `firebase.json` and verifies scoped query requirements, cross-school denials, linked-student writes, role self-promotion denial, evidence access rules, and activity-log retention (only the superadmin may delete logs, and only entries older than 365 days).
+
+## Staying on the free plan
+
+SARES is designed to run without billing. On the free (Spark) plan nothing can be charged; when a daily quota is used up, that service stops until the quota resets the next day. To stay well inside the quotas:
+
+- **Reads:** Log Violation reads only the involved students' cases plus the 50 most recent violations; Reports reads one school year at a time (all years only when chosen); System Logs filters in the database. Deploy `firestore.indexes.json` so these queries are used.
+- **Activity logs:** kept for one year. The superadmin can delete older entries from System Logs → *Delete logs older than one year* (up to 5,000 per run, within the 20,000 daily delete quota). Each cleanup is itself logged.
+- **Evidence uploads:** remain disabled; the project's storage bucket requires a paid plan.
+- **AI (Gemini):** use an API key from a Google Cloud project without billing enabled, so usage stays on the free tier.

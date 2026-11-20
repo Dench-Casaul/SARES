@@ -61,47 +61,62 @@ ul {
   padding: 0;
 }
 
+/*
+ * App chrome is square-cornered. Reports.css gives every element a 10px radius
+ * (`* { border-radius: 10px }`), which otherwise rounds the mobile top bar and the
+ * sidebar panel, making them look like floating cards on phones.
+ */
+#root :is(
+  .mobile-menu-bar, .report-mobile-menu-bar, .s-mobile-menu-bar, .v-mobile-menu-bar, .app-mobile-menu-bar,
+  .sidebar, .report-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar, .app-sidebar,
+  .sidebar-header, .report-sidebar-header, .rule-sidebar-header, .s-sidebar-header, .app-sidebar-header, .v-logo, .ca-logo,
+  .logout-section, .report-sidebar-footer, .rule-sidebar-footer, .s-sidebar-footer, .v-logout-section, .ca-logout-section, .app-sidebar-footer,
+  .navigation, .report-nav, .rule-nav, .s-nav, .v-nav, .ca-nav, .app-nav
+) {
+  border-radius: 0;
+}
+
 @media (min-width: 901px) {
-  #root :is(.sidebar, .report-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar) {
+  #root :is(.sidebar, .report-sidebar, .app-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar) {
     position: fixed !important;
     inset: 0 auto 0 0;
     z-index: 60;
     height: 100vh;
   }
 
-  #root :is(.main-content, .report-main, .rule-main, .s-main, .v-main, .ca-main) {
+  #root :is(.main-content, .report-main, .app-main, .rule-main, .s-main, .v-main, .ca-main) {
     margin-left: 265px !important;
   }
 
-  #root :is(.navigation, .report-nav, .rule-nav, .s-nav, .v-nav, .ca-nav) {
+  #root :is(.navigation, .report-nav, .app-nav, .rule-nav, .s-nav, .v-nav, .ca-nav) {
     min-height: 0;
     overflow-y: auto;
   }
 
-  #root :is(.logout-section, .report-sidebar-footer, .rule-sidebar-footer, .s-sidebar-footer, .v-logout-section, .ca-logout-section) {
+  #root :is(.logout-section, .report-sidebar-footer, .app-sidebar-footer, .rule-sidebar-footer, .s-sidebar-footer, .v-logout-section, .ca-logout-section) {
     flex-shrink: 0;
     background: #ffffff;
   }
 }
 
 @media (hover: hover) and (pointer: fine) and (min-width: 901px) {
-  #root :is(.sidebar, .report-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar) {
+  #root :is(.sidebar, .report-sidebar, .app-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar) {
     width: 76px !important;
     min-width: 76px !important;
     overflow: hidden;
     transition: width 180ms ease, min-width 180ms ease;
   }
 
-  #root :is(.main-content, .report-main, .rule-main, .s-main, .v-main, .ca-main) {
+  #root :is(.main-content, .report-main, .app-main, .rule-main, .s-main, .v-main, .ca-main) {
     margin-left: 76px !important;
   }
 
-  #root :is(.sidebar, .report-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar):is(:hover, :focus-within) {
+  #root :is(.sidebar, .report-sidebar, .app-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar):is(:hover, :focus-within) {
     width: 265px !important;
     min-width: 265px !important;
   }
 
-  #root :is(.sidebar-header, .report-sidebar-header, .rule-sidebar-header, .s-sidebar-header, .v-logo, .ca-logo) {
+  #root :is(.sidebar-header, .report-sidebar-header, .app-sidebar-header, .rule-sidebar-header, .s-sidebar-header, .v-logo, .ca-logo) {
     display: flex;
     justify-content: center;
     padding: 20px 10px;
@@ -109,33 +124,33 @@ ul {
     transition: padding 180ms ease;
   }
 
-  #root :is(.sidebar, .report-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar):is(:hover, :focus-within) :is(.sidebar-header, .report-sidebar-header, .rule-sidebar-header, .s-sidebar-header, .v-logo, .ca-logo) {
+  #root :is(.sidebar, .report-sidebar, .app-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar):is(:hover, :focus-within) :is(.sidebar-header, .report-sidebar-header, .app-sidebar-header, .rule-sidebar-header, .s-sidebar-header, .v-logo, .ca-logo) {
     justify-content: flex-start;
     padding: 28px 20px;
   }
 
-  #root :is(.logo-container, .report-logo, .rule-logo, .s-logo, .v-logo, .ca-logo) {
+  #root :is(.logo-container, .report-logo, .app-logo, .rule-logo, .s-logo, .v-logo, .ca-logo) {
     justify-content: center;
     gap: 0;
     min-width: 0;
   }
 
-  #root :is(.sidebar, .report-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar):is(:hover, :focus-within) :is(.logo-container, .report-logo, .rule-logo, .s-logo, .v-logo, .ca-logo) {
+  #root :is(.sidebar, .report-sidebar, .app-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar):is(:hover, :focus-within) :is(.logo-container, .report-logo, .app-logo, .rule-logo, .s-logo, .v-logo, .ca-logo) {
     justify-content: flex-start;
     gap: 14px;
   }
 
-  #root :is(.logo-icon-container, .report-logo-icon, .rule-logo-icon, .s-logo-icon, .v-logo-icon, .ca-logo-icon) {
+  #root :is(.logo-icon-container, .report-logo-icon, .app-logo-icon, .rule-logo-icon, .s-logo-icon, .v-logo-icon, .ca-logo-icon) {
     width: 44px;
     height: 44px;
   }
 
-  #root :is(.sidebar, .report-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar) .school-logo {
+  #root :is(.sidebar, .report-sidebar, .app-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar) .school-logo {
     width: 40px;
     height: 40px;
   }
 
-  #root :is(.admin-title, .report-logo-text, .rule-logo-text, .s-logo-text, .v-logo h1, .ca-logo h1) {
+  #root :is(.admin-title, .report-logo-text, .app-logo-text, .rule-logo-text, .s-logo-text, .v-logo h1, .ca-logo h1) {
     width: 0;
     max-width: 0;
     overflow: hidden;
@@ -144,22 +159,22 @@ ul {
     transition: width 180ms ease, max-width 180ms ease, opacity 100ms ease;
   }
 
-  #root :is(.sidebar, .report-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar):is(:hover, :focus-within) :is(.admin-title, .report-logo-text, .rule-logo-text, .s-logo-text, .v-logo h1, .ca-logo h1) {
+  #root :is(.sidebar, .report-sidebar, .app-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar):is(:hover, :focus-within) :is(.admin-title, .report-logo-text, .app-logo-text, .rule-logo-text, .s-logo-text, .v-logo h1, .ca-logo h1) {
     width: auto;
     max-width: 150px;
     opacity: 1;
   }
 
-  #root :is(.navigation, .report-nav, .rule-nav, .s-nav, .v-nav, .ca-nav) {
+  #root :is(.navigation, .report-nav, .app-nav, .rule-nav, .s-nav, .v-nav, .ca-nav) {
     padding: 18px 9px;
     transition: padding 180ms ease;
   }
 
-  #root :is(.sidebar, .report-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar):is(:hover, :focus-within) :is(.navigation, .report-nav, .rule-nav, .s-nav, .v-nav, .ca-nav) {
+  #root :is(.sidebar, .report-sidebar, .app-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar):is(:hover, :focus-within) :is(.navigation, .report-nav, .app-nav, .rule-nav, .s-nav, .v-nav, .ca-nav) {
     padding: 22px 16px;
   }
 
-  #root :is(.nav-item, .nav-item-active, .report-nav-item, .rule-nav-item, .s-nav-item, .v-nav-item, .ca-nav-item) {
+  #root :is(.nav-item, .nav-item-active, .report-nav-item, .app-nav-item, .rule-nav-item, .s-nav-item, .v-nav-item, .ca-nav-item) {
     justify-content: center;
     gap: 0;
     padding: 13px 10px;
@@ -167,14 +182,14 @@ ul {
     white-space: nowrap;
   }
 
-  #root :is(.sidebar, .report-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar):is(:hover, :focus-within) :is(.nav-item, .nav-item-active, .report-nav-item, .rule-nav-item, .s-nav-item, .v-nav-item, .ca-nav-item) {
+  #root :is(.sidebar, .report-sidebar, .app-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar):is(:hover, :focus-within) :is(.nav-item, .nav-item-active, .report-nav-item, .app-nav-item, .rule-nav-item, .s-nav-item, .v-nav-item, .ca-nav-item) {
     justify-content: flex-start;
     gap: 14px;
     padding: 13px 16px;
   }
 
-  #root :is(.navigation, .report-nav, .rule-nav, .s-nav, .v-nav, .ca-nav) :is(.nav-item, .nav-item-active, .report-nav-item, .rule-nav-item, .s-nav-item, .v-nav-item, .ca-nav-item) > span,
-  #root :is(.logout-button, .report-logout-btn, .rule-logout-btn, .s-logout-btn, .v-logout, .ca-logout) > span {
+  #root :is(.navigation, .report-nav, .app-nav, .rule-nav, .s-nav, .v-nav, .ca-nav) :is(.nav-item, .nav-item-active, .report-nav-item, .app-nav-item, .rule-nav-item, .s-nav-item, .v-nav-item, .ca-nav-item) > span,
+  #root :is(.logout-button, .report-logout-btn, .app-logout-btn, .rule-logout-btn, .s-logout-btn, .v-logout, .ca-logout) > span {
     width: 0;
     max-width: 0;
     overflow: hidden;
@@ -183,23 +198,23 @@ ul {
     transition: width 180ms ease, max-width 180ms ease, opacity 100ms ease;
   }
 
-  #root :is(.sidebar, .report-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar):is(:hover, :focus-within) :is(.navigation, .report-nav, .rule-nav, .s-nav, .v-nav, .ca-nav) :is(.nav-item, .nav-item-active, .report-nav-item, .rule-nav-item, .s-nav-item, .v-nav-item, .ca-nav-item) > span,
-  #root :is(.sidebar, .report-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar):is(:hover, :focus-within) :is(.logout-button, .report-logout-btn, .rule-logout-btn, .s-logout-btn, .v-logout, .ca-logout) > span {
+  #root :is(.sidebar, .report-sidebar, .app-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar):is(:hover, :focus-within) :is(.navigation, .report-nav, .app-nav, .rule-nav, .s-nav, .v-nav, .ca-nav) :is(.nav-item, .nav-item-active, .report-nav-item, .app-nav-item, .rule-nav-item, .s-nav-item, .v-nav-item, .ca-nav-item) > span,
+  #root :is(.sidebar, .report-sidebar, .app-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar):is(:hover, :focus-within) :is(.logout-button, .report-logout-btn, .app-logout-btn, .rule-logout-btn, .s-logout-btn, .v-logout, .ca-logout) > span {
     width: auto;
     max-width: 170px;
     opacity: 1;
   }
 
-  #root :is(.logout-section, .report-sidebar-footer, .rule-sidebar-footer, .s-sidebar-footer, .v-logout-section, .ca-logout-section) {
+  #root :is(.logout-section, .report-sidebar-footer, .app-sidebar-footer, .rule-sidebar-footer, .s-sidebar-footer, .v-logout-section, .ca-logout-section) {
     padding: 12px 9px;
     transition: padding 180ms ease;
   }
 
-  #root :is(.sidebar, .report-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar):is(:hover, :focus-within) :is(.logout-section, .report-sidebar-footer, .rule-sidebar-footer, .s-sidebar-footer, .v-logout-section, .ca-logout-section) {
+  #root :is(.sidebar, .report-sidebar, .app-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar):is(:hover, :focus-within) :is(.logout-section, .report-sidebar-footer, .app-sidebar-footer, .rule-sidebar-footer, .s-sidebar-footer, .v-logout-section, .ca-logout-section) {
     padding: 16px 18px 24px;
   }
 
-  #root :is(.logout-button, .report-logout-btn, .rule-logout-btn, .s-logout-btn, .v-logout, .ca-logout) {
+  #root :is(.logout-button, .report-logout-btn, .app-logout-btn, .rule-logout-btn, .s-logout-btn, .v-logout, .ca-logout) {
     justify-content: center;
     gap: 0;
     padding: 12px 8px;
@@ -207,7 +222,7 @@ ul {
     white-space: nowrap;
   }
 
-  #root :is(.sidebar, .report-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar):is(:hover, :focus-within) :is(.logout-button, .report-logout-btn, .rule-logout-btn, .s-logout-btn, .v-logout, .ca-logout) {
+  #root :is(.sidebar, .report-sidebar, .app-sidebar, .rule-sidebar, .s-sidebar, .v-sidebar, .ca-sidebar):is(:hover, :focus-within) :is(.logout-button, .report-logout-btn, .app-logout-btn, .rule-logout-btn, .s-logout-btn, .v-logout, .ca-logout) {
     justify-content: flex-start;
     gap: 10px;
     padding: 12px 14px;
@@ -331,4 +346,17 @@ ul {
     gap: 10px;
     padding: 12px 14px;
   }
+}
+
+/* Text for screen readers only (e.g. what a "View" button opens). */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }

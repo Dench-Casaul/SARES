@@ -19,7 +19,14 @@ export const ACTIVITY_ACTIONS = Object.freeze({
   SUSPENSION_DATES_UPDATED: 'suspension_dates_updated',
   PARENT_INVOLVEMENT_UPDATED: 'parent_involvement_updated',
   HANDBOOK_UPDATED: 'handbook_updated',
+  ACTIVITY_LOGS_PURGED: 'activity_logs_purged',
 })
+
+/**
+ * Activity logs older than this may be deleted by the superadmin (System Logs).
+ * firestore.rules enforces the same limit; keep the two in sync.
+ */
+export const LOG_RETENTION_DAYS = 365
 
 /**
  * @param {object} [details] optional `{ from_status, to_status }` for case status changes.
@@ -69,6 +76,7 @@ export function getActivityActionLabel(action) {
     [ACTIVITY_ACTIONS.SUSPENSION_DATES_UPDATED]: 'Updated suspension dates',
     [ACTIVITY_ACTIONS.PARENT_INVOLVEMENT_UPDATED]: 'Recorded parent/guardian involvement',
     [ACTIVITY_ACTIONS.HANDBOOK_UPDATED]: 'Updated handbook rules or catalog',
+    [ACTIVITY_ACTIONS.ACTIVITY_LOGS_PURGED]: 'Deleted activity logs older than one year',
   }
   return labels[action] || 'System activity'
 }

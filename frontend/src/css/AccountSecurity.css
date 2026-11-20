@@ -1,124 +1,194 @@
-.account-security-page {
-  min-height: 100vh;
-  padding: 28px clamp(18px, 5vw, 64px);
-  background: #f4f8fd;
-  color: #071f5f;
-  font-family: 'DM Sans', sans-serif;
+/* Account Security content. The page layout and sidebar come from AppShell.css. */
+
+.account-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(280px, 1fr);
+  align-items: start;
+  gap: 22px;
+  width: 100%;
+  max-width: 1180px;
 }
 
-.account-security-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid #d8e6f7;
+.account-side {
+  display: grid;
+  gap: 22px;
 }
 
-.account-back-link,
-.account-security-mark {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: #245076;
-  font-size: 14px;
-  font-weight: 600;
+.account-card {
+  padding: 24px;
+  border: 1px solid #d8e6f7;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 8px 22px rgba(17, 44, 80, 0.055);
 }
 
-.account-back-link:hover { color: #006ed0; }
-.account-security-mark { color: #006ed0; }
-
-.account-security-content {
-  width: min(520px, 100%);
-  margin: 9vh auto 0;
-}
-
-.account-security-heading {
+.account-card-heading {
   display: flex;
   align-items: center;
   gap: 14px;
-  margin-bottom: 26px;
+  margin-bottom: 22px;
 }
 
-.account-security-icon {
+.account-card-icon {
   display: grid;
-  place-items: center;
-  width: 48px;
-  height: 48px;
   flex: 0 0 auto;
-  border-radius: 8px;
-  background: #dff1ff;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #eaf4ff;
   color: #006ed0;
 }
 
-.account-security-heading h1 {
+.account-card-heading h2,
+.account-card-title {
   margin: 0;
   color: #071f5f;
-  font-size: 25px;
+  font-size: 18px;
   font-weight: 800;
 }
 
-.account-security-heading p {
+.account-card-heading p {
   margin: 4px 0 0;
   color: #64748b;
-  font-size: 14px;
-  overflow-wrap: anywhere;
+  font-size: 13px;
 }
 
+.account-card-title {
+  margin-bottom: 14px;
+  font-size: 16px;
+}
+
+/* password form */
 .account-password-form {
   display: grid;
-  gap: 16px;
-  padding: 22px;
-  border: 1px solid #d8e6f7;
-  border-radius: 8px;
-  background: #fff;
+  gap: 18px;
+}
+
+.account-password-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
 }
 
 .account-password-form label {
   display: grid;
-  gap: 7px;
-  color: #334155;
+  gap: 8px;
+  color: #365577;
   font-size: 13px;
   font-weight: 700;
 }
 
 .account-password-form input {
-  min-height: 42px;
   width: 100%;
-  padding: 9px 11px;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  background: #fff;
+  padding: 12px 14px;
+  border: 1px solid #dce5f2;
+  border-radius: 10px;
+  background: #f9fbff;
   color: #172033;
   font: 400 14px 'DM Sans', sans-serif;
+  outline: none;
 }
 
 .account-password-form input:focus {
-  outline: 2px solid rgba(17, 152, 232, 0.2);
   border-color: #1198e8;
+  box-shadow: 0 0 0 3px rgba(17, 152, 232, 0.15);
 }
 
 .account-password-form button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  justify-self: start;
   gap: 8px;
-  min-height: 42px;
-  margin-top: 2px;
-  border: 0;
-  border-radius: 6px;
-  background: #087ccc;
-  color: #fff;
+  padding: 11px 18px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #1198e8 0%, #006ed0 100%);
+  color: #ffffff;
   font: 700 14px 'DM Sans', sans-serif;
   cursor: pointer;
+  transition: background 0.15s;
 }
 
+.account-password-form button:hover:not(:disabled) { background: #006ed0; }
+.account-password-form button:focus-visible { outline: 3px solid #93c5fd; outline-offset: 2px; }
 .account-password-form button:disabled { opacity: 0.65; cursor: wait; }
-.account-security-error { margin: 0; color: #b42318; font-size: 13px; }
-.account-security-message { margin: 0; color: #166534; font-size: 13px; }
+
+.account-security-error,
+.account-security-message {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.account-security-error { background: #fef2f2; color: #b42318; }
+.account-security-message { background: #f0fdf4; color: #166534; }
+
+/* account details */
+.account-details {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+
+.account-details div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 11px 0;
+  border-bottom: 1px solid #e7edf6;
+}
+
+.account-details div:last-child { border-bottom: none; padding-bottom: 0; }
+.account-details div:first-child { padding-top: 0; }
+
+.account-details dt {
+  flex-shrink: 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.account-details dd {
+  margin: 0;
+  color: #0f2c66;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+/* guidance */
+.account-tips {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.account-tips li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: #334155;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.account-tips svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: #087fc5;
+}
+
+@media (max-width: 1100px) {
+  .account-grid { grid-template-columns: 1fr; max-width: 680px; }
+}
 
 @media (max-width: 560px) {
-  .account-security-page { padding: 18px; }
-  .account-security-mark { font-size: 12px; }
-  .account-password-form { padding: 18px; }
+  .account-card { padding: 18px; }
+  .account-password-row { grid-template-columns: 1fr; }
+  .account-password-form button { justify-self: stretch; }
 }

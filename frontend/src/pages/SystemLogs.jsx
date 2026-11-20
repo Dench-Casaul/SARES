@@ -1,48 +1,38 @@
 import { useEffect, useState } from 'react'
-import { Link, Navigate, useLocation } from 'react-router-dom'
-import { collection, getDocs, limit, orderBy, query, startAfter, Timestamp, where } from 'firebase/firestore'
-import { LogOut } from 'lucide-react'
+import { Navigate } from 'react-router-dom'
+import { collection, getDocs, limit, orderBy, query, startAfter, Timestamp, where, writeBatch } from 'firebase/firestore'
+import { Trash2 } from 'lucide-react'
 import { db } from '../firebase'
 import { useAuthProfile } from '../authContext'
-import { ACTIVITY_ACTIONS, getActivityActionLabel, getFailedLoginReasonLabel } from '../activityLog'
-import { NAV_ITEMS } from '../navigation'
-import { useLogout } from '../useLogout'
+import {
+  ACTIVITY_ACTIONS,
+  LOG_RETENTION_DAYS,
+  getActivityActionLabel,
+  getFailedLoginReasonLabel,
+  recordActivity,
+} from '../activityLog'
+import AppShell from '../AppShell'
 import { getCaseStatusLabel } from '../caseStatus'
+import { getPageItems } from '../pagination'
+import { isMissingIndexError } from '../violationQueries'
 import '../css/SystemLogs.css'
-import wesleyLogo from '../assets/wesley-logo.png'
 
 const PAGE_SIZE = 25
-const FETCH_BATCH_SIZE = 100
+const SCAN_BATCH_SIZE = 100
+const PURGE_BATCH_SIZE = 250
+// Caps one cleanup run so it stays well inside the free daily delete quota (20,000).
+const MAX_PURGE_PER_RUN = 5000
+const DAY_MS = 24 * 60 * 60 * 1000
 
-function Sidebar({ activePage, onLogout }) {
-  return (
-    <aside className="logs-sidebar">
-      <div className="logs-brand">
-        <img src={wesleyLogo} alt="Olongapo Wesley School Logo" />
-        <h1>SARES</h1>
-      </div>
-      <nav className="logs-nav" aria-label="Main navigation">
-        {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
-          to === '/sares/system-logs' ? (
-            <Link key={to} to={to} className={activePage ? 'active' : ''} aria-current={activePage ? 'page' : undefined}>
-              <Icon /><span>{label}</span>
-            </Link>
-          ) : (
-            <Link key={to} to={to}><Icon /><span>{label}</span></Link>
-          )
-        ))}
-      </nav>
-      <div className="logs-sidebar-footer">
-        <button type="button" onClick={onLogout}><LogOut /><span>Logout</span></button>
-      </div>
-    </aside>
-  )
-}
+const activityLogs = () => collection(db, 'activity_logs')
 
 function formatActivityDescription(activity) {
   const label = getActivityActionLabel(activity.action)
   if (activity.action === ACTIVITY_ACTIONS.VIOLATION_STATUS_UPDATED && activity.from_status && activity.to_status) {
     return `${label} (${getCaseStatusLabel(activity.from_status)} → ${getCaseStatusLabel(activity.to_status)})`
+  }
+  if (activity.action === ACTIVITY_ACTIONS.ACTIVITY_LOGS_PURGED && activity.target_id) {
+    return `${label} (${activity.target_id} entries)`
   }
   if (activity.action !== ACTIVITY_ACTIONS.LOGIN_FAILED) return label
   const details = [
@@ -58,10 +48,74 @@ function formatActivityDate(timestamp) {
   return date ? date.toLocaleString() : 'Time unavailable'
 }
 
+function getDateConstraints(filters) {
+  if (filters.dateRange === 'all') return []
+  const cutoff = new Date(filters.appliedAt || Date.now())
+  cutoff.setDate(cutoff.getDate() - Number(filters.dateRange))
+  return [where('created_at', '>=', Timestamp.fromDate(cutoff))]
+}
+
+function matchesFilters(activity, filters) {
+  const matchesScope = filters.scope === 'all'
+    || (filters.scope === 'admin' ? activity.school_scope === 'all' : activity.school_scope === filters.scope)
+  const matchesAction = filters.action === 'all' || activity.action === filters.action
+  return matchesScope && matchesAction
+}
+
+/**
+ * One page of logs, filtered by Firestore itself, so a page costs about
+ * PAGE_SIZE reads however large the log grows. Needs the activity_logs indexes
+ * in firestore.indexes.json.
+ */
+async function fetchFilteredPage(filters, startCursor) {
+  const constraints = [
+    ...(filters.action !== 'all' ? [where('action', '==', filters.action)] : []),
+    ...(filters.scope !== 'all' ? [where('school_scope', '==', filters.scope === 'admin' ? 'all' : filters.scope)] : []),
+    ...getDateConstraints(filters),
+    orderBy('created_at', 'desc'),
+    ...(startCursor ? [startAfter(startCursor)] : []),
+    limit(PAGE_SIZE + 1),
+  ]
+  const snapshot = await getDocs(query(activityLogs(), ...constraints))
+  return {
+    logs: snapshot.docs.slice(0, PAGE_SIZE).map((logDoc) => ({ id: logDoc.id, ...logDoc.data() })),
+    nextCursor: snapshot.docs.length > PAGE_SIZE ? snapshot.docs[PAGE_SIZE - 1] : null,
+  }
+}
+
+/** Fallback before the indexes are deployed: reads logs in batches and filters them here. */
+async function fetchScannedPage(filters, startCursor, isCancelled) {
+  const constraints = [...getDateConstraints(filters), orderBy('created_at', 'desc')]
+  let scanCursor = startCursor
+  let exhausted = false
+  const matches = []
+
+  while (matches.length <= PAGE_SIZE && !exhausted) {
+    const snapshot = await getDocs(query(
+      activityLogs(),
+      ...constraints,
+      ...(scanCursor ? [startAfter(scanCursor)] : []),
+      limit(SCAN_BATCH_SIZE)
+    ))
+    if (isCancelled()) return null
+    for (const logDoc of snapshot.docs) {
+      const activity = { id: logDoc.id, ...logDoc.data() }
+      if (matchesFilters(activity, filters)) matches.push({ activity, cursor: logDoc })
+      if (matches.length > PAGE_SIZE) break
+    }
+    scanCursor = snapshot.docs.at(-1) || scanCursor
+    exhausted = snapshot.docs.length < SCAN_BATCH_SIZE
+  }
+
+  return {
+    logs: matches.slice(0, PAGE_SIZE).map(({ activity }) => activity),
+    nextCursor: matches.length > PAGE_SIZE ? matches[PAGE_SIZE - 1].cursor : null,
+  }
+}
+
 export default function SystemLogs() {
   const { userProfile } = useAuthProfile()
-  const location = useLocation()
-  const [activityLogs, setActivityLogs] = useState([])
+  const [logs, setLogs] = useState([])
   const [nextPageCursor, setNextPageCursor] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -78,6 +132,9 @@ export default function SystemLogs() {
     dateRange: '30',
     action: 'all',
   })
+  const [purging, setPurging] = useState(false)
+  const [purgeMessage, setPurgeMessage] = useState('')
+  const [purgeError, setPurgeError] = useState('')
 
   useEffect(() => {
     if (userProfile?.role !== 'superadmin') return undefined
@@ -86,55 +143,22 @@ export default function SystemLogs() {
     const loadPage = async () => {
       setLoading(true)
       setError('')
-      setActivityLogs([])
+      setLogs([])
       setNextPageCursor(null)
 
+      const startCursor = pageStartCursors[pageIndex] || null
       try {
-        const constraints = []
-        if (filters.dateRange !== 'all') {
-          const cutoff = new Date(filters.appliedAt || Date.now())
-          cutoff.setDate(cutoff.getDate() - Number(filters.dateRange))
-          constraints.push(where('created_at', '>=', Timestamp.fromDate(cutoff)))
+        let page
+        try {
+          page = await fetchFilteredPage(filters, startCursor)
+        } catch (queryError) {
+          if (!isMissingIndexError(queryError)) throw queryError
+          console.warn('System Logs: Firestore indexes not deployed yet, so logs are filtered in the browser. Deploy firestore.indexes.json to fix.', queryError)
+          page = await fetchScannedPage(filters, startCursor, () => cancelled)
         }
-        constraints.push(orderBy('created_at', 'desc'))
-
-        const pageStartCursor = pageStartCursors[pageIndex] || null
-        let scanCursor = pageStartCursor
-        let exhausted = false
-        const matchingLogs = []
-
-        while (matchingLogs.length <= PAGE_SIZE && !exhausted) {
-          const batchConstraints = [...constraints]
-          if (scanCursor) batchConstraints.push(startAfter(scanCursor))
-          batchConstraints.push(limit(FETCH_BATCH_SIZE))
-          const snapshot = await getDocs(query(collection(db, 'activity_logs'), ...batchConstraints))
-          if (cancelled) return
-
-          snapshot.docs.some((activityDoc) => {
-            const activity = {
-              id: activityDoc.id,
-              ...activityDoc.data(),
-            }
-            const matchesScope = filters.scope === 'all'
-              || (filters.scope === 'admin'
-                ? activity.school_scope === 'all'
-                : activity.school_scope === filters.scope)
-            const matchesAction = filters.action === 'all' || activity.action === filters.action
-            if (matchesScope && matchesAction) {
-              matchingLogs.push({ activity, cursor: activityDoc })
-              return matchingLogs.length > PAGE_SIZE
-            }
-            return false
-          })
-
-          if (matchingLogs.length > PAGE_SIZE) break
-          scanCursor = snapshot.docs.at(-1) || scanCursor
-          exhausted = snapshot.docs.length < FETCH_BATCH_SIZE
-        }
-
-        const hasNextPage = matchingLogs.length > PAGE_SIZE
-        setActivityLogs(matchingLogs.slice(0, PAGE_SIZE).map(({ activity }) => activity))
-        setNextPageCursor(hasNextPage ? matchingLogs[PAGE_SIZE - 1].cursor : null)
+        if (cancelled || !page) return
+        setLogs(page.logs)
+        setNextPageCursor(page.nextCursor)
       } catch (fetchError) {
         if (cancelled) return
         console.error('Failed to load system activity:', fetchError)
@@ -150,30 +174,89 @@ export default function SystemLogs() {
     }
   }, [userProfile, filters, pageIndex, pageStartCursors])
 
-  const handleApplyFilters = (event) => {
-    event.preventDefault()
+  const reloadFromFirstPage = (nextFilters) => {
     setPageIndex(0)
     setPageStartCursors([null])
-    setFilters({
-      ...filterForm,
-      appliedAt: Date.now(),
-    })
+    setFilters({ ...nextFilters, appliedAt: Date.now() })
   }
 
-  const handleNextPage = () => {
-    if (!nextPageCursor) return
-    setPageStartCursors((cursors) => [
-      ...cursors.slice(0, pageIndex + 1),
-      nextPageCursor,
-    ])
-    setPageIndex((currentPage) => currentPage + 1)
+  const handleApplyFilters = (event) => {
+    event.preventDefault()
+    reloadFromFirstPage(filterForm)
   }
 
-  const handlePreviousPage = () => {
-    setPageIndex((currentPage) => Math.max(0, currentPage - 1))
+  // Deletes logs older than the retention period. Firestore rules enforce the same
+  // limit, so newer entries can't be deleted even by a modified client.
+  const handlePurgeOldLogs = async () => {
+    // One extra day of margin so clock differences never touch an entry the rules protect.
+    const cutoff = new Date(Date.now() - (LOG_RETENTION_DAYS + 1) * DAY_MS)
+    const cutoffLabel = cutoff.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    const confirmed = window.confirm(
+      `Permanently delete all activity logs from before ${cutoffLabel}?\n\nDeleted logs cannot be recovered. Newer logs are not affected.`
+    )
+    if (!confirmed) return
+
+    setPurging(true)
+    setPurgeMessage('')
+    setPurgeError('')
+    let deleted = 0
+    let reachedLimit = false
+    try {
+      for (;;) {
+        const snapshot = await getDocs(query(
+          activityLogs(),
+          where('created_at', '<', Timestamp.fromDate(cutoff)),
+          orderBy('created_at'),
+          limit(PURGE_BATCH_SIZE)
+        ))
+        if (snapshot.empty) break
+        const batch = writeBatch(db)
+        snapshot.docs.forEach((logDoc) => batch.delete(logDoc.ref))
+        await batch.commit()
+        deleted += snapshot.size
+        if (snapshot.size < PURGE_BATCH_SIZE) break
+        if (deleted >= MAX_PURGE_PER_RUN) {
+          reachedLimit = true
+          break
+        }
+      }
+
+      if (deleted > 0) {
+        await recordActivity(userProfile, ACTIVITY_ACTIONS.ACTIVITY_LOGS_PURGED, 'activity_log', String(deleted))
+        reloadFromFirstPage(filters)
+      }
+      setPurgeMessage(deleted === 0
+        ? `There are no logs older than one year (before ${cutoffLabel}).`
+        : `Deleted ${deleted.toLocaleString()} log ${deleted === 1 ? 'entry' : 'entries'} from before ${cutoffLabel}.${reachedLimit ? ' More remain: run the cleanup again (tomorrow if today\'s free database limit is close).' : ''}`)
+    } catch (purgeFailure) {
+      console.error('Failed to delete old activity logs:', purgeFailure)
+      setPurgeError(deleted > 0
+        ? `Deleted ${deleted.toLocaleString()} entries, then the cleanup stopped. Try again later.`
+        : 'Old logs could not be deleted. Check your connection, and that the latest database rules are deployed.')
+    } finally {
+      setPurging(false)
+    }
   }
 
-  const handleLogout = useLogout()
+  // Logs are read from Firestore page by page, so the total is unknown. Page
+  // buttons cover every page reached so far, plus the next page when one exists.
+  const knownPageCount = pageStartCursors.length
+  const onLastKnownPage = pageIndex === knownPageCount - 1
+  const pageButtonCount = knownPageCount + (onLastKnownPage && nextPageCursor ? 1 : 0)
+  const hasNextPage = pageIndex + 1 < knownPageCount || Boolean(nextPageCursor)
+
+  const goToPage = (pageNumber) => {
+    const targetIndex = pageNumber - 1
+    if (targetIndex < 0 || targetIndex === pageIndex) return
+    if (targetIndex < knownPageCount) {
+      setPageIndex(targetIndex)
+      return
+    }
+    if (targetIndex === knownPageCount && onLastKnownPage && nextPageCursor) {
+      setPageStartCursors((cursors) => [...cursors, nextPageCursor])
+      setPageIndex(targetIndex)
+    }
+  }
 
   if (userProfile?.role !== 'superadmin') return <Navigate to="/sares/dashboard" replace />
 
@@ -182,15 +265,10 @@ export default function SystemLogs() {
     .sort((left, right) => left.label.localeCompare(right.label))
 
   return (
-    <div className="logs-page">
-      <Sidebar activePage={location.pathname === '/sares/system-logs'} onLogout={handleLogout} />
-      <main className="logs-content">
-        <header className="logs-page-header">
-          <div>
-            <p className="logs-eyebrow">Administration</p>
-            <h1>System Logs / Recent Activity</h1>
-            <p>Sign-ins, failed sign-in attempts, sign-outs, and in-app actions across both school scopes.</p>
-          </div>
+    <AppShell>
+        <header className="app-page-heading">
+          <h1 className="app-page-title">System Logs</h1>
+          <p className="app-page-sub">Recent activity: sign-ins, failed sign-in attempts, sign-outs, and in-app actions across both school scopes.</p>
         </header>
 
         <form className="logs-filters" data-help-target="system-log-filter" onSubmit={handleApplyFilters}>
@@ -232,7 +310,7 @@ export default function SystemLogs() {
             <p className="logs-state">Loading system activity…</p>
           ) : error ? (
             <p className="logs-state logs-state--error" role="alert">{error}</p>
-          ) : activityLogs.length === 0 ? (
+          ) : logs.length === 0 ? (
             <p className="logs-state">No activity found. Try adjusting the filters.</p>
           ) : (
             <div className="logs-table-wrap">
@@ -246,7 +324,7 @@ export default function SystemLogs() {
                   </tr>
                 </thead>
                 <tbody>
-                  {activityLogs.map((activity) => (
+                  {logs.map((activity) => (
                     <tr key={activity.id}>
                       <td>{formatActivityDate(activity.created_at)}</td>
                       <td>{activity.actor_email || 'Unknown account'}</td>
@@ -258,24 +336,67 @@ export default function SystemLogs() {
               </table>
             </div>
           )}
-          {!loading && !error && activityLogs.length > 0 && (
-            <nav className="logs-pagination" aria-label="System log pages">
+          {!loading && !error && logs.length > 0 && (
+            <div className="logs-pagination">
               <span>
-                Showing {pageIndex * PAGE_SIZE + 1}–{pageIndex * PAGE_SIZE + activityLogs.length}
-                {' · '}Page {pageIndex + 1}
+                Showing {pageIndex * PAGE_SIZE + 1}–{pageIndex * PAGE_SIZE + logs.length}
               </span>
-              <div>
-                <button type="button" onClick={handlePreviousPage} disabled={pageIndex === 0}>
-                  Previous
-                </button>
-                <button type="button" onClick={handleNextPage} disabled={!nextPageCursor}>
-                  Next
-                </button>
-              </div>
-            </nav>
+              {pageButtonCount > 1 && (
+                <nav className="logs-pagination-pages" aria-label="System log pages">
+                  <button
+                    type="button"
+                    aria-label="Previous page"
+                    disabled={pageIndex === 0}
+                    onClick={() => goToPage(pageIndex)}
+                  >
+                    ‹
+                  </button>
+                  {getPageItems(pageIndex + 1, pageButtonCount).map((item, index) => (
+                    item === 'ellipsis' ? (
+                      <span key={`ellipsis-${index}`} className="logs-pagination-ellipsis" aria-hidden="true">…</span>
+                    ) : (
+                      <button
+                        key={item}
+                        type="button"
+                        className={item === pageIndex + 1 ? 'active' : ''}
+                        aria-label={`Page ${item}`}
+                        aria-current={item === pageIndex + 1 ? 'page' : undefined}
+                        onClick={() => goToPage(item)}
+                      >
+                        {item}
+                      </button>
+                    )
+                  ))}
+                  <button
+                    type="button"
+                    aria-label="Next page"
+                    disabled={!hasNextPage}
+                    onClick={() => goToPage(pageIndex + 2)}
+                  >
+                    ›
+                  </button>
+                </nav>
+              )}
+            </div>
           )}
         </section>
-      </main>
-    </div>
+
+        <section className="logs-retention" aria-labelledby="logs-retention-title">
+          <div className="logs-retention-text">
+            <h2 id="logs-retention-title">Log retention</h2>
+            <p>
+              Activity logs are kept for one year. Deleting older entries keeps the log fast and within the free
+              database limits, and follows the Data Privacy Act principle of keeping personal data no longer than
+              needed. Only entries older than one year can be deleted, and deleted logs cannot be recovered.
+            </p>
+            {purgeMessage && <p className="logs-retention-message" role="status">{purgeMessage}</p>}
+            {purgeError && <p className="logs-retention-error" role="alert">{purgeError}</p>}
+          </div>
+          <button type="button" className="logs-retention-btn" onClick={handlePurgeOldLogs} disabled={purging}>
+            <Trash2 size={16} aria-hidden="true" />
+            {purging ? 'Deleting old logs…' : 'Delete logs older than one year'}
+          </button>
+        </section>
+    </AppShell>
   )
 }

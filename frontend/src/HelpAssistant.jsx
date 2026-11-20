@@ -187,17 +187,17 @@ const TOURS = {
     {
       target: '[data-help-target="report-filters"]',
       title: "Filter your report",
-      content: "Narrow the report by date, grade or section, and offense category. You can also export the filtered report.",
+      content: "Search by student, student number, case number, or violation, then narrow by school year, month, grade level, offense level, and status. The line below the filters states exactly what is shown, and Export DOCX saves those cases as a document.",
     },
     {
       target: '[data-help-target="report-summary"]',
       title: "Read the summary",
-      content: "Total Violations counts matching reports, Unique Students counts students represented, Most Common Offense highlights the leading entry, and Pending Cases shows cases still awaiting action.",
+      content: "Every number counts the same cases as the log below: total cases (minor and major), students involved and how many have more than one case, open cases still needing action, and the most common violation.",
     },
     {
       target: '[data-help-target="report-log"]',
       title: "Review the violation log",
-      content: "The log lists the individual records that match your selected filters.",
+      content: "Each case shows its date, student, violation level and offense number, the handbook sanction, and its current status. Select View to open the case and its printable incident report.",
     },
   ],
   "/sares/account": [

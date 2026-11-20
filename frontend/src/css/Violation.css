@@ -937,6 +937,13 @@
   cursor: pointer;
 }
 .v-manual-toggle { display: block; margin-top: 16px; }
+.v-additional-details {
+  margin-top: 12px;
+  padding: 16px;
+  border: 1px solid #dce5f2;
+  border-radius: 14px;
+  background: #fcfdff;
+}
 .v-manual-browser {
   margin-top: 12px;
   padding: 16px;

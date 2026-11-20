@@ -1,0 +1,248 @@
+/*
+ * Shared page layout: sidebar, mobile menu bar and main area.
+ * Matches the sidebar used across SARES. On desktop, index.css collapses it to
+ * an icon rail that expands on hover (the `.app-*` classes are registered there).
+ */
+
+.app-page {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  background: #f4f8fd;
+  color: #071f5f;
+  font-family: 'DM Sans', sans-serif;
+}
+
+/* sidebar */
+.app-sidebar {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  width: 265px;
+  min-width: 265px;
+  height: 100vh;
+  border-right: 1px solid #d8e6f7;
+  background: #ffffff;
+  box-shadow: 8px 0 24px rgba(15, 23, 42, 0.05);
+}
+
+.app-sidebar-header {
+  flex-shrink: 0;
+  padding: 28px 20px;
+  background: linear-gradient(135deg, #1198e8 0%, #006ed0 100%);
+}
+
+.app-logo {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.app-logo-icon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
+}
+
+.app-logo-icon .school-logo {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: contain;
+}
+
+.app-logo-text {
+  margin: 0;
+  color: #ffffff;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.app-nav {
+  flex: 1;
+  padding: 22px 16px;
+  overflow-y: auto;
+}
+
+.app-nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.app-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 16px;
+  border-radius: 12px;
+  color: #1e3a5f;
+  font-size: 15px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.18s ease;
+}
+
+.app-nav-item:hover {
+  background: #eaf4ff;
+  color: #006ed0;
+}
+
+.app-nav-item--active {
+  background: #eaf4ff;
+  color: #006ed0;
+  font-weight: 700;
+  box-shadow: inset 4px 0 0 #1198e8;
+}
+
+.app-nav-icon {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  color: currentColor;
+}
+
+.app-sidebar-footer {
+  flex-shrink: 0;
+  padding: 16px 18px 24px;
+  border-top: 1px solid #d8e6f7;
+}
+
+.app-logout-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #d8e6f7;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #dc2626;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.app-logout-btn:hover {
+  border-color: #fecaca;
+  background: #fff1f1;
+}
+
+/* main */
+.app-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 22px;
+  min-width: 0;
+  height: 100vh;
+  padding: 26px 28px 34px;
+  overflow-y: auto;
+  background: #f4f8fd;
+}
+
+/* Page sections keep their natural height; the main area scrolls instead of squeezing them. */
+.app-main > * {
+  flex-shrink: 0;
+}
+
+.app-page-title {
+  margin: 0;
+  color: #071f5f;
+  font-size: 32px;
+  font-weight: 800;
+}
+
+.app-page-sub {
+  max-width: 640px;
+  margin: 0;
+  color: #64748b;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.app-page-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* mobile */
+.app-mobile-menu-bar {
+  display: none;
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 50;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #1198e8;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+}
+
+.app-mobile-menu-bar .app-logo { gap: 10px; }
+.app-mobile-menu-bar .app-logo-text { font-size: 22px; line-height: 1; }
+.app-mobile-menu-bar .app-logo-icon { width: 40px; height: 40px; }
+.app-mobile-menu-bar .school-logo { width: 34px; height: 34px; }
+
+.app-mobile-menu-btn {
+  display: flex;
+  padding: 4px;
+  border: none;
+  background: none;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.app-nav-item:focus-visible,
+.app-logout-btn:focus-visible,
+.app-mobile-menu-btn:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: 2px;
+}
+
+@media (max-width: 768px) {
+  .app-mobile-menu-bar { display: flex; }
+
+  .app-sidebar {
+    display: none;
+    position: fixed;
+    top: 60px;
+    bottom: auto;
+    left: 0;
+    z-index: 40;
+    height: calc(100dvh - 60px);
+  }
+
+  .app-sidebar--open {
+    display: flex !important;
+    animation: app-slide-in 0.3s ease-out;
+  }
+
+  .app-main {
+    padding: 88px 16px 28px !important;
+  }
+
+  .app-page-title { font-size: 26px; }
+}
+
+@keyframes app-slide-in {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}

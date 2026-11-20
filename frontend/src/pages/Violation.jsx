@@ -19,6 +19,7 @@ import {
   findOffenseNumberChanges,
 } from '../engine/ruleEngine'
 import { saveViolationsWithCaseNumbers } from '../engine/incidentCaseNumber'
+import { fetchRecentViolations, fetchViolationsForStudents } from '../violationQueries'
 import {
   buildOffenseCatalog,
   describeOffenseSelection,
@@ -84,6 +85,9 @@ const LEVEL_LABELS = {
 
 const CONFIDENCE_LABELS = { high: 'High match', medium: 'Possible match', low: 'Weak match' }
 
+// The history table shows only the latest cases; the full history is on the Reports page.
+const RECENT_HISTORY_LIMIT = 50
+
 const splitStudentName = (fullName = '') => {
   const parts = String(fullName || '').trim().split(/\s+/).filter(Boolean)
   return {
@@ -141,6 +145,7 @@ export default function Violation() {
   const [offenseSuggestionError, setOffenseSuggestionError] = useState('')
   const [offenseSuggestionNarrative, setOffenseSuggestionNarrative] = useState(null)
   const [showManualBrowser, setShowManualBrowser] = useState(false)
+  const [showAdditionalDetails, setShowAdditionalDetails] = useState(false)
   const offenseSuggestionRequest = useRef(0)
 
   const today = new Date().toISOString().split('T')[0]
@@ -156,7 +161,6 @@ export default function Violation() {
     offense_title: '',
     handling_path: 'sanction',
     incident_description: '',
-    parent_contact_notes: '',
     witnesses: '',
     reported_by: '',
     reporter_role: 'staff',
@@ -164,15 +168,68 @@ export default function Violation() {
   })
 
   const [recommendation, setRecommendation] = useState(null)
+  // The involved students' own cases, used to count offenses (not every violation in the system).
   const [existingViolations, setExistingViolations] = useState([])
+  const [recentViolations, setRecentViolations] = useState([])
   const [currentPage, setCurrentPage] = useState(1)
 
   const handleLogout = useLogout()
 
+  const fetchStudents = async () => {
+    try {
+      const snap = await getDocs(queryForUserScope(collection(db, 'students'), userProfile))
+      setStudents(snap.docs.filter(d => !isRecordInTrash(d.data())).map(d => {
+        const data = d.data()
+        const parsedName = splitStudentName(data.full_name || data.name || '')
+        return {
+          ...data,
+          __docId: d.id,
+          student_id: data.student_id || d.id,
+          school_scope: data.school_scope || getSchoolScopeForYear(data.year_level || data.year),
+          first_name: data.first_name || parsedName.first_name,
+          middle_name: data.middle_name || '',
+          last_name: data.last_name || parsedName.last_name,
+        }
+      }))
+    } catch { alert('Failed to load students.') }
+  }
+
+  const incidentStudentIds = () => (
+    selectedStudents.length > 0 ? selectedStudents.map((student) => student.student_id) : [form.student_id]
+  ).filter(Boolean)
+
+  // Offense numbers only depend on the involved students' own cases, so only those are read.
+  const loadViolations = async (studentIds = incidentStudentIds()) => {
+    const records = await fetchViolationsForStudents(userProfile, studentIds)
+    records.sort((a, b) => {
+      const timeA = a.created_at?.seconds || 0
+      const timeB = b.created_at?.seconds || 0
+      return timeB - timeA
+    })
+    return records
+  }
+
+  const fetchViolations = async (studentIds) => {
+    try {
+      setExistingViolations(await loadViolations(studentIds))
+    } catch (error) {
+      // The submit step reads these again and stops if anything changed.
+      console.error("Failed to load the students' previous cases:", error)
+    }
+  }
+
+  const fetchRecentHistory = async () => {
+    try {
+      setRecentViolations(await fetchRecentViolations(userProfile, RECENT_HISTORY_LIMIT))
+    } catch (error) {
+      console.error('Failed to load recent violations:', error)
+    }
+  }
+
   useEffect(() => {
     if (!userProfile) return
     fetchStudents()
-    fetchViolations()
+    fetchRecentHistory()
   }, [userProfile])
 
   useEffect(() => {
@@ -194,47 +251,9 @@ export default function Violation() {
     }))
     setStudentQuery(matched.full_name || '')
     setStep(STEP.REPORT)
-    fetchViolations() // Pre-fetch existing violations
+    fetchViolations([matched.student_id]) // This student's cases, for offense counting
     navigate(location.pathname, { replace: true, state: {} })
   }, [location.state, students])
-
-  const fetchStudents = async () => {
-    try {
-      const snap = await getDocs(queryForUserScope(collection(db, 'students'), userProfile))
-      setStudents(snap.docs.filter(d => !isRecordInTrash(d.data())).map(d => {
-        const data = d.data()
-        const parsedName = splitStudentName(data.full_name || data.name || '')
-        return {
-          ...data,
-          __docId: d.id,
-          student_id: data.student_id || d.id,
-          school_scope: data.school_scope || getSchoolScopeForYear(data.year_level || data.year),
-          first_name: data.first_name || parsedName.first_name,
-          middle_name: data.middle_name || '',
-          last_name: data.last_name || parsedName.last_name,
-        }
-      }))
-    } catch { alert('Failed to load students.') }
-  }
-
-  const loadViolations = async () => {
-    const snap = await getDocs(queryForUserScope(collection(db, 'violations'), userProfile))
-    const records = snap.docs
-      .map(d => ({ id: d.id, ...d.data() }))
-      .filter(record => !isRecordInTrash(record))
-    records.sort((a, b) => {
-      const timeA = a.created_at?.seconds || 0
-      const timeB = b.created_at?.seconds || 0
-      return timeB - timeA
-    })
-    return records
-  }
-
-  const fetchViolations = async () => {
-    try {
-      setExistingViolations(await loadViolations())
-    } catch { /* non-critical */ }
-  }
 
   const filteredStudents = students.filter(s => {
     const q = studentQuery.trim().toLowerCase()
@@ -537,6 +556,9 @@ export default function Violation() {
     setForm(f => ({ ...f, offense_id: offense.id, offense_title: offense.title }))
   }
 
+  const additionalDetailsCount = [form.reporter_contact, form.witnesses]
+    .filter((value) => value.trim()).length
+
   const offenseSuggestionSource = {
     ready: 'gemini',
     error: 'unavailable',
@@ -568,7 +590,7 @@ export default function Violation() {
       // Offense numbers shown on the review step were computed from violations loaded
       // when the page opened. Re-read them now so a case recorded meanwhile (e.g. by
       // another counselor) is counted, and stop if any student's number changed.
-      const freshViolations = await loadViolations()
+      const freshViolations = await loadViolations(studentsToRecord.map((student) => student.student_id))
       const changedOffenseNumbers = findOffenseNumberChanges({
         students: studentsToRecord,
         offense: {
@@ -595,10 +617,7 @@ export default function Violation() {
       const baseIncidentData = {
         incident_date: form.incident_date,
         incident_description: form.incident_description,
-        ...(form.parent_contact_notes.trim()
-          ? { parent_contact_notes: form.parent_contact_notes.trim() }
-          : {}),
-        witnesses: form.witnesses,
+        witnesses: form.witnesses.trim(),
         reported_by: form.reported_by.trim(),
         reporter_role: form.reporter_role,
         reporter_contact: form.reporter_contact.trim(),
@@ -880,37 +899,45 @@ export default function Violation() {
                 </select>
               </div>
 
-              <div className="v-field" style={{ marginTop: '1.5rem' }}>
-                <label className="v-label">Reporter contact (optional)</label>
-                <input
-                  className="v-input"
-                  type="text"
-                  placeholder="Phone or email"
-                  value={form.reporter_contact}
-                  onChange={e => setForm(f => ({ ...f, reporter_contact: e.target.value }))}
-                />
-              </div>
+              {/* Optional details printed on the incident report; collapsed to keep the required input short. */}
+              <button
+                type="button"
+                className="v-text-button v-manual-toggle"
+                aria-expanded={showAdditionalDetails}
+                aria-controls="incident-additional-details"
+                onClick={() => setShowAdditionalDetails((open) => !open)}
+              >
+                {showAdditionalDetails ? 'Hide additional details' : 'Add reporter contact or witnesses (optional)'}
+                {!showAdditionalDetails && additionalDetailsCount > 0 && ` · ${additionalDetailsCount} added`}
+              </button>
 
-              <div className="v-field" style={{ marginTop: '1.5rem' }}>
-                <label className="v-label">Witnesses (Optional)</label>
-                <textarea className="v-input v-textarea" rows="2"
-                  placeholder="List any witnesses to the incident..."
-                  value={form.witnesses}
-                  onChange={e => setForm(f => ({ ...f, witnesses: e.target.value }))} />
-              </div>
+              {showAdditionalDetails && (
+                <div id="incident-additional-details" className="v-additional-details">
+                  <div className="v-field">
+                    <label className="v-label" htmlFor="reporter-contact">Reporter contact</label>
+                    <input
+                      id="reporter-contact"
+                      className="v-input"
+                      type="text"
+                      placeholder="Phone or email, for follow-up"
+                      value={form.reporter_contact}
+                      onChange={e => setForm(f => ({ ...f, reporter_contact: e.target.value }))}
+                    />
+                  </div>
 
-              <div className="v-field" style={{ marginTop: '1.5rem' }}>
-                <label className="v-label" htmlFor="parent-contact-notes">Parent/Guardian Involvement (optional)</label>
-                <textarea
-                  id="parent-contact-notes"
-                  className="v-input v-textarea"
-                  rows="3"
-                  maxLength={1000}
-                  placeholder="Add any notes about parent/guardian involvement related to this incident..."
-                  value={form.parent_contact_notes}
-                  onChange={e => setForm(f => ({ ...f, parent_contact_notes: e.target.value }))}
-                />
-              </div>
+                  <div className="v-field" style={{ marginTop: '1.25rem' }}>
+                    <label className="v-label" htmlFor="incident-witnesses">Witnesses</label>
+                    <textarea
+                      id="incident-witnesses"
+                      className="v-input v-textarea"
+                      rows="2"
+                      placeholder="One name per line. Each witness gets a signature row on the printed incident report."
+                      value={form.witnesses}
+                      onChange={e => setForm(f => ({ ...f, witnesses: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1193,16 +1220,13 @@ export default function Violation() {
                     </p>
                   )}
                 </div>
-                {(reviewParentRequirements.length > 0 || form.parent_contact_notes.trim()) && (
+                {reviewParentRequirements.length > 0 && (
                   <div className="v-review-section v-review-section--full">
                     <h4>Parent/Guardian Involvement</h4>
-                    {reviewParentRequirements.length > 0 && (
-                      <p>
-                        Required by the handbook sanction: {reviewParentRequirements.map((item) => item.label).join(', ')}.
-                        Record the outcome from the student's case record.
-                      </p>
-                    )}
-                    {form.parent_contact_notes.trim() && <p>{form.parent_contact_notes.trim()}</p>}
+                    <p>
+                      Required by the handbook sanction: {reviewParentRequirements.map((item) => item.label).join(', ')}.
+                      Record the outcome from the student's case record.
+                    </p>
                   </div>
                 )}
                 {useAiAssistance && reviewDescription.source !== 'ai_assisted_solution' && (
@@ -1310,10 +1334,10 @@ export default function Violation() {
         <div className="v-directory-card" style={{ marginTop: '24px' }}>
           <div className="v-directory-header" style={{ marginBottom: '16px' }}>
             <h2 className="v-directory-title">Recent System Violations</h2>
-            <p className="v-directory-sub">History of all logged violations across the system.</p>
+            <p className="v-directory-sub">The {RECENT_HISTORY_LIMIT} most recently recorded violations. The full history is on the Reports page.</p>
           </div>
           
-          {existingViolations.length === 0 ? (
+          {recentViolations.length === 0 ? (
             <p style={{ color: '#64748b', fontSize: '14px' }}>No violations recorded yet.</p>
           ) : (
             <>
@@ -1329,7 +1353,7 @@ export default function Violation() {
                     </tr>
                   </thead>
                   <tbody>
-                    {existingViolations.slice((currentPage - 1) * 10, currentPage * 10).map((v) => (
+                    {recentViolations.slice((currentPage - 1) * 10, currentPage * 10).map((v) => (
                       <tr
                         key={v.id || v.created_at?.seconds || Math.random()}
                         style={{
@@ -1366,7 +1390,7 @@ export default function Violation() {
               </div>
               
               {/* Pagination */}
-              {existingViolations.length > 10 && (
+              {recentViolations.length > 10 && (
                 <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '20px' }}>
                   <button 
                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
@@ -1376,12 +1400,12 @@ export default function Violation() {
                     Prev
                   </button>
                   <span style={{ display: 'flex', alignItems: 'center', fontSize: '13px', color: '#64748b', fontWeight: 600 }}>
-                    Page {currentPage} of {Math.ceil(existingViolations.length / 10)}
+                    Page {currentPage} of {Math.ceil(recentViolations.length / 10)}
                   </span>
                   <button 
-                    onClick={() => setCurrentPage(p => Math.min(Math.ceil(existingViolations.length / 10), p + 1))}
-                    disabled={currentPage === Math.ceil(existingViolations.length / 10)}
-                    style={{ padding: '6px 12px', border: '1px solid #d8e6f7', background: currentPage === Math.ceil(existingViolations.length / 10) ? '#f1f5f9' : '#fff', borderRadius: '6px', cursor: currentPage === Math.ceil(existingViolations.length / 10) ? 'not-allowed' : 'pointer', color: '#365577', fontWeight: 600 }}
+                    onClick={() => setCurrentPage(p => Math.min(Math.ceil(recentViolations.length / 10), p + 1))}
+                    disabled={currentPage === Math.ceil(recentViolations.length / 10)}
+                    style={{ padding: '6px 12px', border: '1px solid #d8e6f7', background: currentPage === Math.ceil(recentViolations.length / 10) ? '#f1f5f9' : '#fff', borderRadius: '6px', cursor: currentPage === Math.ceil(recentViolations.length / 10) ? 'not-allowed' : 'pointer', color: '#365577', fontWeight: 600 }}
                   >
                     Next
                   </button>
