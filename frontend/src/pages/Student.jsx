@@ -849,7 +849,7 @@ function StudentList({
             </div>
           </div>
 
-          <div className="s-table-wrap">
+          <div className="s-table-wrap" data-help-target={showTrash ? 'student-trash-panel' : 'student-table'}>
             <div className="s-table-scroll">
               <table className="s-table">
                 <thead>

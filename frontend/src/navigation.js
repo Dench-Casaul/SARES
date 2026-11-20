@@ -1,6 +1,7 @@
 import {
   Activity,
   BarChart3,
+  BookOpen,
   ClipboardList,
   KeyRound,
   LayoutDashboard,
@@ -20,6 +21,7 @@ export const NAV_ITEMS = Object.freeze([
   { to: '/sares/violation', label: 'Log Violation', icon: ClipboardList },
   { to: '/sares/account', label: 'Account Security', icon: KeyRound },
   { to: '/sares/system-logs', label: 'System Logs', icon: Activity, superadminOnly: true },
+  { to: '/sares/help', label: 'How-to Guide', icon: BookOpen },
 ])
 
 export function getNavItems(userProfile) {

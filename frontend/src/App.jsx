@@ -11,6 +11,7 @@ import CaseAssessment from "./pages/CaseAssessment";
 import Landing from "./pages/Landing";
 import AccountSecurity from "./pages/AccountSecurity";
 import SystemLogs from "./pages/SystemLogs";
+import HowTo from "./pages/HowTo";
 import React, { useEffect, useState } from "react";
 import { applyHandbookOverrides, applySanctionOverrides } from "./data/handbookIndex";
 import { setSchoolYearStarts } from "./schoolCalendar";
@@ -221,6 +222,8 @@ function App() {
             <Route path="/rules" element={<RequireAuth isAuthenticated={Boolean(userProfile)} authReady={authReady}><Rule /></RequireAuth>} />
             <Route path="/reports" element={<RequireAuth isAuthenticated={Boolean(userProfile)} authReady={authReady}><Report /></RequireAuth>} />
             <Route path="/account" element={<RequireAuth isAuthenticated={Boolean(userProfile)} authReady={authReady}><AccountSecurity /></RequireAuth>} />
+            <Route path="/sares/help" element={<RequireAuth isAuthenticated={Boolean(userProfile)} authReady={authReady}><HowTo /></RequireAuth>} />
+            <Route path="/help" element={<RequireAuth isAuthenticated={Boolean(userProfile)} authReady={authReady}><HowTo /></RequireAuth>} />
             <Route path="/system-logs" element={<RequireAuth isAuthenticated={Boolean(userProfile)} authReady={authReady}><RequireSuperadmin userProfile={userProfile}><SystemLogs /></RequireSuperadmin></RequireAuth>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

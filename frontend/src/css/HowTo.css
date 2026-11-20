@@ -1,0 +1,187 @@
+/* How-to Guide. Page layout and sidebar come from AppShell.css. */
+
+.ht-toolbar {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid #d8e6f7;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 8px 22px rgba(17, 44, 80, 0.04);
+}
+
+.ht-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  border: 1px solid #dce5f2;
+  border-radius: 10px;
+  background: #f9fbff;
+  color: #64748b;
+}
+.ht-search:focus-within { border-color: #1198e8; box-shadow: 0 0 0 3px rgba(17, 152, 232, 0.15); }
+.ht-search input {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: #172033;
+  font: 400 15px 'DM Sans', sans-serif;
+  outline: none;
+}
+
+.ht-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.ht-chip {
+  padding: 7px 14px;
+  border: 1.5px solid #dce5f2;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #365577;
+  font: 700 13px 'DM Sans', sans-serif;
+  cursor: pointer;
+}
+.ht-chip:hover { border-color: #1198e8; }
+.ht-chip.active { border-color: #1198e8; background: #eaf4ff; color: #0c4a6e; }
+
+.ht-tour-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #f0f8ff;
+  color: #0f2c66;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.ht-tour-tip svg { flex-shrink: 0; margin-top: 1px; color: #087fc5; }
+
+.ht-category { display: grid; gap: 10px; }
+.ht-category-title { margin: 6px 0 0; color: #071f5f; font-size: 16px; font-weight: 800; }
+
+.ht-guide {
+  overflow: hidden;
+  border: 1px solid #d8e6f7;
+  border-radius: 14px;
+  background: #ffffff;
+  scroll-margin-top: 90px;
+}
+.ht-guide--open { border-color: #9cc9f2; box-shadow: 0 8px 22px rgba(17, 44, 80, 0.06); }
+
+.ht-guide-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 15px 18px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  font-family: 'DM Sans', sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+.ht-guide-toggle:hover { background: #f8fbff; }
+.ht-guide-toggle:focus-visible,
+.ht-chip:focus-visible,
+.ht-link:focus-visible,
+.ht-copy:focus-visible { outline: 3px solid #93c5fd; outline-offset: 2px; }
+
+.ht-guide-text { flex: 1; min-width: 0; }
+.ht-guide-title { display: block; color: #071f5f; font-size: 15px; font-weight: 800; }
+.ht-guide-summary { display: block; margin-top: 3px; color: #64748b; font-size: 13px; line-height: 1.45; }
+.ht-badge {
+  flex: 0 0 auto;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 11px;
+  font-weight: 700;
+}
+.ht-chevron { flex: 0 0 auto; color: #64748b; }
+
+.ht-guide-body {
+  display: grid;
+  gap: 14px;
+  padding: 4px 18px 18px;
+  border-top: 1px solid #eef3fa;
+}
+
+.ht-steps {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: ht-step;
+}
+.ht-steps li {
+  position: relative;
+  padding-left: 36px;
+  color: #1e3a5f;
+  font-size: 14px;
+  line-height: 1.55;
+  counter-increment: ht-step;
+}
+.ht-steps li::before {
+  content: counter(ht-step);
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #eaf4ff;
+  color: #006ed0;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.ht-note {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.ht-note strong { font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }
+.ht-note ul { display: grid; gap: 4px; margin: 0; padding-left: 18px; }
+.ht-note--tip { background: #f0fdf4; color: #14532d; }
+.ht-note--warning { background: #fef2f2; color: #7f1d1d; }
+
+.ht-guide-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.ht-link,
+.ht-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 14px;
+  border: 1px solid #d8e6f7;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #006ed0;
+  font: 700 13px 'DM Sans', sans-serif;
+  text-decoration: none;
+  cursor: pointer;
+}
+.ht-link { border-color: transparent; background: linear-gradient(135deg, #1198e8 0%, #006ed0 100%); color: #ffffff; }
+.ht-link:hover { background: #006ed0; }
+.ht-copy:hover { border-color: #1198e8; background: #eaf4ff; }
+
+.ht-empty {
+  padding: 28px;
+  border: 1px dashed #c9d8ec;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #64748b;
+  text-align: center;
+}
