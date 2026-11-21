@@ -44,6 +44,13 @@ import {
 } from '../parentInvolvement'
 
 const YEARS = ["All Year", "Kindergarten", "1st Grade", "2nd Grade", "3rd Grade", "4th Grade", "5th Grade", "6th Grade", "7th Grade", "8th Grade", "9th Grade", "10th Grade"]
+// Counted from the student's current case list each time it is shown, so the total
+// stays right after a case is added or its status changes without a page reload.
+function getLiveViolationCount(student) {
+  const violations = Array.isArray(student?.violations) ? student.violations : [];
+  return violations.length > 0 ? violations.filter(doesViolationCount).length : (student?.violationCount || 0);
+}
+
 const YEAR_LEVELS = ["Kindergarten", "1st Grade", "2nd Grade", "3rd Grade", "4th Grade", "5th Grade", "6th Grade", "7th Grade", "8th Grade", "9th Grade", "10th Grade"]
 
 const splitStudentName = (fullName = '') => {
@@ -117,6 +124,15 @@ function AddStudentModal({ onClose, onAdd, initialForm, submitLabel = 'Add Stude
     parent_guardian_contact: initialForm?.parent_guardian_contact || '',
   });
 
+  const { userProfile } = useAuthProfile();
+  // Counselors only see the year levels of their own school level (Elementary:
+  // Kindergarten–6th, High School: 7th–10th); the superadmin sees all. An existing
+  // year outside that list stays visible so editing a student doesn't blank it.
+  const yearOptions = YEAR_LEVELS.filter((year) =>
+    canAccessSchoolScope(userProfile, getSchoolScopeForYear(year)),
+  );
+  if (form.year && !yearOptions.includes(form.year)) yearOptions.unshift(form.year);
+
   const handle = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   const submit = async () => {
@@ -175,7 +191,7 @@ function AddStudentModal({ onClose, onAdd, initialForm, submitLabel = 'Add Stude
               <label className="s-label">Year Level</label>
               <select className="s-input s-select" name="year" value={form.year} onChange={handle}>
                 <option value="">Select</option>
-                {YEAR_LEVELS.map(y => <option key={y} value={y}>{y}</option>)}
+                {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
               </select>
             </div>
             <div className="s-field">
@@ -879,7 +895,7 @@ function StudentList({
                       <td>{student.last_name || ''}</td>
                       <td>{student.id}</td>
                       <td>{student.year} - {student.section}</td>
-                      <td>{showTrash ? student.recordedViolationCount : student.violationCount}</td>
+                      <td>{showTrash ? student.recordedViolationCount : getLiveViolationCount(student)}</td>
                       <td>{showTrash ? (
                         <span className="s-status-pill s-status-pill--trashed">In Trash</span>
                       ) : (() => {
@@ -1272,7 +1288,7 @@ function StudentProfile({ student, onBack, onSelectViolation, onUpdateViolationS
 
             <div className="s-info-field">
               <span className="s-info-label">Total Violations</span>
-              <span className="s-violations-big">{student.violationCount}</span>
+              <span className="s-violations-big">{getLiveViolationCount(student)}</span>
             </div>
           </div>
 
