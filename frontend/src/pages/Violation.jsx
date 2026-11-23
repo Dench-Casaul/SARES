@@ -19,6 +19,12 @@ import {
   findOffenseNumberChanges,
 } from '../engine/ruleEngine'
 import { saveViolationsWithCaseNumbers } from '../engine/incidentCaseNumber'
+import {
+  AiTimeoutError,
+  fetchTextWithTimeout,
+  groupStudentsByRecommendation,
+  parseJsonText,
+} from '../engine/aiRequest'
 import { fetchRecentViolations, fetchViolationsForStudents } from '../violationQueries'
 import {
   buildOffenseCatalog,
@@ -135,10 +141,11 @@ export default function Violation() {
   const [aiSuggestionSource, setAiSuggestionSource] = useState('')
   const [aiSuggestionLoading, setAiSuggestionLoading] = useState(false)
   const [aiSuggestionError, setAiSuggestionError] = useState('')
-  const [aiCounselorRecommendation, setAiCounselorRecommendation] = useState('')
-  const [aiCounselorRecommendationSource, setAiCounselorRecommendationSource] = useState('')
+  // One entry per distinct rule-engine result: students in a group incident with
+  // different offense numbers or sanctions each get their own recommendation.
+  // Shape: { key, students: [{ studentId, studentName }], text, source, error }
+  const [aiCounselorRecommendations, setAiCounselorRecommendations] = useState([])
   const [aiCounselorRecommendationLoading, setAiCounselorRecommendationLoading] = useState(false)
-  const [aiCounselorRecommendationError, setAiCounselorRecommendationError] = useState('')
   // AI offense recommendation from the narrative: [{ offenseId, confidence, reason, offense }]
   const [offenseSuggestions, setOffenseSuggestions] = useState([])
   const [offenseSuggestionStatus, setOffenseSuggestionStatus] = useState('idle') // idle | loading | ready | error
@@ -296,6 +303,19 @@ export default function Violation() {
   }, [selectedStudents, selectedStudent, students, form.offense_type, form.offense_id, form.incident_date, form.subcategory_id, existingViolations, ruleRevision])
 
   const beyondScheduleRecs = selectedStudentRecommendations.filter((rec) => rec.beyondSchedule)
+  // Students whose own school-level schedule lists no sanction for this offense.
+  const missingSanctionRecs = selectedStudentRecommendations.filter((rec) => rec.sanctionFound === false)
+  // The AI counselor recommendation saved with one student's case.
+  const getCounselorRecommendationFields = (studentId) => {
+    const item = aiCounselorRecommendations.find((entry) =>
+      entry.students.some((student) => String(student.studentId) === String(studentId))
+    )
+    return {
+      ai_counselor_recommendation: item?.text?.trim() || '',
+      ai_counselor_recommendation_source: item?.text ? (item.source || 'gemini') : 'unavailable',
+    }
+  }
+  const formatStudentNames = (recs) => recs.map((rec) => rec.studentName || 'This student').join(', ')
 
   const removeSelectedStudent = (studentId) => {
     const normalizedStudentId = String(studentId)
@@ -339,7 +359,7 @@ export default function Violation() {
     try {
       const idToken = await auth.currentUser?.getIdToken()
       if (!idToken) throw new Error('Sign in again to use AI assistance.')
-      const response = await fetch('/api/recommend-offense', {
+      const response = await fetchTextWithTimeout('/api/recommend-offense', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -350,7 +370,7 @@ export default function Violation() {
           catalog: buildOffenseCatalog(getHandbook()),
         }),
       })
-      const result = await response.json().catch(() => null)
+      const result = parseJsonText(response.text)
       if (!response.ok || !Array.isArray(result?.matches)) {
         throw new Error(result?.error || `AI offense recommendation failed (${response.status}).`)
       }
@@ -365,7 +385,9 @@ export default function Violation() {
     } catch (error) {
       if (requestId !== offenseSuggestionRequest.current) return
       console.error('Failed to recommend an offense:', error)
-      setOffenseSuggestionError(error instanceof Error ? error.message : 'AI offense recommendation is unavailable.')
+      setOffenseSuggestionError(error instanceof AiTimeoutError
+        ? `${error.message} Choose the offense from the handbook below.`
+        : error instanceof Error ? error.message : 'AI offense recommendation is unavailable.')
       setOffenseSuggestionStatus('error')
       setShowManualBrowser(true)
     }
@@ -406,7 +428,7 @@ export default function Violation() {
       try {
         const idToken = await auth.currentUser?.getIdToken()
         if (!idToken) throw new Error('Sign in again to use AI assistance.')
-        const response = await fetch('/api/generate-prevention-suggestion', {
+        const response = await fetchTextWithTimeout('/api/generate-prevention-suggestion', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -418,7 +440,7 @@ export default function Violation() {
             offenseType: form.offense_title,
           }),
         })
-        const result = await response.json()
+        const result = parseJsonText(response.text)
         if (!response.ok || !result?.suggestion) {
           throw new Error(result?.error || 'AI assistance is currently unavailable.')
         }
@@ -434,10 +456,9 @@ export default function Violation() {
       }
     }
     if (step === STEP.OFFENSE) {
-      setAiCounselorRecommendation('')
-      setAiCounselorRecommendationSource('')
-      setAiCounselorRecommendationError('')
+      setAiCounselorRecommendations([])
       setAiCounselorRecommendationLoading(true)
+      const groups = groupStudentsByRecommendation(selectedStudentRecommendations)
       try {
         const idToken = await auth.currentUser?.getIdToken()
         if (!idToken) throw new Error('Sign in again to use AI assistance.')
@@ -454,11 +475,6 @@ export default function Violation() {
         const subcategoryLabel = handbookType?.subcategories?.find((item) => item.id === form.subcategory_id)?.label || form.subcategory_id
         const offenseGroupTitle = offenseGroup?.groupTitle || form.group_title
         const specificViolationTitle = offense?.title || form.offense_title
-        const selectedSchoolScope = selectedStudent?.school_scope
-          || getSchoolScopeForYear(selectedStudent?.year_level || selectedStudent?.year)
-        const selectedSanctionSchedule = (handbookType?.sanctionSchedule || []).filter((rule) =>
-          rule.subcategoryId === form.subcategory_id && rule.schoolScope === selectedSchoolScope
-        )
         const applicablePolicyReference = formatApplicablePolicyReference({
           handbookNumber: offenseGroup?.handbookNumber ?? form.group_number,
           groupTitle: offenseGroupTitle,
@@ -466,57 +482,86 @@ export default function Violation() {
           offenseTypeLabel,
           subcategoryLabel,
         })
-        const handbookPolicy = {
-          offenseType: offenseTypeLabel,
-          subcategory: subcategoryLabel,
-          schoolScope: selectedSchoolScope,
-          offenseGroup: offenseGroupTitle,
-          specificViolation: specificViolationTitle,
-          handbookNumber: offenseGroup?.handbookNumber ?? form.group_number,
-          countingNote: handbookType?.countingNote || '',
-          sanctionSchedule: selectedSanctionSchedule,
-          selectedOffenseNumber: recommendation?.offenseNumber,
-          selectedSanction: recommendation?.recommendedSanction,
-          authorityNote: handbookType?.authorityNote || '',
-        }
-        const response = await fetch('/api/generate-counselor-recommendation', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${idToken}`,
-          },
-          body: JSON.stringify({
-            incidentDescription: aiNarrative,
+
+        // One request per distinct result (school level, offense number, sanction),
+        // sent in parallel so a group incident waits no longer than a single student.
+        const requestRecommendation = async (studentRec) => {
+          const schoolScope = studentRec.schoolScope
+          const handbookPolicy = {
             offenseType: offenseTypeLabel,
             subcategory: subcategoryLabel,
+            schoolScope,
             offenseGroup: offenseGroupTitle,
             specificViolation: specificViolationTitle,
-            applicablePolicyReference,
-            ruleBasedSanction: recommendation?.recommendedSanction || '',
-            handlingPath: form.handling_path,
-            handbookPolicy: JSON.stringify(handbookPolicy),
-          }),
-        })
-        const responseText = await response.text()
-        let result
-        try {
-          result = responseText ? JSON.parse(responseText) : null
-        } catch (parseError) {
-          throw new Error(response.ok
-            ? 'AI recommendation service returned an invalid response.'
-            : `AI recommendation service failed (${response.status}).`)
+            handbookNumber: offenseGroup?.handbookNumber ?? form.group_number,
+            countingNote: handbookType?.countingNote || '',
+            sanctionSchedule: (handbookType?.sanctionSchedule || []).filter((rule) =>
+              rule.subcategoryId === form.subcategory_id && rule.schoolScope === schoolScope
+            ),
+            selectedOffenseNumber: studentRec.offenseNumber,
+            selectedSanction: studentRec.recommendedSanction,
+            authorityNote: handbookType?.authorityNote || '',
+          }
+          const response = await fetchTextWithTimeout('/api/generate-counselor-recommendation', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${idToken}`,
+            },
+            body: JSON.stringify({
+              incidentDescription: aiNarrative,
+              offenseType: offenseTypeLabel,
+              subcategory: subcategoryLabel,
+              offenseGroup: offenseGroupTitle,
+              specificViolation: specificViolationTitle,
+              applicablePolicyReference,
+              ruleBasedSanction: studentRec.recommendedSanction || '',
+              handlingPath: form.handling_path,
+              handbookPolicy: JSON.stringify(handbookPolicy),
+            }),
+          })
+          const result = parseJsonText(response.text)
+          if (!response.ok || !result?.recommendation) {
+            throw new Error(result?.error || (response.text && !result
+              ? 'AI recommendation service returned an invalid response.'
+              : `AI recommendation service returned no recommendation (${response.status}).`))
+          }
+          return result
         }
-        if (!response.ok || !result?.recommendation) {
-          throw new Error(result?.error || `AI recommendation service returned no recommendation (${response.status}).`)
-        }
-        setAiCounselorRecommendation(result.recommendation)
-        setAiCounselorRecommendationSource(result.source || 'gemini')
+
+        const settled = await Promise.allSettled(groups.map((group) => requestRecommendation(group.rec)))
+        setAiCounselorRecommendations(groups.map((group, index) => {
+          const outcome = settled[index]
+          if (outcome.status === 'fulfilled') {
+            return {
+              key: group.key,
+              students: group.students,
+              text: outcome.value.recommendation,
+              source: outcome.value.source || 'gemini',
+              error: '',
+            }
+          }
+          console.error('Failed to generate AI counselor recommendation:', outcome.reason)
+          return {
+            key: group.key,
+            students: group.students,
+            text: '',
+            source: 'unavailable',
+            error: outcome.reason instanceof Error
+              ? outcome.reason.message
+              : 'AI counselor guidance is currently unavailable.',
+          }
+        }))
       } catch (error) {
         console.error('Failed to generate AI counselor recommendation:', error)
-        setAiCounselorRecommendationError(
-          error instanceof Error ? error.message : 'AI counselor guidance is currently unavailable.'
-        )
-        setAiCounselorRecommendationSource('unavailable')
+        const message = error instanceof Error ? error.message : 'AI counselor guidance is currently unavailable.'
+        setAiCounselorRecommendations(groups.map((group) => ({
+          key: group.key,
+          students: group.students,
+          text: '',
+          source: 'unavailable',
+          error: message,
+        })))
       } finally {
         setAiCounselorRecommendationLoading(false)
       }
@@ -575,6 +620,13 @@ export default function Violation() {
       alert(rulesStatus === 'error'
         ? 'The school handbook rules could not be loaded. Reload the page before recording this case.'
         : 'The school handbook rules are still loading. Please wait a moment and try again.')
+      return
+    }
+    if (form.handling_path !== 'mediation' && missingSanctionRecs.length > 0) {
+      alert(
+        `The handbook has no sanction listed for this offense for: ${formatStudentNames(missingSanctionRecs)}.\n\n`
+        + 'Check the offense and each student\'s year level, or update the handbook in Rule Management, before recording this case.'
+      )
       return
     }
     setSubmitting(true)
@@ -639,8 +691,9 @@ export default function Violation() {
         ai_assisted_solution_source: useAiAssistance
           ? (aiSuggestion ? aiSuggestionSource : 'unavailable')
           : 'not_requested',
-        ai_counselor_recommendation: aiCounselorRecommendation.trim(),
-        ai_counselor_recommendation_source: aiCounselorRecommendationSource || 'unavailable',
+        // Replaced per student below; each student keeps their own recommendation.
+        ai_counselor_recommendation: '',
+        ai_counselor_recommendation_source: 'unavailable',
         suggest_authorities: recommendation.suggestAuthorities,
         // AI offense recommendation audit: what the AI suggested and how the counselor chose.
         ai_offense_suggestions: offenseSuggestions.map(({ offenseId, confidence, reason }) => ({
@@ -674,6 +727,7 @@ export default function Violation() {
         existingViolations: freshViolations,
       }).map((payload) => ({
         ...payload,
+        ...getCounselorRecommendationFields(payload.student_id),
         // Each student's own sanction decides the starting status (e.g. no-readmission).
         ...getInitialStatusFields(payload),
         evidence_urls: [],
@@ -705,7 +759,7 @@ export default function Violation() {
     : []
   const reviewDescription = getViolationDescription({
     incident_description: form.incident_description,
-    ai_counselor_recommendation: aiCounselorRecommendation,
+    ai_counselor_recommendation: aiCounselorRecommendations[0]?.text || '',
     ai_assisted_solution: aiSuggestion,
   })
   // Mediation cases apply no sanction yet, so no parent requirement until escalated.
@@ -1253,14 +1307,23 @@ export default function Violation() {
                       <p role="status">Generating recommendation from the handbook…</p>
                     ) : (
                       <>
-                        {aiCounselorRecommendationError && (
-                          <p className="v-review-meta" role="alert">
-                            {aiCounselorRecommendationError}
-                          </p>
-                        )}
-                        {aiCounselorRecommendation && (
-                          <p className="v-ai-recommendation-text">{aiCounselorRecommendation}</p>
-                        )}
+                        {aiCounselorRecommendations.map((item) => (
+                          <div key={item.key}>
+                            {selectedStudentRecommendations.length > 1 && (
+                              <p className="v-review-sanction">
+                                <strong>For {item.students.map((student) => student.studentName || student.studentId).join(', ')}:</strong>
+                              </p>
+                            )}
+                            {item.error && (
+                              <p className="v-review-meta" role="alert">
+                                {item.error} You can continue without an AI recommendation.
+                              </p>
+                            )}
+                            {item.text && (
+                              <p className="v-ai-recommendation-text">{item.text}</p>
+                            )}
+                          </div>
+                        ))}
                       </>
                     )}
                 </div>}
@@ -1271,6 +1334,22 @@ export default function Violation() {
                   </div>
                 )}
               </div>
+
+              {missingSanctionRecs.length > 0 && (
+                <div className="v-authority-alert" role="alert">
+                  <AlertTriangle size={18} />
+                  <div>
+                    <strong>No Handbook Sanction Found</strong>
+                    <p>
+                      The handbook lists no sanction for this offense for {formatStudentNames(missingSanctionRecs)}.
+                      {' '}Check the offense and each student&apos;s year level, or update the handbook in Rule Management.
+                      {form.handling_path === 'mediation'
+                        ? ' Mediation can continue, but a sanction is needed if the case is escalated.'
+                        : ' This case cannot be recorded with a sanction until this is fixed.'}
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {beyondScheduleRecs.length > 0 && (
                 <div className="v-authority-alert" role="alert">
@@ -1322,7 +1401,7 @@ export default function Violation() {
               </p>
             )}
             {step === STEP.REVIEW && (
-              <button className="v-btn-submit" onClick={handleSubmit} disabled={submitting || !rulesReady}>
+              <button className="v-btn-submit" onClick={handleSubmit} disabled={submitting || !rulesReady || (form.handling_path !== 'mediation' && missingSanctionRecs.length > 0)}>
                 {submitting ? 'Submitting...' : form.handling_path === 'mediation' ? 'Submit for Mediation' : 'Submit Incident Report'}
               </button>
             )}

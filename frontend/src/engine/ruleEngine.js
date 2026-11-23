@@ -181,6 +181,9 @@ export function evaluateOffense({
     offenseLabel: tier?.label ?? `${offenseNumber} Offense`,
     recommendedSanction: tier?.sanction
       ?? `No additional sanction is listed for ${levelLabel} offenses in the ${schoolLabel} schedule.`,
+    // False when the handbook has no sanction for this student's level/schedule;
+    // the case must not be recorded with a sanction until the rules are fixed.
+    sanctionFound: Boolean(tier?.sanction),
     suggestAuthorities,
     schoolYearKey,
     priorOffenseCount: priorCount,
@@ -265,7 +268,6 @@ export function findOffenseNumberChanges({ students = [], offense = {}, before =
 export function buildViolationRecordsForStudents({
   incidentData,
   selectedStudents = [],
-  recommendation,
   existingViolations = [],
 }) {
   const groupIncidentId = `group-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -283,7 +285,9 @@ export function buildViolationRecordsForStudents({
       currentIncident: incidentData,
     });
 
-    const recommendedSanction = studentRec.recommendedSanction || recommendation?.recommendedSanction || incidentData.recommended_sanction;
+    // Always this student's own result: never borrow another student's sanction,
+    // which could come from a different school level's schedule.
+    const recommendedSanction = studentRec.recommendedSanction;
     const offenseNumberForRecord = studentRec.offenseNumber;
 
     return {

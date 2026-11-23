@@ -330,3 +330,35 @@ test('findOffenseNumberChanges reports students whose number changed in fresh da
   assert.equal(changes[0].afterNumber, 3);
   assert.deepEqual(findOffenseNumberChanges({ students, offense, before, after: before }), []);
 });
+
+test('a student with no listed sanction is flagged and never borrows another student sanction', () => {
+  const found = evaluateOffense({
+    offenseType: 'minor', subcategoryId: 'light', offenseId: 'm-l-1-1',
+    studentId: 's1', incidentDate: '2026-04-10', schoolScope: 'elementary',
+  });
+  const missing = evaluateOffense({
+    offenseType: 'minor', subcategoryId: 'light', offenseId: 'm-l-1-1',
+    studentId: 's2', incidentDate: '2026-04-10', schoolScope: 'shared',
+  });
+  assert.equal(found.sanctionFound, true);
+  assert.equal(missing.sanctionFound, false);
+
+  const records = buildViolationRecordsForStudents({
+    incidentData: {
+      incident_date: '2026-04-10',
+      offense_type: 'minor',
+      subcategory_id: 'light',
+      offense_id: 'm-l-1-1',
+      recommended_sanction: found.recommendedSanction,
+    },
+    selectedStudents: [
+      { student_id: 's1', full_name: 'Alice', year_level: 'Grade 5' },
+      { student_id: 's2', full_name: 'No Grade', year_level: '' },
+    ],
+    recommendation: found,
+  });
+
+  assert.equal(records[0].recommended_sanction, found.recommendedSanction);
+  assert.notEqual(records[1].recommended_sanction, found.recommendedSanction);
+  assert.match(records[1].recommended_sanction, /No additional sanction is listed/);
+});
