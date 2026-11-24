@@ -141,7 +141,7 @@ function AddStudentModal({ onClose, onAdd, initialForm, submitLabel = 'Add Stude
       .map((name) => String(name || '').trim())
       .filter(Boolean)
       .join(' ');
-    if (!form.first_name || !form.last_name || !form.year || !form.section || !form.email) return;
+    if (!form.id || !form.first_name || !form.last_name || !form.year || !form.section || !form.email) return;
     await onAdd({ ...form, name: fullName });
   };
 
@@ -162,48 +162,49 @@ function AddStudentModal({ onClose, onAdd, initialForm, submitLabel = 'Add Stude
 
         <div className="s-modal-body">
           <div className="s-field">
-            <label className="s-label">Student LRN</label>
+            <label className="s-label">Student LRN <span className="s-required">*</span></label>
             <input
               className="s-input"
               name="id"
               value={form.id}
               onChange={handle}
               placeholder="Enter student's LRN"
+              required
             />
           </div>
 
           <div className="s-field-row s-field-row--name">
             <div className="s-field">
-              <label className="s-label">First Name</label>
-              <input className="s-input" name="first_name" value={form.first_name} onChange={handle} placeholder="Juan" />
+              <label className="s-label">First Name <span className="s-required">*</span></label>
+              <input className="s-input" name="first_name" value={form.first_name} onChange={handle} placeholder="Juan" required />
             </div>
             <div className="s-field">
               <label className="s-label">Middle Name</label>
               <input className="s-input" name="middle_name" value={form.middle_name} onChange={handle} placeholder="Santos" />
             </div>
             <div className="s-field">
-              <label className="s-label">Last Name</label>
-              <input className="s-input" name="last_name" value={form.last_name} onChange={handle} placeholder="Dela Cruz" />
+              <label className="s-label">Last Name <span className="s-required">*</span></label>
+              <input className="s-input" name="last_name" value={form.last_name} onChange={handle} placeholder="Dela Cruz" required />
             </div>
           </div>
 
           <div className="s-field-row">
             <div className="s-field">
-              <label className="s-label">Year Level</label>
-              <select className="s-input s-select" name="year" value={form.year} onChange={handle}>
+              <label className="s-label">Year Level <span className="s-required">*</span></label>
+              <select className="s-input s-select" name="year" value={form.year} onChange={handle} required>
                 <option value="">Select</option>
                 {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
               </select>
             </div>
             <div className="s-field">
-              <label className="s-label">Section</label>
-              <input className="s-input" name="section" value={form.section} onChange={handle} placeholder="" />
+              <label className="s-label">Section <span className="s-required">*</span></label>
+              <input className="s-input" name="section" value={form.section} onChange={handle} placeholder="" required />
             </div>
           </div>
 
           <div className="s-field">
-            <label className="s-label">Email</label>
-            <input className="s-input" name="email" value={form.email} onChange={handle} placeholder="student@school.edu" />
+            <label className="s-label">Email <span className="s-required">*</span></label>
+            <input className="s-input" name="email" value={form.email} onChange={handle} placeholder="student@school.edu" required />
           </div>
 
           <div className="s-field">
