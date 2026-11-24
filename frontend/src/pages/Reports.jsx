@@ -208,7 +208,8 @@ export default function Report() {
         logoData,
         scopeLabel,
         summary,
-        preparedBy: userProfile?.full_name || "",
+        // No name is printed under "Prepared by": the counselor signs and writes it by hand,
+        // so system accounts (e.g. "SARES Superadmin") never appear on the report.
       });
     } catch (exportFailure) {
       console.error("Failed to export report:", exportFailure);
