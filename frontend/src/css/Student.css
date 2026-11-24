@@ -1313,6 +1313,7 @@
   color: #64748b;
   line-height: 1.6;
   min-height: 48px;
+  white-space: pre-line;
 }
 
 .s-vd-sanction-box {

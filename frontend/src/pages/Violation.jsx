@@ -8,6 +8,7 @@ import { isRecordInTrash } from '../recordStatus'
 import { getSchoolScopeForYear } from '../schoolScope'
 import { formatIdentifiedSanction } from '../engine/sanctionLabel'
 import { formatTimeOfDay } from '../engine/documentFormat'
+import { formatAiText } from '../engine/aiText'
 import { getViolationDescription } from '../engine/violationDescription'
 import { ACTIVITY_ACTIONS, recordActivity } from '../activityLog'
 import { getNavItems } from '../navigation'
@@ -460,7 +461,7 @@ export default function Violation() {
         if (!response.ok || !result?.suggestion) {
           throw new Error(result?.error || 'AI assistance is currently unavailable.')
         }
-        setAiSuggestion(result.suggestion)
+        setAiSuggestion(formatAiText(result.suggestion))
         setAiSuggestionSource(result.source || 'gemini')
       } catch (error) {
         console.error('Failed to generate AI prevention suggestion:', error)
@@ -552,7 +553,7 @@ export default function Violation() {
             return {
               key: group.key,
               students: group.students,
-              text: outcome.value.recommendation,
+              text: formatAiText(outcome.value.recommendation),
               source: outcome.value.source || 'gemini',
               error: '',
             }
@@ -1318,7 +1319,7 @@ export default function Violation() {
                 </div>
                 <div className="v-review-section v-review-section--full">
                   <h4>{reviewDescription.label}</h4>
-                  <p>{reviewDescription.text || 'Not provided'}</p>
+                  <p className="v-ai-recommendation-text">{reviewDescription.text || 'Not provided'}</p>
                   {reviewDescription.source === 'ai_counselor_recommendation' && (
                     <p className="v-review-meta">
                       Generated from the selected handbook policy. It does not change the formal sanction recommendation.
@@ -1346,7 +1347,7 @@ export default function Violation() {
                       <p>Generating suggestion…</p>
                     ) : aiSuggestion ? (
                       <>
-                        <p>{aiSuggestion}</p>
+                        <p className="v-ai-recommendation-text">{aiSuggestion}</p>
                         <p className="v-review-meta">Source: {aiSuggestionSource || 'Gemini'} · Review and adapt this suggestion; it does not replace school policy or professional judgment.</p>
                       </>
                     ) : (

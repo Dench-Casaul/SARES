@@ -8,6 +8,7 @@ import { isRecordInTrash } from '../recordStatus'
 import { canAccessSchoolScope, getSchoolScopeForYear } from '../schoolScope'
 import { doesViolationCount, evaluateSaresRecommendation, getOffenseNumberReview } from '../engine/ruleEngine'
 import { formatIdentifiedSanction } from '../engine/sanctionLabel'
+import { formatAiText, isAiTextSource } from '../engine/aiText'
 import { getViolationDescription } from '../engine/violationDescription';
 import { downloadIncidentReport } from '../incidentReportActions';
 import { saveViolationsWithCaseNumbers } from '../engine/incidentCaseNumber'
@@ -1688,7 +1689,7 @@ function ViolationDetails({ violation, student, onBack, onSetSuspensionDates, on
               <div className="s-divider" />
               <div className="s-vd-field s-vd-field--full">
                 <div className="s-vd-field-label">AI-Assisted Prevention / Alternative Suggestion</div>
-                <div className="s-vd-desc-box">{violation.ai_assisted_solution}</div>
+                <div className="s-vd-desc-box">{formatAiText(violation.ai_assisted_solution)}</div>
                 <div className="s-vd-field-label" style={{ marginTop: '8px' }}>
                   Source: {violation.ai_assisted_solution_source || 'Gemini'}. AI-generated guidance for counselor review; it does not replace school policy or professional judgment.
                 </div>
@@ -1849,7 +1850,7 @@ export default function Students() {
             id: violation.id,
             category: violation.category_name || violation.group_title || 'Unspecified',
             variety: violation.offense_variety || violation.offense_id || 'Unspecified',
-            description: description.text,
+            description: isAiTextSource(description.source) ? formatAiText(description.text) : description.text,
             description_label: description.source ? description.label : 'Description',
             witnesses: violation.witnesses || '',
             student_name: violation.student_name || currentStudent?.full_name || currentStudent?.name || '',

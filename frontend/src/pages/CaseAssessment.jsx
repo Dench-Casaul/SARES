@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { formatIdentifiedSanction } from "../engine/sanctionLabel";
 import { formatTimeOfDay } from "../engine/documentFormat";
+import { formatAiText, isAiTextSource } from "../engine/aiText";
 import { describeOffenseSelection } from "../engine/offenseRecommendation";
 import { getViolationDescription } from "../engine/violationDescription";
 import { useAuthProfile } from "../authContext";
@@ -205,7 +206,7 @@ export default function CaseAssessment() {
 
         <section className="ca-card" data-help-target="assessment-description" style={{ marginTop: "16px" }}>
           <h2>{description.label}</h2>
-          <p className="ca-paragraph">{description.text || "—"}</p>
+          <p className="ca-paragraph ca-multiline">{(isAiTextSource(description.source) ? formatAiText(description.text) : description.text) || "—"}</p>
           {description.source === "ai_counselor_recommendation" && (
             <p className="ca-sub">
               Generated from the selected handbook policy. It does not replace the rule-based sanction or professional judgment.
@@ -221,7 +222,7 @@ export default function CaseAssessment() {
         {caseData.ai_counselor_recommendation && description.source !== "ai_counselor_recommendation" && (
           <section className="ca-card" style={{ marginTop: "16px" }}>
             <h2>AI Counselor Recommendation</h2>
-            <p className="ca-paragraph">{caseData.ai_counselor_recommendation}</p>
+            <p className="ca-paragraph ca-multiline">{formatAiText(caseData.ai_counselor_recommendation)}</p>
             <p className="ca-sub">
               Generated from the selected handbook policy. It does not replace the rule-based sanction or professional judgment.
             </p>
@@ -270,7 +271,7 @@ export default function CaseAssessment() {
         {caseData.ai_assisted_solution && description.source !== "ai_assisted_solution" && (
           <section className="ca-card" style={{ marginTop: "16px" }}>
             <h2>AI-Assisted Prevention / Alternative Suggestion</h2>
-            <p className="ca-paragraph">{caseData.ai_assisted_solution}</p>
+            <p className="ca-paragraph ca-multiline">{formatAiText(caseData.ai_assisted_solution)}</p>
             <p className="ca-sub" style={{ marginTop: "8px" }}>
               Source: {caseData.ai_assisted_solution_source || "Gemini"}. AI-generated guidance for counselor review; it does not replace school policy or professional judgment.
             </p>

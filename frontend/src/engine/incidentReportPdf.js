@@ -9,6 +9,7 @@ import {
 } from "../caseStatus.js";
 import { CONFIDENTIALITY_NOTICE, OFFICE_NAME, SCHOOL_NAME, SYSTEM_NAME } from "../schoolInfo.js";
 import { getViolationDescription } from "./violationDescription.js";
+import { formatAiText, isAiTextSource } from "./aiText.js";
 import {
   formatLongDate,
   formatLongDateTime,
@@ -268,7 +269,11 @@ export function createIncidentReportPdf(caseData, groupMembers = [caseData], { l
     { label: "Location", value: caseData.incident_location },
   ], [0.34, 0.22, 0.44]);
   const description = getViolationDescription(caseData);
-  textBlock(description.source ? description.label : "Narrative Description of the Incident", description.text, 3);
+  textBlock(
+    description.source ? description.label : "Narrative Description of the Incident",
+    isAiTextSource(description.source) ? formatAiText(description.text, { bullet: "-" }) : description.text,
+    3
+  );
   note("Evidence attached:   [  ] Photos     [  ] CCTV footage     [  ] Written statement(s)     [  ] Other: ____________________");
 
   // ---- IV. Handbook classification ---------------------------------------
