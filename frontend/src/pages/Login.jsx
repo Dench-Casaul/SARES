@@ -451,185 +451,275 @@ function Login() {
               {activePolicyTab === "privacy" ? (
                 <>
                   <h4>Privacy Policy</h4>
-                  <p><strong>Effective Date:</strong> May 14, 2026</p>
                   <p>
-                    This Privacy Policy explains how Olongapo Wesley School ("the School"),
-                    as operator of the Sanction Recommendation System (SARES), collects,
-                    uses, stores, and protects personal data processed through the system.
-                    SARES is intended for authorized school staff supporting student affairs,
-                    guidance, and disciplinary administration.
+                    Olongapo Wesley School ("the School," "we," or "us") operates the
+                    Sanction Recommendation System ("SARES") as a personal information
+                    controller under Republic Act No. 10173, the Data Privacy Act of 2012,
+                    its Implementing Rules and Regulations, and issuances of the National
+                    Privacy Commission ("NPC"). This Privacy Policy explains what personal
+                    data SARES processes, why it is processed, who may access it, and the
+                    rights of the persons it concerns.
                   </p>
 
-                  <h5>1. Scope and Purpose</h5>
+                  <h5>1. Scope</h5>
                   <p>
-                    SARES is used to support consistent disciplinary case assessment,
-                    sanction recommendation, case documentation, and reporting in accordance
-                    with the School's handbook and institutional policies.
+                    This Policy covers personal data processed through SARES, which is used
+                    by authorized School personnel to document student conduct incidents,
+                    assess cases against the Student Handbook, recommend sanctions, track
+                    case resolution, and prepare reports. It applies to two groups of data
+                    subjects: (a) School personnel who hold SARES accounts, and (b) students,
+                    and where relevant their parents or guardians, whose records are
+                    maintained in SARES. Students and parents do not use SARES directly.
                   </p>
 
-                  <h5>2. Personal Data Processed</h5>
-                  <p>SARES may process the following categories of data:</p>
+                  <h5>2. Personal Data We Process</h5>
                   <ul>
-                    <li>Staff account information, such as name, role, and login email.</li>
-                    <li>Student profile information, such as student identifiers and class details.</li>
-                    <li>Violation and case records, including incident details and sanction recommendations.</li>
-                    <li>System and audit records, such as activity logs and case-change history.</li>
+                    <li>
+                      <strong>Account data:</strong> name, School email address, assigned role,
+                      department or school level, and account status.
+                    </li>
+                    <li>
+                      <strong>Student records:</strong> name, student number, grade or year level,
+                      section, and other enrollment details needed to identify the student.
+                    </li>
+                    <li>
+                      <strong>Case records:</strong> incident date, location, and narrative;
+                      the offense classified; offense history and repeat-offense counts;
+                      recommended and approved sanctions; case status; counselor notes; and
+                      records of parent or guardian notification, conferences, and commitments.
+                    </li>
+                    <li>
+                      <strong>Evidence files:</strong> photos, documents, or other files
+                      attached to a case by authorized personnel.
+                    </li>
+                    <li>
+                      <strong>Security and audit data:</strong> sign-in activity, including
+                      failed sign-in attempts with the email address entered and the
+                      originating IP address; and logs of record creation, changes, and
+                      deletions, with the responsible account and time.
+                    </li>
                   </ul>
-
-                  <h5>3. Legal and Institutional Basis</h5>
                   <p>
-                    Processing is undertaken for legitimate institutional functions of
-                    student discipline management, campus safety, policy enforcement, and
-                    internal records administration under applicable Philippine laws and
-                    school governance requirements.
+                    Student disciplinary records are treated as confidential. Where they
+                    concern minors, they receive the heightened care described in Section 8.
                   </p>
 
-                  <h5>4. How Data Is Used</h5>
-                  <p>Data is used to:</p>
+                  <h5>3. Purposes and Lawful Basis</h5>
+                  <p>Personal data is processed only to:</p>
                   <ul>
-                    <li>Authenticate authorized staff and control access.</li>
-                    <li>Record incidents and evaluate sanction recommendations.</li>
-                    <li>Track case history, escalations, and outcomes.</li>
-                    <li>Generate operational and administrative reports.</li>
-                    <li>Maintain auditability and accountability of disciplinary records.</li>
+                    <li>authenticate personnel and restrict access according to role;</li>
+                    <li>record incidents and apply the Student Handbook consistently;</li>
+                    <li>track offense history, escalation, sanctions, and parent involvement;</li>
+                    <li>produce incident reports, forms, and statistical summaries for School administration;</li>
+                    <li>protect the security and integrity of the system and its records.</li>
                   </ul>
-
-                  <h5>5. Data Sharing and Disclosure</h5>
                   <p>
-                    Personal data is shared only with authorized school personnel who require
-                    access for official duties. Data may also be disclosed when required by
-                    law, court order, lawful request of competent authorities, or when necessary
-                    to protect student welfare, campus safety, or institutional rights.
+                    This processing is necessary for the School to carry out its responsibilities
+                    for student discipline, welfare, and campus safety under applicable education
+                    laws and regulations, and for the School's legitimate interests in orderly and
+                    fair administration. Student and parent data is not processed on the basis of
+                    staff consent; the acknowledgment given at sign-in confirms that personnel
+                    have read and will follow this Policy and the Terms of Use.
                   </p>
 
-                  <h5>6. Storage and Security</h5>
+                  <h5>4. AI-Assisted Features</h5>
                   <p>
-                    SARES uses cloud-based services, including Firebase Authentication and
-                    Firestore, with access controls and role-based restrictions maintained
-                    by the School. Reasonable administrative, technical, and organizational
-                    safeguards are implemented to protect personal data against unauthorized
-                    access, alteration, disclosure, or destruction.
+                    Some optional features, such as offense classification suggestions,
+                    counselor recommendations, and prevention suggestions, send case text to
+                    Google's Gemini service for processing. Before an incident narrative is
+                    sent, SARES automatically removes the names of students linked to the
+                    case. Personnel should not enter other identifying details (such as
+                    student numbers, addresses, or names of other individuals) into fields
+                    used for AI assistance. AI output is advisory only, is reviewed by a
+                    person, and is never used on its own to decide a sanction.
                   </p>
 
-                  <h5>7. Data Retention and Disposal</h5>
+                  <h5>5. Who Can Access the Data</h5>
                   <p>
-                    Records are retained according to the School's records management and
-                    student discipline policies. Upon reaching retention limits or when records
-                    are no longer required, data will be archived or disposed of in accordance
-                    with applicable school procedures and legal obligations.
+                    Access is limited to School personnel whose duties require it, and is
+                    restricted by role and school level. Personal data is not sold, rented,
+                    or used for marketing. The School uses the following service providers
+                    to operate SARES, under their respective data protection terms:
+                  </p>
+                  <ul>
+                    <li>Google Firebase (authentication, database, and file storage);</li>
+                    <li>Google Gemini (optional AI-assisted features, as described in Section 4);</li>
+                    <li>Vercel (web hosting and server functions).</li>
+                  </ul>
+                  <p>
+                    These providers may store or process data on servers outside the
+                    Philippines. Data may otherwise be disclosed only when required by law,
+                    a court or other competent authority, or when necessary to protect the
+                    life, health, or safety of a student or other person.
                   </p>
 
-                  <h5>8. Data Subject Rights</h5>
+                  <h5>6. Security Measures</h5>
                   <p>
-                    Data subjects may request access to and correction of personal data
-                    processed in SARES through official school channels. Requests are reviewed
-                    and acted upon in accordance with institutional procedures and applicable law.
+                    The School applies organizational, physical, and technical safeguards,
+                    including encrypted connections, School-domain sign-in, role-based access
+                    rules enforced on the server, automatic sign-out after 30 minutes of
+                    inactivity, and audit logging. Records exported as PDF or spreadsheet
+                    files leave these controls; personnel who download, print, or share them
+                    are responsible for keeping them secure. No system is completely secure,
+                    and the School will notify affected data subjects and the NPC of personal
+                    data breaches as required by law.
                   </p>
 
-                  <h5>9. Minor Student Data</h5>
+                  <h5>7. Retention and Disposal</h5>
                   <p>
-                    SARES processes records relating to minor students strictly for
-                    institutional disciplinary administration, student support, and policy
-                    compliance. Handling of such records is limited to authorized personnel.
+                    Records are kept only as long as needed for the purposes above and as
+                    required by the School's records retention policy and applicable
+                    regulations. Records that are no longer needed are archived, anonymized,
+                    or securely deleted. Account data of personnel who leave the School is
+                    deactivated, while audit entries tied to their past actions may be kept
+                    to preserve accountability.
                   </p>
 
-                  <h5>10. Policy Updates</h5>
+                  <h5>8. Records of Minors</h5>
                   <p>
-                    The School may update this Privacy Policy from time to time to reflect
-                    legal, operational, or system changes. Continued use of SARES after updates
-                    constitutes acknowledgment of the revised policy.
+                    Many students in SARES are minors. Their records are used strictly for
+                    discipline, guidance, and student support; are viewed only by personnel
+                    with a direct role in the case; and are shared with parents or guardians
+                    in line with School procedures. Parents or guardians may exercise the
+                    rights in Section 9 on behalf of a minor student.
                   </p>
 
-                  <h5>11. Contact for Privacy Concerns</h5>
+                  <h5>9. Your Rights</h5>
                   <p>
-                    For privacy inquiries or requests, contact:<br />
-                    <strong>Guidance Office</strong><br />
-                    <strong>Email:</strong> Guidance@ows.edu.ph<br />
-                    <strong>Phone:</strong> (047) 222 2701
+                    Subject to the Data Privacy Act and its limitations, data subjects have
+                    the right to be informed; to access their personal data; to have
+                    inaccurate or incomplete data corrected; to object to processing or
+                    request erasure or blocking where the law allows; to data portability;
+                    to be indemnified for damages from unlawful processing; and to file a
+                    complaint with the National Privacy Commission. Requests to correct or
+                    remove disciplinary records are reviewed under the School's procedures,
+                    and some records may be retained where required by law or policy.
+                  </p>
+
+                  <h5>10. Changes to This Policy</h5>
+                  <p>
+                    The School may update this Policy to reflect changes in law, School
+                    procedures, or the system. Significant changes will be communicated to
+                    SARES users.
+                  </p>
+
+                  <h5>11. Contact</h5>
+                  <p>
+                    For questions, requests, or concerns regarding personal data in SARES,
+                    contact:<br />
+                    <strong>Administrator's Office, Olongapo Wesley School</strong><br />
+                    890 Rizal Avenue Extension, East Tapinac, Olongapo City, 2200 Zambales<br />
+                    <strong>Email:</strong> admin@ows.edu.ph
                   </p>
                 </>
               ) : (
                 <>
                   <h4>Terms of Use</h4>
-                  <p><strong>Effective Date:</strong> May 14, 2026</p>
                   <p>
-                    These Terms of Use govern access to and use of SARES operated by
-                    Olongapo Wesley School. By using SARES, the user agrees to comply
-                    with these Terms, school policies, and applicable Philippine laws.
+                    These Terms of Use ("Terms") govern access to and use of the Sanction
+                    Recommendation System ("SARES") operated by Olongapo Wesley School
+                    ("the School"). By signing in, you confirm that you have read and agree
+                    to these Terms, the SARES Privacy Policy, and the School's applicable
+                    policies.
                   </p>
 
-                  <h5>1. Acceptance and Eligibility</h5>
+                  <h5>1. Authorized Users</h5>
                   <p>
-                    SARES is for authorized school staff only. Access is granted solely
-                    for official duties related to student affairs, guidance, and disciplinary
-                    case management. Unauthorized use is strictly prohibited.
+                    SARES is available only to School personnel who have been issued an
+                    account for official duties in student affairs, guidance, or discipline
+                    administration. Accounts are personal and are provisioned, changed, or
+                    deactivated by the School. Access ends automatically when your role no
+                    longer requires it or your employment ends.
                   </p>
 
-                  <h5>2. Account Responsibility and Security</h5>
-                  <p>
-                    Users are responsible for safeguarding account credentials and for all
-                    activities conducted through their account. Users must not share login
-                    credentials or permit unauthorized access.
-                  </p>
-
-                  <h5>3. Permitted Use</h5>
-                  <p>Users may use SARES only for legitimate institutional purposes, including:</p>
+                  <h5>2. Account Security</h5>
                   <ul>
-                    <li>Recording and managing student violation cases.</li>
-                    <li>Reviewing handbook-based sanction recommendations.</li>
-                    <li>Preparing internal reports and disciplinary documentation.</li>
+                    <li>Keep your credentials confidential and do not share your account.</li>
+                    <li>Sign out after use, especially on shared or public devices.</li>
+                    <li>Report any suspected unauthorized access or data breach to the Administrator's Office immediately.</li>
+                  </ul>
+                  <p>Activity performed under your account is attributed to you in the audit logs.</p>
+
+                  <h5>3. Acceptable Use</h5>
+                  <p>You may use SARES only to:</p>
+                  <ul>
+                    <li>record and manage student conduct incidents within your assigned scope;</li>
+                    <li>review handbook-based assessments and sanction recommendations;</li>
+                    <li>document case actions, parent involvement, and resolutions;</li>
+                    <li>prepare reports and forms for official School purposes.</li>
                   </ul>
 
                   <h5>4. Prohibited Conduct</h5>
-                  <p>Users must not:</p>
+                  <p>You must not:</p>
                   <ul>
-                    <li>Access or attempt to access data beyond assigned authority.</li>
-                    <li>Alter records without basis, authorization, or documentation.</li>
-                    <li>Use SARES for personal, commercial, or non-school purposes.</li>
-                    <li>Upload false, malicious, or misleading information.</li>
-                    <li>Interfere with system security, integrity, or availability.</li>
+                    <li>access, or attempt to access, records outside your role or school level;</li>
+                    <li>enter false, misleading, or unnecessary information, or alter records without proper basis;</li>
+                    <li>disclose student information to anyone not authorized to receive it;</li>
+                    <li>copy, export, or retain records for personal or non-School purposes;</li>
+                    <li>enter identifying details into AI-assisted fields beyond what the feature requires;</li>
+                    <li>interfere with the security, integrity, or availability of the system.</li>
                   </ul>
 
-                  <h5>5. Recommendation Disclaimer</h5>
+                  <h5>5. Recommendations Are Advisory</h5>
                   <p>
-                    SARES provides decision-support recommendations based on configured
-                    rules and available records. Recommendations are advisory and do not
-                    automatically constitute final disciplinary action. Final decisions remain
-                    subject to school authority, due process, and institutional judgment.
+                    SARES recommendations, including handbook-based sanctions and AI-generated
+                    suggestions, are decision-support tools only. They can be incomplete or
+                    wrong, and they do not replace professional judgment. Every disciplinary
+                    decision must be made and approved by authorized School personnel in
+                    accordance with the Student Handbook and due process, including giving the
+                    student a fair opportunity to be heard.
                   </p>
 
-                  <h5>6. Record Integrity and Audit</h5>
+                  <h5>6. Accuracy and Records</h5>
                   <p>
-                    Users must ensure that case entries are accurate, complete, and timely.
-                    The School may review logs and records to verify compliance, investigate
-                    irregularities, and support accountability.
+                    You are responsible for the accuracy, completeness, and timeliness of the
+                    entries you make. Records and uploaded evidence are School property and
+                    official records. Exported or printed copies must be handled under the
+                    same confidentiality obligations as the system itself.
                   </p>
 
-                  <h5>7. Suspension or Termination</h5>
+                  <h5>7. Monitoring and Audit</h5>
                   <p>
-                    The School may suspend, restrict, or terminate access at any time for
-                    policy violations, security risks, misuse, or operational reasons.
+                    The School logs sign-in activity and changes to records, and may review
+                    these logs to maintain security, verify compliance with these Terms, and
+                    investigate irregularities.
                   </p>
 
-                  <h5>8. Service Availability and Liability</h5>
+                  <h5>8. Violations</h5>
                   <p>
-                    SARES is provided on an as-available basis. While the School aims to
-                    maintain reliable service, it does not guarantee uninterrupted operation.
-                    To the extent permitted by law, the School is not liable for indirect or
-                    consequential damages arising from system use, outages, or data-entry errors.
+                    The School may suspend or revoke access to protect the system or its data,
+                    or when these Terms are violated. Misuse may also result in administrative
+                    action under School employment policies and, where applicable, liability
+                    under the Data Privacy Act of 2012 and other laws.
                   </p>
 
-                  <h5>9. Governing Law and Venue</h5>
+                  <h5>9. Availability</h5>
+                  <p>
+                    The School aims to keep SARES available and reliable but does not guarantee
+                    uninterrupted or error-free operation. Maintenance, network issues, or
+                    third-party service outages may affect access. Keep essential case
+                    information available through the School's regular procedures in case the
+                    system is unavailable.
+                  </p>
+
+                  <h5>10. Governing Law</h5>
                   <p>
                     These Terms are governed by the laws of the Republic of the Philippines.
-                    Any dispute relating to SARES use shall be handled through appropriate
-                    legal or administrative venues under Philippine jurisdiction.
+                    Concerns about the use of SARES should first be raised with the School
+                    administration for resolution under internal procedures.
                   </p>
 
-                  <h5>10. Changes to Terms</h5>
+                  <h5>11. Changes to These Terms</h5>
                   <p>
-                    The School may revise these Terms of Use as needed. Continued use of
-                    SARES after updates constitutes acceptance of the revised Terms.
+                    The School may revise these Terms when needed. Continued use of SARES
+                    after a revision means you accept the revised Terms.
+                  </p>
+
+                  <h5>12. Contact</h5>
+                  <p>
+                    Questions about these Terms may be directed to the Administrator's Office,
+                    Olongapo Wesley School, 890 Rizal Avenue Extension, East Tapinac,
+                    Olongapo City, 2200 Zambales, or by email at admin@ows.edu.ph.
                   </p>
                 </>
               )}

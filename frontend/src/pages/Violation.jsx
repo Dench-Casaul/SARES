@@ -273,6 +273,17 @@ export default function Violation() {
   })
 
   const selectedStudent = students.find(s => String(s.student_id) === String(form.student_id))
+  // Everyone the violation will be recorded for — the review step must list all of them.
+  const reviewStudents = selectedStudents.length > 0
+    ? selectedStudents
+    : selectedStudent
+      ? [{
+          student_id: String(selectedStudent.student_id),
+          full_name: formatStudentName(selectedStudent),
+          student_number: selectedStudent.student_number || '',
+          year_level: selectedStudent.year_level || '',
+        }]
+      : []
   const selectedStudentRecommendations = useMemo(() => {
     const targets = selectedStudents.length > 0
       ? selectedStudents
@@ -1179,9 +1190,15 @@ export default function Violation() {
 
               <div className="v-review-grid">
                 <div className="v-review-section">
-                  <h4>Student</h4>
-                  <p>{selectedStudent?.full_name}</p>
-                  <p className="v-review-meta">{selectedStudent?.student_number} · {selectedStudent?.year_level}</p>
+                  <h4>{reviewStudents.length > 1 ? `Students (${reviewStudents.length})` : 'Student'}</h4>
+                  {reviewStudents.map((student) => (
+                    <div key={student.student_id}>
+                      <p>{student.full_name || student.student_id}</p>
+                      <p className="v-review-meta">
+                        {[student.student_number, student.year_level].filter(Boolean).join(' · ')}
+                      </p>
+                    </div>
+                  ))}
                 </div>
                 <div className="v-review-section">
                   <h4>Date</h4>
@@ -1203,7 +1220,13 @@ export default function Violation() {
                 </div>
                 <div className="v-review-section">
                   <h4>Offense Number</h4>
-                  <p>{recommendation.offenseLabel}</p>
+                  {selectedStudentRecommendations.length > 1
+                    ? selectedStudentRecommendations.map((studentRec) => (
+                      <p key={studentRec.studentId}>
+                        {studentRec.studentName || studentRec.studentId}: {studentRec.offenseLabel}
+                      </p>
+                    ))
+                    : <p>{recommendation.offenseLabel}</p>}
                 </div>
                 <div className="v-review-section">
                   <h4>School Level</h4>
