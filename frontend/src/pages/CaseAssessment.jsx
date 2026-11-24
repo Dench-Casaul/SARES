@@ -8,6 +8,7 @@ import {
   Download,
 } from "lucide-react";
 import { formatIdentifiedSanction } from "../engine/sanctionLabel";
+import { formatTimeOfDay } from "../engine/documentFormat";
 import { describeOffenseSelection } from "../engine/offenseRecommendation";
 import { getViolationDescription } from "../engine/violationDescription";
 import { useAuthProfile } from "../authContext";
@@ -149,6 +150,8 @@ export default function CaseAssessment() {
           <article className="ca-card" data-help-target="assessment-violation">
             <h2>Violation Details</h2>
             <div className="ca-row"><span>Date</span><strong>{caseData.incident_date || "—"}</strong></div>
+            <div className="ca-row"><span>Time</span><strong>{formatTimeOfDay(caseData.incident_time) || "—"}</strong></div>
+            <div className="ca-row"><span>Location</span><strong>{caseData.incident_location || "—"}</strong></div>
             <div className="ca-row">
               <span>Offense Type</span>
               <strong>

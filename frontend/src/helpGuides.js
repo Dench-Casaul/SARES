@@ -127,8 +127,8 @@ export const GUIDES = Object.freeze([
     link: { to: '/sares/violation', label: 'Open Log Violation' },
     steps: [
       'Open Log Violation from the sidebar (or Log New Violation on the Dashboard).',
-      'Step 1, Student & Date: select the student and the date the incident happened (not today, if it happened earlier).',
-      'Step 2, Incident Report: describe what happened in plain words, then enter who reported it and their role. Reporter contact and witnesses are optional.',
+      'Step 1, Student & Date: select the student and the date the incident happened (not today, if it happened earlier). Add the time too if you know it.',
+      'Step 2, Incident Report: describe what happened in plain words, then enter who reported it and their role. Location, reporter contact and witnesses are optional; whatever you fill in is printed on the Incident Report Form.',
       'Step 3, Recommended Offense: review the matches SARES found in your description and select the one that fits. If none fit, choose "None of these fit? Browse the handbook" and pick the offense yourself.',
       'Still in Step 3, choose the handling path: proceed with the sanction, or route to mediation first.',
       'Step 4, Review: check the offense number, the recommended sanction, and any warnings, then submit.',

@@ -58,8 +58,16 @@ export async function saveViolationsWithCaseNumbers(db, payloads, recordedAt = n
     transaction.set(counterRef, { last_sequence: lastSequence + payloads.length });
   });
 
+  // The stored created_at is a serverTimestamp() placeholder, which has no readable
+  // date until it is read back from Firestore. The copies returned here are shown
+  // (and printed) right away, so give them the recording time instead.
   return savedViolations.map((violation, index) => ({
     ...violation,
+    created_at: isReadableDate(violation.created_at) ? violation.created_at : recordedAt,
     id: violationRefs[index].id,
   }));
+}
+
+function isReadableDate(value) {
+  return value instanceof Date || typeof value?.toDate === "function";
 }

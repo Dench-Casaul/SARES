@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { doc, getDoc, onSnapshot } from "firebase/firestore";
+import { doc, getDoc, getDocFromServer, onSnapshot } from "firebase/firestore";
 import Dashboard from "./pages/Dashboard";
 import Student from "./pages/Student";
 import Violation from "./pages/Violation";
@@ -12,7 +12,7 @@ import Landing from "./pages/Landing";
 import AccountSecurity from "./pages/AccountSecurity";
 import SystemLogs from "./pages/SystemLogs";
 import HowTo from "./pages/HowTo";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { applyHandbookOverrides, applySanctionOverrides } from "./data/handbookIndex";
 import { setSchoolYearStarts } from "./schoolCalendar";
 import { auth, db } from "./firebase";
@@ -164,6 +164,23 @@ function App() {
     };
   }, []);
 
+  // Loads the handbook rules and school calendar straight from the server on demand.
+  // The background listeners above can take minutes to deliver on a slow or flaky
+  // connection (and stop for good after an error), so recording a case calls this
+  // instead of waiting on them. Throws if the server cannot be reached.
+  const ensureRulesLoaded = useCallback(async () => {
+    const [calendarSnapshot, rulesSnapshot] = await Promise.all([
+      getDocFromServer(doc(db, "rules", "school_calendar")),
+      getDocFromServer(doc(db, "rules", "handbook_sanctions")),
+    ]);
+    setSchoolYearStarts(calendarSnapshot.exists() ? calendarSnapshot.data().school_year_starts || {} : {});
+    const overrides = rulesSnapshot.exists() ? rulesSnapshot.data() : {};
+    applyHandbookOverrides(overrides);
+    applySanctionOverrides(overrides);
+    setRuleRevision((revision) => revision + 1);
+    setRulesStatus("ready");
+  }, []);
+
   // Inactivity sign-out. Elapsed time is checked against a timestamp rather than a
   // single long timer, so a computer waking from sleep is still signed out.
   useEffect(() => {
@@ -199,7 +216,7 @@ function App() {
 
   return (
     <div data-rule-revision={ruleRevision}>
-      <AuthProfileContext.Provider value={{ userProfile, authReady, rulesStatus, ruleRevision }}>
+      <AuthProfileContext.Provider value={{ userProfile, authReady, rulesStatus, ruleRevision, ensureRulesLoaded }}>
         <AppErrorBoundary>
           <Routes>
             <Route path="/" element={<Landing />} />

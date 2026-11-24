@@ -34,6 +34,16 @@ export function formatLongDateTime(value) {
   return `${formatLongDate(date)}, ${date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
 }
 
+/** "14:30" (24-hour, as stored from a time input) → "2:30 PM", or '' when unknown. */
+export function formatTimeOfDay(value) {
+  const match = /^(\d{1,2}):(\d{2})/.exec(String(value || '').trim());
+  if (!match) return '';
+  const hours = Number(match[1]);
+  const minutes = match[2];
+  if (hours > 23 || Number(minutes) > 59) return '';
+  return `${hours % 12 || 12}:${minutes} ${hours < 12 ? 'AM' : 'PM'}`;
+}
+
 export function formatReporterRole(role) {
   const key = String(role || '').trim().toLowerCase();
   return ROLE_LABELS[key] || (key ? key.charAt(0).toUpperCase() + key.slice(1) : '');

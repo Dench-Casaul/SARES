@@ -7,6 +7,7 @@ import { queryForUserScope } from '../firestoreAccess'
 import { isRecordInTrash } from '../recordStatus'
 import { getSchoolScopeForYear } from '../schoolScope'
 import { formatIdentifiedSanction } from '../engine/sanctionLabel'
+import { formatTimeOfDay } from '../engine/documentFormat'
 import { getViolationDescription } from '../engine/violationDescription'
 import { ACTIVITY_ACTIONS, recordActivity } from '../activityLog'
 import { getNavItems } from '../navigation'
@@ -125,7 +126,7 @@ const formatApplicablePolicyReference = ({
 }
 
 export default function Violation() {
-  const { userProfile, rulesStatus, ruleRevision } = useAuthProfile()
+  const { userProfile, rulesStatus, ruleRevision, ensureRulesLoaded } = useAuthProfile()
   const rulesReady = rulesStatus === 'ready'
   const location = useLocation()
   const navigate = useNavigate()
@@ -160,6 +161,8 @@ export default function Violation() {
   const [form, setForm] = useState({
     student_id: '',
     incident_date: today,
+    incident_time: '',      // optional, "HH:MM" (24-hour, from <input type="time">)
+    incident_location: '',  // optional
     offense_type: '',       // 'minor' | 'major'
     subcategory_id: '',     // 'light' | 'less_serious' | 'serious' | 'very_serious'
     group_number: null,     // handbookNumber
@@ -284,7 +287,8 @@ export default function Violation() {
           year_level: selectedStudent.year_level || '',
         }]
       : []
-  const selectedStudentRecommendations = useMemo(() => {
+  // Evaluates each selected student against the handbook rules currently loaded.
+  const computeStudentRecommendations = () => {
     const targets = selectedStudents.length > 0
       ? selectedStudents
       : selectedStudent ? [selectedStudent] : [];
@@ -309,9 +313,10 @@ export default function Violation() {
         }),
       }
     })
+  }
   // ruleRevision: the handbook lives in module state, so recompute when the school's rules change.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedStudents, selectedStudent, students, form.offense_type, form.offense_id, form.incident_date, form.subcategory_id, existingViolations, ruleRevision])
+  const selectedStudentRecommendations = useMemo(() => computeStudentRecommendations(), [selectedStudents, selectedStudent, students, form.offense_type, form.offense_id, form.incident_date, form.subcategory_id, existingViolations, ruleRevision])
 
   const beyondScheduleRecs = selectedStudentRecommendations.filter((rec) => rec.beyondSchedule)
   // Students whose own school-level schedule lists no sanction for this offense.
@@ -628,10 +633,25 @@ export default function Violation() {
   const handleSubmit = async () => {
     if (!recommendation) return
     if (!rulesReady) {
-      alert(rulesStatus === 'error'
-        ? 'The school handbook rules could not be loaded. Reload the page before recording this case.'
-        : 'The school handbook rules are still loading. Please wait a moment and try again.')
-      return
+      // On a slow connection the background rules load may still be pending. Fetch the
+      // rules now, and stop if they change what this review step showed.
+      setSubmitting(true)
+      try {
+        await ensureRulesLoaded()
+      } catch (error) {
+        console.error('Failed to load handbook rules:', error)
+        alert('The school handbook rules could not be loaded. Check the internet connection and try again.')
+        return
+      } finally {
+        setSubmitting(false)
+      }
+      const describe = (recs) => recs
+        .map((rec) => `${rec.studentId}|${rec.recommendedSanction}|${rec.schoolYearKey}|${rec.sanctionFound}`)
+        .join('\n')
+      if (describe(computeStudentRecommendations()) !== describe(selectedStudentRecommendations)) {
+        alert('The school\'s latest handbook rules changed the sanction for this case. Please review the updated sanction, then submit again.')
+        return
+      }
     }
     if (form.handling_path !== 'mediation' && missingSanctionRecs.length > 0) {
       alert(
@@ -679,6 +699,8 @@ export default function Violation() {
 
       const baseIncidentData = {
         incident_date: form.incident_date,
+        incident_time: form.incident_time,
+        incident_location: form.incident_location.trim(),
         incident_description: form.incident_description,
         witnesses: form.witnesses.trim(),
         reported_by: form.reported_by.trim(),
@@ -903,10 +925,17 @@ export default function Violation() {
                 )}
               </div>
 
-              <div className="v-field" data-help-target="violation-incident-date" style={{ marginTop: '1rem' }}>
-                <label className="v-label">Date of Incident *</label>
-                <input className="v-input" type="date" value={form.incident_date}
-                  onChange={e => setForm(f => ({ ...f, incident_date: e.target.value }))} />
+              <div className="v-field-row" style={{ marginTop: '1rem' }}>
+                <div className="v-field" data-help-target="violation-incident-date">
+                  <label className="v-label" htmlFor="incident-date">Date of Incident *</label>
+                  <input id="incident-date" className="v-input" type="date" value={form.incident_date}
+                    onChange={e => setForm(f => ({ ...f, incident_date: e.target.value }))} />
+                </div>
+                <div className="v-field">
+                  <label className="v-label" htmlFor="incident-time">Time of Incident (optional)</label>
+                  <input id="incident-time" className="v-input" type="time" value={form.incident_time}
+                    onChange={e => setForm(f => ({ ...f, incident_time: e.target.value }))} />
+                </div>
               </div>
             </div>
           )}
@@ -936,6 +965,20 @@ export default function Violation() {
                 <p>
                   The narrative is sent to Google Gemini (free tier) to recommend the matching handbook offense and draft counselor guidance. Google may use free-tier content to improve its services. The selected students' names are replaced with "Student A", "Student B" before sending, but do not include other names, student numbers, contact details, health information, or other private details.
                 </p>
+              </div>
+
+              {/* Kept out of the narrative on purpose: the location is printed on the form but never sent to the AI. */}
+              <div className="v-field" style={{ marginTop: '1.5rem' }}>
+                <label className="v-label" htmlFor="incident-location">Location (optional)</label>
+                <input
+                  id="incident-location"
+                  className="v-input"
+                  type="text"
+                  maxLength={150}
+                  placeholder="Where it happened, e.g. Grade 7 hallway, canteen, school gate"
+                  value={form.incident_location}
+                  onChange={e => setForm(f => ({ ...f, incident_location: e.target.value }))}
+                />
               </div>
 
               <div className="v-field" style={{ marginTop: '1.5rem' }}>
@@ -1201,8 +1244,9 @@ export default function Violation() {
                   ))}
                 </div>
                 <div className="v-review-section">
-                  <h4>Date</h4>
-                  <p>{form.incident_date}</p>
+                  <h4>Date, Time & Location</h4>
+                  <p>{[form.incident_date, formatTimeOfDay(form.incident_time)].filter(Boolean).join(' · ')}</p>
+                  <p className="v-review-meta">{form.incident_location.trim() || 'Location not specified'}</p>
                 </div>
                 <div className="v-review-section">
                   <h4>Offense Classification</h4>
@@ -1237,17 +1281,6 @@ export default function Violation() {
                   <p className="v-review-sanction">
                     {form.handling_path === 'mediation' ? 'Pending mediation' : 'Proceed with sanction recommendation'}
                   </p>
-                </div>
-                <div className="v-review-section v-review-section--full">
-                  <h4>Recommended Sanction</h4>
-                  {selectedStudentRecommendations.length > 1
-                    ? selectedStudentRecommendations.map((studentRec) => (
-                      <p className="v-review-sanction" key={studentRec.studentId}>
-                        <strong>{studentRec.studentName || studentRec.studentId} · {studentRec.schoolScope === 'elementary' ? 'Elementary' : studentRec.schoolScope === 'high_school' ? 'High School' : 'School level not specified'} · {studentRec.offenseLabel}:</strong>{' '}
-                        {studentRec.recommendedSanction}
-                      </p>
-                    ))
-                    : <p className="v-review-sanction">{recommendation.recommendedSanction}</p>}
                 </div>
                 <div className="v-review-section v-review-section--full">
                   <h4>Identified Sanction</h4>
@@ -1418,14 +1451,14 @@ export default function Violation() {
             )}
             {step === STEP.REVIEW && !rulesReady && (
               <p className="v-rules-status" role="status">
-                {rulesStatus === 'error'
-                  ? 'The school handbook rules could not be loaded. Reload the page before recording this case.'
-                  : 'Loading the school handbook rules…'}
+                Slow connection: the latest handbook rules will be checked when you submit.
               </p>
             )}
             {step === STEP.REVIEW && (
-              <button className="v-btn-submit" onClick={handleSubmit} disabled={submitting || !rulesReady || (form.handling_path !== 'mediation' && missingSanctionRecs.length > 0)}>
-                {submitting ? 'Submitting...' : form.handling_path === 'mediation' ? 'Submit for Mediation' : 'Submit Incident Report'}
+              <button className="v-btn-submit" onClick={handleSubmit} disabled={submitting || (rulesReady && form.handling_path !== 'mediation' && missingSanctionRecs.length > 0)}>
+                {submitting
+                  ? (rulesReady ? 'Submitting...' : 'Checking handbook rules…')
+                  : form.handling_path === 'mediation' ? 'Submit for Mediation' : 'Submit Incident Report'}
               </button>
             )}
           </div>

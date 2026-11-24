@@ -455,20 +455,25 @@ function SuspensionDateModal({ initialStart, initialEnd, onClose, onSave, saving
 }
 
 function CaseManagementModal({ student, violationDraft, onClose, onSaved }) {
-  const { userProfile, rulesStatus } = useAuthProfile();
+  const { userProfile, rulesStatus, ensureRulesLoaded } = useAuthProfile();
   const [saving, setSaving] = useState(false);
   const rulesReady = rulesStatus === 'ready';
 
   const handleSave = async () => {
     if (!student || !violationDraft) return;
-    if (!rulesReady) {
-      alert(rulesStatus === 'error'
-        ? 'The school handbook rules could not be loaded. Reload the page before recording this case.'
-        : 'The school handbook rules are still loading. Please wait a moment and try again.');
-      return;
-    }
     setSaving(true);
     try {
+      // On a slow connection the background rules load may still be pending:
+      // fetch the rules now so the sanction below uses the school's current handbook.
+      if (!rulesReady) {
+        try {
+          await ensureRulesLoaded();
+        } catch (error) {
+          console.error('Failed to load handbook rules:', error);
+          alert('The school handbook rules could not be loaded. Check the internet connection and try again.');
+          return;
+        }
+      }
       const today = new Date().toISOString().slice(0, 10);
       const violationsSnapshot = await getDocs(queryForUserScope(collection(db, 'violations'), userProfile));
       const existingViolations = violationsSnapshot.docs
@@ -612,8 +617,8 @@ function CaseManagementModal({ student, violationDraft, onClose, onSaved }) {
 
         <div className="s-modal-footer">
           <button className="s-btn-cancel" onClick={onClose}>Back</button>
-          <button className="s-btn-submit" onClick={handleSave} disabled={saving || !rulesReady}>
-            {saving ? 'Saving...' : rulesReady ? 'Save Case' : 'Loading handbook rules…'}
+          <button className="s-btn-submit" onClick={handleSave} disabled={saving}>
+            {saving ? (rulesReady ? 'Saving...' : 'Loading handbook rules…') : 'Save Case'}
           </button>
         </div>
       </div>

@@ -1,7 +1,8 @@
 import { createContext, useContext } from 'react';
 
-// Value shape: { userProfile, authReady, rulesStatus, ruleRevision }
-// rulesStatus: 'loading' | 'ready' | 'error'. Recording a case requires 'ready'.
+// Value shape: { userProfile, authReady, rulesStatus, ruleRevision, ensureRulesLoaded }
+// rulesStatus: 'loading' | 'ready' | 'error'. Recording a case requires 'ready';
+// ensureRulesLoaded() fetches the rules from the server when they are not ready yet.
 // ruleRevision increments whenever the handbook rules change.
 export const AuthProfileContext = createContext(null);
 

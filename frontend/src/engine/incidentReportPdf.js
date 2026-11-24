@@ -12,6 +12,7 @@ import { getViolationDescription } from "./violationDescription.js";
 import {
   formatLongDate,
   formatLongDateTime,
+  formatTimeOfDay,
   formatOffenseClassification,
   formatOffenseNumber,
   formatReporterRole,
@@ -263,7 +264,7 @@ export function createIncidentReportPdf(caseData, groupMembers = [caseData], { l
   section("III. Incident Details", 30);
   fieldRow([
     { label: "Date of Incident", value: formatLongDate(caseData.incident_date) },
-    { label: "Time of Incident", value: caseData.incident_time },
+    { label: "Time of Incident", value: formatTimeOfDay(caseData.incident_time) },
     { label: "Location", value: caseData.incident_location },
   ], [0.34, 0.22, 0.44]);
   const description = getViolationDescription(caseData);
