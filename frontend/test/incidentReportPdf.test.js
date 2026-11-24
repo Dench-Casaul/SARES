@@ -86,10 +86,12 @@ test("long narratives continue onto the next page instead of overflowing", () =>
   assert.match(pdf.output(), /INCIDENT DESCRIPTION \\\(CONTINUED\\\)/);
 });
 
-test("formats case numbers with recording year, offense code, and global sequence", () => {
+test("formats case numbers with recording year and system-wide order", () => {
   const recordedAt = new Date(2026, 10, 8);
 
-  assert.equal(formatIncidentCaseNumber("minor", recordedAt, 20), "2026-01-00020");
-  assert.equal(formatIncidentCaseNumber("major", recordedAt, 21), "2026-02-00021");
-  assert.throws(() => formatIncidentCaseNumber("other", recordedAt, 1), /Unsupported offense type/);
+  assert.equal(formatIncidentCaseNumber(recordedAt, 20), "2026-00020");
+  assert.equal(formatIncidentCaseNumber(recordedAt, 21), "2026-00021");
+  assert.equal(formatIncidentCaseNumber(recordedAt, 123456), "2026-123456");
+  assert.throws(() => formatIncidentCaseNumber(recordedAt, 0), /positive recording order/);
+  assert.throws(() => formatIncidentCaseNumber(new Date("invalid"), 1), /valid recording date/);
 });

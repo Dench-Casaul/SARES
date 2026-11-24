@@ -1,6 +1,7 @@
 /**
- * Browser actions for the Incident Report Form: download it, or open it ready
- * to print. Both produce the same PDF (engine/incidentReportPdf.js).
+ * Browser actions for printable case forms: the Incident Report Form (download
+ * or print, engine/incidentReportPdf.js) and the Parent/Guardian Written
+ * Commitment form (print, engine/commitmentFormPdf.js).
  */
 import schoolLogoUrl from './assets/wesley-logo.png';
 
@@ -40,6 +41,26 @@ export async function printIncidentReport(caseData, groupMembers = [caseData]) {
       loadSchoolLogo(),
     ]);
     printIncidentReportPdf(caseData, groupMembers, { logo }, printWindow);
+  } catch (error) {
+    printWindow?.close();
+    throw error;
+  }
+}
+
+/**
+ * Opens the Parent/Guardian Written Commitment form ready to print.
+ * `details` = { parentName, relationship, commitment } entered so far, if any.
+ * Call directly from a click handler.
+ */
+export async function printCommitmentForm(caseData, details = {}) {
+  const printWindow = window.open('', '_blank');
+  if (printWindow) printWindow.document.title = 'Preparing commitment form…';
+  try {
+    const [{ printCommitmentFormPdf }, logo] = await Promise.all([
+      import('./engine/commitmentFormPdf'),
+      loadSchoolLogo(),
+    ]);
+    printCommitmentFormPdf(caseData, details, { logo }, printWindow);
   } catch (error) {
     printWindow?.close();
     throw error;

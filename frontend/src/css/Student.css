@@ -1702,9 +1702,21 @@
 
 .s-parent-form-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
   margin-top: 8px;
+}
+
+/* "Print commitment form" sits apart from Cancel / Save, on the left. */
+.s-parent-print {
+  margin-right: auto;
+}
+
+.s-parent-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .s-parent-legacy {

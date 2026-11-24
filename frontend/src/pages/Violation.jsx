@@ -19,6 +19,7 @@ import {
   buildViolationRecordsForStudents,
   evaluateSaresRecommendation,
   findOffenseNumberChanges,
+  getSchoolYearKey,
 } from '../engine/ruleEngine'
 import { saveViolationsWithCaseNumbers } from '../engine/incidentCaseNumber'
 import {
@@ -27,7 +28,7 @@ import {
   groupStudentsByRecommendation,
   parseJsonText,
 } from '../engine/aiRequest'
-import { fetchRecentViolations, fetchViolationsForStudents } from '../violationQueries'
+import { fetchRecentViolations, fetchViolationsForStudents, schoolYearViolationsQuery } from '../violationQueries'
 import {
   buildOffenseCatalog,
   describeOffenseSelection,
@@ -242,6 +243,44 @@ export default function Violation() {
     fetchStudents()
     fetchRecentHistory()
   }, [userProfile])
+
+  // How many cases each student already has this school year, shown in the student
+  // picker. Offense numbers restart every school year, so this is the count that
+  // decides whether the next case is a 1st, 2nd, … offense. One read of this
+  // school year's cases (the same query Reports uses), not every case ever recorded.
+  const currentSchoolYearKey = getSchoolYearKey(today)
+  const [schoolYearCaseCounts, setSchoolYearCaseCounts] = useState(null)
+  useEffect(() => {
+    if (!userProfile || !currentSchoolYearKey) return
+    let cancelled = false
+    getDocs(schoolYearViolationsQuery(userProfile, currentSchoolYearKey))
+      .then((snapshot) => {
+        if (cancelled) return
+        const counts = new Map()
+        snapshot.docs.forEach((violationDoc) => {
+          const violation = violationDoc.data()
+          const studentId = String(violation.student_id || '')
+          if (!studentId || isRecordInTrash(violation)) return
+          counts.set(studentId, (counts.get(studentId) || 0) + 1)
+        })
+        setSchoolYearCaseCounts(counts)
+      })
+      .catch((error) => {
+        // The picker still works without the counts; offense numbers are checked on submit.
+        console.error("Failed to load this school year's case counts:", error)
+      })
+    return () => { cancelled = true }
+  }, [userProfile, currentSchoolYearKey])
+
+  const renderCaseCountBadge = (studentId) => {
+    const count = schoolYearCaseCounts?.get(String(studentId)) || 0
+    if (count === 0) return null
+    return (
+      <span className="v-student-record-badge" title={`Cases already recorded for this student in SY ${currentSchoolYearKey}`}>
+        {count} {count === 1 ? 'case' : 'cases'} this SY
+      </span>
+    )
+  }
 
   useEffect(() => {
     const prefill = location.state?.prefillStudentId
@@ -892,7 +931,10 @@ export default function Violation() {
                                   })
                                   setForm(f => ({ ...f, student_id: String(s.student_id) }))
                                 }}>
-                                <span className="v-student-option-name">{formatStudentName(s)}</span>
+                                <span className="v-student-option-head">
+                                  <span className="v-student-option-name">{formatStudentName(s)}</span>
+                                  {renderCaseCountBadge(s.student_id)}
+                                </span>
                                 {s.student_number && <span className="v-student-option-meta">{s.student_number}</span>}
                               </li>
                             )
@@ -908,6 +950,7 @@ export default function Violation() {
                         {selectedStudents.map((student) => (
                           <span className="v-selected-student" key={student.student_id}>
                             <span>{student.full_name || student.student_id}</span>
+                            {renderCaseCountBadge(student.student_id)}
                             <button
                               type="button"
                               className="v-selected-student-remove"

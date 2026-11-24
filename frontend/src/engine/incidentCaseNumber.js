@@ -1,12 +1,13 @@
 import { collection, doc, runTransaction } from "firebase/firestore";
 
-const OFFENSE_CODES = Object.freeze({ minor: "01", major: "02" });
 const MAX_TRANSACTION_VIOLATIONS = 499;
 
-export function formatIncidentCaseNumber(offenseType, recordedAt, recordingOrder) {
-  const normalizedType = String(offenseType || "").toLowerCase();
-  const offenseCode = Object.hasOwn(OFFENSE_CODES, normalizedType) ? OFFENSE_CODES[normalizedType] : null;
-  if (!offenseCode) throw new Error(`Unsupported offense type: ${offenseType}`);
+/**
+ * Case number "YYYY-NNNNN": the year the case was recorded, then its place in the
+ * order of every case ever recorded in SARES (one system-wide counter for both
+ * school levels and all offense types, never reset). "2026-00017" is the 17th case.
+ */
+export function formatIncidentCaseNumber(recordedAt, recordingOrder) {
   if (!(recordedAt instanceof Date) || Number.isNaN(recordedAt.getTime())) {
     throw new Error("A valid recording date is required to create a case number.");
   }
@@ -14,7 +15,7 @@ export function formatIncidentCaseNumber(offenseType, recordedAt, recordingOrder
     throw new Error("A positive recording order is required to create a case number.");
   }
 
-  return `${recordedAt.getFullYear()}-${offenseCode}-${String(recordingOrder).padStart(5, "0")}`;
+  return `${recordedAt.getFullYear()}-${String(recordingOrder).padStart(5, "0")}`;
 }
 
 export async function saveViolationsWithCaseNumbers(db, payloads, recordedAt = new Date()) {
@@ -46,7 +47,7 @@ export async function saveViolationsWithCaseNumbers(db, payloads, recordedAt = n
       const recordingOrder = lastSequence + index + 1;
       return {
         ...payload,
-        case_number: formatIncidentCaseNumber(payload.offense_type, recordedAt, recordingOrder),
+        case_number: formatIncidentCaseNumber(recordedAt, recordingOrder),
         case_recorded_year: recordedYear,
         case_recording_order: recordingOrder,
       };

@@ -10,7 +10,7 @@ import { doesViolationCount, evaluateSaresRecommendation, getOffenseNumberReview
 import { formatIdentifiedSanction } from '../engine/sanctionLabel'
 import { formatAiText, isAiTextSource } from '../engine/aiText'
 import { getViolationDescription } from '../engine/violationDescription';
-import { downloadIncidentReport } from '../incidentReportActions';
+import { downloadIncidentReport, printCommitmentForm } from '../incidentReportActions';
 import { saveViolationsWithCaseNumbers } from '../engine/incidentCaseNumber'
 import '../css/Student.css'
 import wesleyLogo from '../assets/wesley-logo.png'
@@ -1377,7 +1377,15 @@ function StudentProfile({ student, onBack, onSelectViolation, onUpdateViolationS
 }
 
 /* Parent/guardian involvement, as required by the case's handbook sanction (see parentInvolvement.js). */
-function ParentRequirementForm({ item, onSave, onCancel }) {
+/** Opens the printable Parent/Guardian Written Commitment form for a case. */
+function openCommitmentForm(violation, details) {
+  printCommitmentForm(violation, details).catch((error) => {
+    console.error('Failed to prepare the commitment form:', error);
+    alert('The commitment form could not be prepared. Please try again.');
+  });
+}
+
+function ParentRequirementForm({ item, violation, onSave, onCancel }) {
   const { userProfile } = useAuthProfile();
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(() => ({
@@ -1459,6 +1467,19 @@ function ParentRequirementForm({ item, onSave, onCancel }) {
         <textarea className="s-input" rows={2} value={form.notes} onChange={set('notes')} maxLength={2000} />
       </div>
       <div className="s-parent-form-actions">
+        {item.type === PARENT_REQUIREMENT_TYPES.COMMITMENT && (
+          <button
+            type="button"
+            className="s-btn-cancel s-parent-print"
+            onClick={() => openCommitmentForm(violation, {
+              parentName: form.parent_name,
+              relationship: form.relationship,
+              commitment: form.commitment,
+            })}
+          >
+            Print commitment form
+          </button>
+        )}
         <button type="button" className="s-btn-cancel" onClick={onCancel} disabled={saving}>Cancel</button>
         <button type="submit" className="s-btn-submit s-btn-submit--sm" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
       </div>
@@ -1501,13 +1522,29 @@ function ParentInvolvementSection({ violation, onSaveParentRecord }) {
                   {editingType === item.type ? (
                     <ParentRequirementForm
                       item={item}
+                      violation={violation}
                       onSave={(type, record) => onSaveParentRecord(violation.id, type, record)}
                       onCancel={() => setEditingType(null)}
                     />
                   ) : (
-                    <button type="button" className="s-parent-edit" onClick={() => setEditingType(item.type)}>
-                      {item.record.status === REQUIREMENT_STATUS.PENDING ? 'Record outcome' : 'Edit'}
-                    </button>
+                    <div className="s-parent-actions">
+                      <button type="button" className="s-parent-edit" onClick={() => setEditingType(item.type)}>
+                        {item.record.status === REQUIREMENT_STATUS.PENDING ? 'Record outcome' : 'Edit'}
+                      </button>
+                      {item.type === PARENT_REQUIREMENT_TYPES.COMMITMENT && (
+                        <button
+                          type="button"
+                          className="s-parent-edit"
+                          onClick={() => openCommitmentForm(violation, {
+                            parentName: item.record.parent_name,
+                            relationship: item.record.relationship,
+                            commitment: item.record.commitment,
+                          })}
+                        >
+                          Print commitment form
+                        </button>
+                      )}
+                    </div>
                   )}
                 </li>
               ))}

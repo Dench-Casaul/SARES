@@ -176,14 +176,14 @@ test('incident case numbers use one atomic sequence across offense types and sch
 
   assert.deepEqual(cases.map((record) => record.case_recording_order), [1, 2]);
   assert.deepEqual(cases.map((record) => record.case_number), cases.map((record) => (
-    `2026-${record.offense_type === 'minor' ? '01' : '02'}-${String(record.case_recording_order).padStart(5, '0')}`
+    `2026-${String(record.case_recording_order).padStart(5, '0')}`
   )));
   const storedRecords = await Promise.all(cases.map((record) => (
     getDoc(doc(superadminDb, 'violations', record.id))
   )));
   assert.deepEqual(storedRecords.map((record) => record.data()?.case_number).sort(), [
-    '2026-01-00001',
-    '2026-02-00002',
+    '2026-00001',
+    '2026-00002',
   ]);
 });
 
